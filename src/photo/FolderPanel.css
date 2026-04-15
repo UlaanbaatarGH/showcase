@@ -1,0 +1,234 @@
+/* FIX501.30 — Folder panel styles */
+
+.folder-panel {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* FIX501.30.2.1: Property panel (left) */
+.folder-panel-props {
+  width: 320px;
+  min-width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-border);
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.folder-panel-props-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.folder-panel-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.folder-panel-table td {
+  padding: 4px 0;
+  vertical-align: middle;
+}
+
+.folder-panel-label {
+  color: var(--color-text);
+  font-size: 0.85rem;
+  padding-right: 10px !important;
+  white-space: nowrap;
+}
+
+.folder-panel-table input[type="text"] {
+  width: 100%;
+}
+
+/* FIX501.30.2.1.3: Main Image Icon below properties */
+.folder-panel-main-icon {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.folder-panel-main-icon-label {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* FIX501.30.2.1.3.2: icon only — no framing rectangle, left-aligned, natural aspect ratio */
+.folder-panel-main-icon img {
+  display: block;
+  width: auto;
+  max-width: none;
+}
+
+/* FIX501.30.2.2: Vertical image stack (right) */
+.folder-panel-images-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.folder-panel-magnifier-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: var(--color-bg-lighter);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.folder-panel-toolbar-label {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.folder-panel-toggle-group {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.folder-panel-toggle {
+  background: var(--color-bg-light);
+  color: var(--color-text);
+  border: none;
+  border-right: 1px solid var(--color-border);
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.folder-panel-toggle:last-child { border-right: none; }
+
+.folder-panel-toggle:hover { background: var(--color-bg-lighter); }
+
+.folder-panel-toggle.active {
+  background: var(--color-accent);
+  color: #222;
+}
+
+.folder-panel-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.folder-panel-toggle:disabled:hover {
+  background: var(--color-bg-light);
+}
+
+.folder-panel-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.folder-panel-slider-group input[type="range"] {
+  width: 140px;
+  accent-color: var(--color-accent);
+}
+
+.folder-panel-slider-value {
+  width: 40px;
+  text-align: right;
+  color: var(--color-text);
+}
+
+.folder-panel-images {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  background: #111;
+}
+
+.folder-panel-images img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* FIX501.30.3.3: Main button + main image badge */
+.folder-panel-main-btn {
+  padding: 3px 14px;
+  font-weight: 600;
+}
+.folder-panel-main-btn.main-on,
+.folder-panel-main-btn.main-on:hover {
+  background: #2e7d32;
+  color: #fff;
+}
+.folder-panel-image-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* FIX501.30.2.3.1: first image fits vertically within the image panel height */
+.folder-panel-image-first {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.folder-panel-image-first .folder-panel-img-wrap,
+.folder-panel-image-first img {
+  max-height: 100%;
+  height: auto;
+  width: auto;
+  object-fit: contain;
+}
+.folder-panel-main-badge {
+  margin-top: 4px;
+  background: #2e7d32;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+/* FIX501.30.3.1: Magnifying lens */
+.folder-panel-img-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.folder-panel-lens {
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.folder-panel-empty {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 8px;
+}

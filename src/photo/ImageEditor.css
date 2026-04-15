@@ -1,0 +1,199 @@
+/* FIX501.4 — Image Editor styles */
+
+.image-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* FIX501.4.2: Toolbox header */
+.image-editor-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--color-bg-lighter);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  gap: 6px;
+  min-height: 34px;
+}
+
+/* FIX501.4.2.10.1: Toolbox left-aligned */
+.image-editor-toolbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* FIX501.4.2.10.2: Cancel + Save right-aligned */
+.image-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* FIX501.4.3.20: Context menu on right-click */
+.image-editor-context-menu {
+  position: fixed;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  padding: 4px 0;
+  min-width: 140px;
+}
+.image-editor-context-option {
+  padding: 5px 14px;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.image-editor-context-option:hover {
+  background: var(--color-bg-lighter);
+}
+
+/* FIX501.4.2.4: 'Move to next' label — text first, checkbox after */
+.image-editor-move-to-next {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+.image-editor-btn {
+  background: var(--color-bg-light);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.image-editor-btn:hover {
+  background: var(--color-bg-lighter);
+}
+
+.image-editor-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.image-editor-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.image-editor-btn-save {
+  background: #1565c0;
+  color: #fff;
+  border-color: #1565c0;
+}
+
+.image-editor-btn-save:hover {
+  background: #1251a0;
+}
+
+.image-editor-btn-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Rotate slider */
+.image-editor-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.image-editor-slider-group input[type="range"] {
+  width: 100px;
+  accent-color: var(--color-primary);
+}
+
+.image-editor-slider-group .slider-value {
+  width: 32px;
+  text-align: right;
+  color: var(--color-text);
+  font-size: 0.8rem;
+}
+
+/* FIX501.4.5: Image canvas area */
+.image-editor-canvas-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+}
+
+.image-editor-canvas-area canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Crop overlay */
+.crop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.crop-dim {
+  fill: rgba(0, 0, 0, 0.5);
+}
+
+.crop-border {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.crop-handle {
+  fill: #fff;
+  stroke: var(--color-primary);
+  stroke-width: 1;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+/* Handle cursors */
+.crop-handle-nw { cursor: nw-resize; }
+.crop-handle-ne { cursor: ne-resize; }
+.crop-handle-sw { cursor: sw-resize; }
+.crop-handle-se { cursor: se-resize; }
+.crop-handle-n  { cursor: n-resize; }
+.crop-handle-s  { cursor: s-resize; }
+.crop-handle-w  { cursor: w-resize; }
+.crop-handle-e  { cursor: e-resize; }
+
+.image-editor-empty {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.image-editor-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}

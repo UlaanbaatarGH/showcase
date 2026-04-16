@@ -66,6 +66,16 @@ export default function ShowcaseView() {
               <div className="sc-list-text">
                 <div className="sc-list-name">{f.name}</div>
                 {f.note && <div className="sc-list-note">{f.note}</div>}
+                {data.properties?.length > 0 && (
+                  <dl className="sc-list-props">
+                    {data.properties.map((p) => (
+                      <div key={p.id} className="sc-list-prop">
+                        <dt>{p.label}</dt>
+                        <dd>{f.properties?.[String(p.id)] ?? '—'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </div>
             </button>
           ))}

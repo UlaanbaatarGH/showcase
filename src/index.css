@@ -77,13 +77,55 @@ body {
   top: 0;
   background: #20203a;
   text-align: left;
-  padding: 0.6rem 0.75rem;
+  padding: 0.4rem 0.75rem 0.5rem;
   border-bottom: 1px solid #333;
   font-weight: 600;
   font-size: 0.8125rem;
   letter-spacing: 0.03em;
+  opacity: 0.95;
+  vertical-align: top;
+}
+.sc-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0.1rem 0;
+  margin-bottom: 0.35rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   opacity: 0.85;
+}
+.sc-sort-btn:hover { opacity: 1; }
+.sc-sort-arrow {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+.sc-filter-input {
+  display: block;
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8125rem;
+  background: #1a1a2e;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+  font-family: inherit;
+}
+.sc-filter-input:focus {
+  outline: none;
+  border-color: #667;
+}
+.sc-empty {
+  padding: 2rem !important;
+  text-align: center;
+  opacity: 0.5;
+  font-style: italic;
 }
 .sc-th-thumb {
   width: 64px;

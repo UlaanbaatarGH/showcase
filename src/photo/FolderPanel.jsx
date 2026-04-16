@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import PublishButton from './PublishButton.jsx';
 import './FolderPanel.css';
 
 // FIX501.30.3.1: Magnifying lens — shown while hovering (zoom >= 2) or while Shift is held (any zoom)
@@ -287,6 +288,8 @@ export default function FolderPanel({ folderPath, refreshKey, mainImageIconHeigh
 
   return (
     <div className="folder-panel">
+      {/* Publish to Showcase (V0.4) — only rendered in admin mode */}
+      <PublishButton folderPath={folderPath} />
       {/* FIX501.30.2.1: Property panel */}
       <div className="folder-panel-props">
         <div className="folder-panel-props-title">Properties</div>

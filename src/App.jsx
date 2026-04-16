@@ -4,11 +4,17 @@ import ShowcaseView from './ShowcaseView.jsx';
 
 const PhotoModule = lazy(() => import('./photo/PhotoModule.jsx'));
 
+function getDefaultView() {
+  // Local dev defaults to the admin File Explorer; production defaults to home.
+  return import.meta.env.DEV ? 'admin' : 'home';
+}
+
 function getViewFromHash() {
   const h = window.location.hash;
   if (h === '#showcase') return 'showcase';
   if (h === '#admin') return 'admin';
-  return 'home';
+  if (h === '#home') return 'home';
+  return getDefaultView();
 }
 
 export default function App() {

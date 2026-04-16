@@ -34,6 +34,7 @@ export default function ShowcaseView() {
   if (!data) return <div className="sc-loading">Loading…</div>;
 
   const currentImage = images[currentImageIdx];
+  const properties = data.properties ?? [];
 
   return (
     <div className="sc-layout">
@@ -41,45 +42,48 @@ export default function ShowcaseView() {
         <h1>{data.project?.name ?? 'Showcase'}</h1>
       </header>
       <div className="sc-main">
-        <aside className="sc-list">
-          {data.folders.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={`sc-list-item ${f.id === selectedFolderId ? 'selected' : ''}`}
-              onClick={() => setSelectedFolderId(f.id)}
-            >
-              {f.main_image_url ? (
-                <img
-                  src={f.main_image_url}
-                  alt=""
-                  className="sc-list-thumb"
-                  style={
-                    f.main_rotation
-                      ? { transform: `rotate(${f.main_rotation}deg)` }
-                      : undefined
-                  }
-                />
-              ) : (
-                <div className="sc-list-thumb sc-list-thumb-placeholder" />
-              )}
-              <div className="sc-list-text">
-                <div className="sc-list-name">{f.name}</div>
-                {f.note && <div className="sc-list-note">{f.note}</div>}
-                {data.properties?.length > 0 && (
-                  <dl className="sc-list-props">
-                    {data.properties.map((p) => (
-                      <div key={p.id} className="sc-list-prop">
-                        <dt>{p.label}</dt>
-                        <dd>{f.properties?.[String(p.id)] ?? '—'}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </div>
-            </button>
-          ))}
-        </aside>
+        <section className="sc-list-panel">
+          <table className="sc-table">
+            <thead>
+              <tr>
+                <th className="sc-th-thumb" aria-label="Main image" />
+                <th>Folder name</th>
+                {properties.map((p) => (
+                  <th key={p.id}>{p.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.folders.map((f) => (
+                <tr
+                  key={f.id}
+                  className={f.id === selectedFolderId ? 'selected' : ''}
+                  onClick={() => setSelectedFolderId(f.id)}
+                >
+                  <td className="sc-td-thumb">
+                    {f.main_image_url ? (
+                      <img
+                        src={f.main_image_url}
+                        alt=""
+                        style={
+                          f.main_rotation
+                            ? { transform: `rotate(${f.main_rotation}deg)` }
+                            : undefined
+                        }
+                      />
+                    ) : (
+                      <div className="sc-td-thumb-empty" />
+                    )}
+                  </td>
+                  <td className="sc-td-name">{f.name}</td>
+                  {properties.map((p) => (
+                    <td key={p.id}>{f.properties?.[String(p.id)] ?? '—'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
         <section className="sc-viewer">
           {currentImage ? (
             <>

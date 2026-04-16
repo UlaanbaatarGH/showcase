@@ -1085,6 +1085,24 @@ export default function PhotoModule({ onClose }) {
     localStorage.removeItem(LS_KEY);
   };
 
+  // Show image if exactly one file is selected and it's an image
+  const singleSelected = selectedPaths.size === 1 ? [...selectedPaths][0] : null;
+  const showImage = singleSelected && isImageFile(singleSelected.split('/').pop() || '');
+
+  // FIX501.3.3.10.2: When a single folder is selected, check if it has a properties.txt
+  // NOTE: must stay above the `if (!rootFolder)` early return to keep hook order stable.
+  useEffect(() => {
+    if (!singleSelected || showImage) { setFolderWithProps(null); return; }
+    // Try to list the folder; if it has properties.txt, set folderWithProps
+    let cancelled = false;
+    fetchDirList(singleSelected).then(entries => {
+      if (cancelled) return;
+      const hasProps = entries.some(e => e.type === 'file' && e.name === PROPERTIES_FILE);
+      setFolderWithProps(hasProps ? singleSelected : null);
+    }).catch(() => { if (!cancelled) setFolderWithProps(null); });
+    return () => { cancelled = true; };
+  }, [singleSelected, showImage]);
+
   // FIX500.30.1: Prompt for root folder if not set
   if (!rootFolder) {
     return (
@@ -1108,23 +1126,6 @@ export default function PhotoModule({ onClose }) {
       </div>
     );
   }
-
-  // Show image if exactly one file is selected and it's an image
-  const singleSelected = selectedPaths.size === 1 ? [...selectedPaths][0] : null;
-  const showImage = singleSelected && isImageFile(singleSelected.split('/').pop() || '');
-
-  // FIX501.3.3.10.2: When a single folder is selected, check if it has a properties.txt
-  useEffect(() => {
-    if (!singleSelected || showImage) { setFolderWithProps(null); return; }
-    // Try to list the folder; if it has properties.txt, set folderWithProps
-    let cancelled = false;
-    fetchDirList(singleSelected).then(entries => {
-      if (cancelled) return;
-      const hasProps = entries.some(e => e.type === 'file' && e.name === PROPERTIES_FILE);
-      setFolderWithProps(hasProps ? singleSelected : null);
-    }).catch(() => { if (!cancelled) setFolderWithProps(null); });
-    return () => { cancelled = true; };
-  }, [singleSelected, showImage]);
   // Check if move dialog OK should be enabled
   // FIX501.3.3.5.1.1.3: OK enabled when name is not empty (folder may already exist)
   const moveDialogNameValid = moveDialog && moveDialogName.trim();

@@ -62,6 +62,7 @@
 .showcase-table thead th {
   position: sticky;
   top: 0;
+  z-index: 2;                 /* keep above tbody during scroll */
   background: var(--color-bg-lighter);
   color: var(--color-text);
   border: 1px solid var(--color-border);
@@ -93,8 +94,8 @@
   background: #dedede;
 }
 .showcase-table tbody tr.selected td {
-  background: var(--color-accent);
-  color: #222;
+  background: #1e4a85;
+  color: #fff;
 }
 .showcase-table td {
   color: #222;

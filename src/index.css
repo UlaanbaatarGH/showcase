@@ -1,9 +1,28 @@
+/* Color palette — used by components copied from tree-element-list-app
+   (src/photo/*) plus the Showcase / Home styles below.
+   Dark-blue accent for selection (replaces the old orange from tree-element-list-app). */
+:root {
+  --color-bg:          #1a1a2e;
+  --color-bg-light:    #16213e;
+  --color-bg-lighter:  #0f3460;
+  --color-primary:     #e94560;
+  --color-accent:      #5b9bd5;   /* dark-blue accent */
+  --color-text:        #eee;
+  --color-text-muted:  #888;
+  --color-border:      #333;
+  --color-valid:       #15803d;
+  --color-invalid:     #f87171;
+  --color-selected:    rgba(91, 155, 213, 0.35);   /* dark-blue transparent */
+  --color-selected-border: #5b9bd5;
+  --color-editing:     rgba(233, 69, 96, 0.25);
+}
+
 * { box-sizing: border-box; }
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
-  background: #1a1a2e;
-  color: #eee;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 /* Home view */

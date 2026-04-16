@@ -1,4 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+function getCellValue(folder, col) {
+  if (col === 'name') return folder.name ?? '';
+  if (col.startsWith('prop_')) return folder.properties?.[col.slice(5)] ?? '';
+  return '';
+}
+
+function compareValues(a, b) {
+  if (a === '' && b === '') return 0;
+  if (a === '') return -1;
+  if (b === '') return 1;
+  const aNum = Number(a);
+  const bNum = Number(b);
+  if (
+    Number.isFinite(aNum) &&
+    Number.isFinite(bNum) &&
+    String(aNum) === String(a).trim() &&
+    String(bNum) === String(b).trim()
+  ) {
+    return aNum - bNum;
+  }
+  return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+}
 
 export default function ShowcaseView() {
   const [data, setData] = useState(null);
@@ -6,6 +29,8 @@ export default function ShowcaseView() {
   const [images, setImages] = useState([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
+  const [sortKeys, setSortKeys] = useState([]); // [{ col, dir }]
+  const [filters, setFilters] = useState({}); // { col: text }
 
   useEffect(() => {
     fetch('/api/showcase')
@@ -30,11 +55,70 @@ export default function ShowcaseView() {
       .catch((e) => setError(String(e)));
   }, [selectedFolderId]);
 
+  const displayedFolders = useMemo(() => {
+    if (!data) return [];
+    let rows = data.folders;
+    const activeFilters = Object.entries(filters).filter(([, v]) => v && v.trim());
+    if (activeFilters.length > 0) {
+      rows = rows.filter((f) =>
+        activeFilters.every(([col, v]) =>
+          String(getCellValue(f, col))
+            .toLowerCase()
+            .includes(v.trim().toLowerCase()),
+        ),
+      );
+    }
+    if (sortKeys.length > 0) {
+      rows = [...rows].sort((a, b) => {
+        for (const { col, dir } of sortKeys) {
+          const cmp = compareValues(getCellValue(a, col), getCellValue(b, col));
+          if (cmp !== 0) return dir === 'desc' ? -cmp : cmp;
+        }
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
+    }
+    return rows;
+  }, [data, filters, sortKeys]);
+
+  const handleHeaderClick = (col, ctrl) => {
+    setSortKeys((keys) => {
+      const idx = keys.findIndex((k) => k.col === col);
+      if (ctrl) {
+        if (idx >= 0) {
+          const updated = [...keys];
+          updated[idx] = { col, dir: keys[idx].dir === 'asc' ? 'desc' : 'asc' };
+          return updated;
+        }
+        return [...keys, { col, dir: 'asc' }];
+      }
+      if (idx === 0 && keys.length === 1) {
+        if (keys[0].dir === 'asc') return [{ col, dir: 'desc' }];
+        return [];
+      }
+      return [{ col, dir: 'asc' }];
+    });
+  };
+
+  const sortIndicator = (col) => {
+    const idx = sortKeys.findIndex((k) => k.col === col);
+    if (idx < 0) return '';
+    const arrow = sortKeys[idx].dir === 'asc' ? '▲' : '▼';
+    return sortKeys.length > 1 ? `${arrow}${idx + 1}` : arrow;
+  };
+
+  const setFilter = (col, v) => {
+    setFilters((prev) => ({ ...prev, [col]: v }));
+  };
+
   if (error) return <div className="sc-error">Error: {error}</div>;
   if (!data) return <div className="sc-loading">Loading…</div>;
 
   const currentImage = images[currentImageIdx];
   const properties = data.properties ?? [];
+  const columns = [
+    { col: 'name', label: 'Folder name' },
+    ...properties.map((p) => ({ col: `prop_${p.id}`, label: p.label })),
+  ];
 
   return (
     <div className="sc-layout">
@@ -47,14 +131,33 @@ export default function ShowcaseView() {
             <thead>
               <tr>
                 <th className="sc-th-thumb" aria-label="Main image" />
-                <th>Folder name</th>
-                {properties.map((p) => (
-                  <th key={p.id}>{p.label}</th>
+                {columns.map((c) => (
+                  <th key={c.col}>
+                    <button
+                      type="button"
+                      className="sc-sort-btn"
+                      onClick={(e) =>
+                        handleHeaderClick(c.col, e.ctrlKey || e.metaKey)
+                      }
+                      title="Click to sort. Ctrl-click to add a secondary sort key."
+                    >
+                      <span>{c.label}</span>
+                      <span className="sc-sort-arrow">{sortIndicator(c.col)}</span>
+                    </button>
+                    <input
+                      type="text"
+                      className="sc-filter-input"
+                      value={filters[c.col] ?? ''}
+                      onChange={(e) => setFilter(c.col, e.target.value)}
+                      placeholder="Filter"
+                      aria-label={`Filter ${c.label}`}
+                    />
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.folders.map((f) => (
+              {displayedFolders.map((f) => (
                 <tr
                   key={f.id}
                   className={f.id === selectedFolderId ? 'selected' : ''}
@@ -81,6 +184,13 @@ export default function ShowcaseView() {
                   ))}
                 </tr>
               ))}
+              {displayedFolders.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length + 1} className="sc-empty">
+                    No folders match the current filter.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>

@@ -544,21 +544,72 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
 
   // Shrink: resize + recompress as JPEG, with current crop + rotation baked in.
   const handleShrink = async () => {
-    const baked = bakeEditedCanvas();
-    if (!baked) return;
-    const maxEdge = Math.max(baked.width, baked.height);
-    let outW = baked.width;
-    let outH = baked.height;
-    if (maxEdge > SHRINK_MAX_EDGE) {
-      const scale = SHRINK_MAX_EDGE / maxEdge;
-      outW = Math.round(baked.width * scale);
-      outH = Math.round(baked.height * scale);
+    console.log('[shrink] start', { imagePath, imgLoaded, hasImgRef: !!imgRef.current });
+    try {
+      const baked = bakeEditedCanvas();
+      if (!baked) {
+        alert('Shrink aborted: image not ready yet.');
+        return;
+      }
+      console.log('[shrink] baked canvas', { w: baked.width, h: baked.height });
+      const maxEdge = Math.max(baked.width, baked.height);
+      let outW = baked.width;
+      let outH = baked.height;
+      if (maxEdge > SHRINK_MAX_EDGE) {
+        const scale = SHRINK_MAX_EDGE / maxEdge;
+        outW = Math.round(baked.width * scale);
+        outH = Math.round(baked.height * scale);
+      }
+      console.log('[shrink] output size', { outW, outH });
+      const out = document.createElement('canvas');
+      out.width = outW;
+      out.height = outH;
+      out.getContext('2d').drawImage(baked, 0, 0, outW, outH);
+      const blob = await new Promise((resolve, reject) => {
+        out.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('toBlob returned null (canvas may be tainted)'))),
+          'image/jpeg',
+          SHRINK_QUALITY,
+        );
+      });
+      console.log('[shrink] blob size', blob.size);
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      const saveResp = await fetch(`${SERVER_URL}/agent/dir/image/save`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: imagePath, data: base64 }),
+      });
+      if (!saveResp.ok) {
+        const body = await saveResp.text().catch(() => '');
+        throw new Error(`Agent save failed (${saveResp.status}): ${body.slice(0, 200)}`);
+      }
+      try {
+        await fetch(`${SERVER_URL}/file/delete`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: metaPath(imagePath) }),
+        });
+      } catch { /* file may not exist */ }
+      const resetMeta = { crop: null, rotation: 0 };
+      setMeta(resetMeta);
+      setSavedMeta(resetMeta);
+      onRefresh?.();
+      onAfterSave?.();
+      setCropRect(null);
+      setRotation(0);
+      setRotation90(0);
+      setCropClicking(false);
+      setCropClickCorner(null);
+      setAdjustCropActive(false);
+      setCacheBust(Date.now());
+      console.log('[shrink] done');
+    } catch (e) {
+      console.error('[shrink] failed', e);
+      alert(`Shrink failed: ${e.message || e}`);
     }
-    const out = document.createElement('canvas');
-    out.width = outW;
-    out.height = outH;
-    out.getContext('2d').drawImage(baked, 0, 0, outW, outH);
-    await writeBakedImage(out, 'image/jpeg', SHRINK_QUALITY);
   };
 
   // FIX501.4.4.11: Destructive save

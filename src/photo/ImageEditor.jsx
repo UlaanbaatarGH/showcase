@@ -38,6 +38,28 @@ function imageUrl(filePath) {
   return `${SERVER_URL}/agent/dir/image?path=${encodeURIComponent(filePath)}`;
 }
 
+async function fetchFileSize(filePath) {
+  try {
+    const r = await fetch(`${SERVER_URL}/file/stat?path=${encodeURIComponent(filePath)}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.exists ? d.size : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes == null) return '…';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+// Shrink defaults — targets a web-friendly size for typical book-page scans.
+const SHRINK_MAX_EDGE = 2000;
+const SHRINK_QUALITY = 0.82;
+
 // ── ImageEditor component ────────────────────────────────────────────────────
 
 export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, onMoveToNextChange, onAfterSave, readOnly = false }) {
@@ -64,6 +86,8 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
   const [cacheBust, setCacheBust] = useState(0);
   // FIX501.4.3.20: right-click context menu on the edited image
   const [imgContextMenu, setImgContextMenu] = useState(null); // { x, y }
+  // Disk size of the image being edited (bytes). Refreshed on load and after save/shrink.
+  const [fileSize, setFileSize] = useState(null);
 
   const totalRotation = rotation90 + rotation;
   const hasChanges = cropRect !== null || totalRotation !== 0;
@@ -95,6 +119,7 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
       setRotation90(Math.round(m.rotation / 90) * 90); // 90° component
       if (m.crop) setCropRect({ ...m.crop });
     });
+    fetchFileSize(imagePath).then(setFileSize);
   }, [imagePath, cacheBust]);
 
   // ── Render canvas ────────────────────────────────────────────────────────
@@ -453,6 +478,89 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
     onAfterSave?.(); // FIX501.4.4.10.1
   };
 
+  // Build the edited image on an offscreen canvas (rotation + crop applied).
+  // Returns the canvas plus the natural crop dimensions.
+  const bakeEditedCanvas = () => {
+    const img = imgRef.current;
+    if (!img) return null;
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+    const rad = (totalRotation * Math.PI) / 180;
+    const { rw, rh } = getRotatedDims();
+    const rotCanvas = document.createElement('canvas');
+    rotCanvas.width = Math.round(rw);
+    rotCanvas.height = Math.round(rh);
+    const rotCtx = rotCanvas.getContext('2d');
+    rotCtx.translate(rotCanvas.width / 2, rotCanvas.height / 2);
+    rotCtx.rotate(rad);
+    rotCtx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+
+    const cx = cropRect?.x ?? 0;
+    const cy = cropRect?.y ?? 0;
+    const cw = cropRect?.w ?? Math.round(rw);
+    const ch = cropRect?.h ?? Math.round(rh);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = cw;
+    offscreen.height = ch;
+    offscreen.getContext('2d').drawImage(rotCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+    return offscreen;
+  };
+
+  // Shared "save cropped/rotated bytes to disk" logic used by Save and Shrink.
+  const writeBakedImage = async (canvas, mime, quality) => {
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, mime, quality),
+    );
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
+    });
+    await fetch(`${SERVER_URL}/agent/dir/image/save`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: imagePath, data: base64 }),
+    });
+    // Remove meta file — crop and rotation are now baked in
+    try {
+      await fetch(`${SERVER_URL}/file/delete`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: metaPath(imagePath) }),
+      });
+    } catch { /* file may not exist */ }
+    const resetMeta = { crop: null, rotation: 0 };
+    setMeta(resetMeta);
+    setSavedMeta(resetMeta);
+    onRefresh?.();
+    onAfterSave?.();
+    setCropRect(null);
+    setRotation(0);
+    setRotation90(0);
+    setCropClicking(false);
+    setCropClickCorner(null);
+    setAdjustCropActive(false);
+    setCacheBust(Date.now());
+  };
+
+  // Shrink: resize + recompress as JPEG, with current crop + rotation baked in.
+  const handleShrink = async () => {
+    const baked = bakeEditedCanvas();
+    if (!baked) return;
+    const maxEdge = Math.max(baked.width, baked.height);
+    let outW = baked.width;
+    let outH = baked.height;
+    if (maxEdge > SHRINK_MAX_EDGE) {
+      const scale = SHRINK_MAX_EDGE / maxEdge;
+      outW = Math.round(baked.width * scale);
+      outH = Math.round(baked.height * scale);
+    }
+    const out = document.createElement('canvas');
+    out.width = outW;
+    out.height = outH;
+    out.getContext('2d').drawImage(baked, 0, 0, outW, outH);
+    await writeBakedImage(out, 'image/jpeg', SHRINK_QUALITY);
+  };
+
   // FIX501.4.4.11: Destructive save
   // FIX501.4.4.11.3: no confirmation popup
   const handleDestructiveSave = async () => {
@@ -639,6 +747,17 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
             disabled={!hasChanges}
             data-yagu-action="button-destruct-save"
           >Save</button>
+          {/* Shrink: bakes crop + rotation, resizes to max {SHRINK_MAX_EDGE}px edge,
+              re-encodes as JPEG @ {SHRINK_QUALITY}. */}
+          <button
+            className="image-editor-btn image-editor-btn-save"
+            onClick={handleShrink}
+            disabled={!imgLoaded}
+            title={`Resize to max ${SHRINK_MAX_EDGE}px and re-encode JPEG @ ${Math.round(SHRINK_QUALITY * 100)}%`}
+          >Shrink</button>
+          <span className="image-editor-filesize" title="Current file size on disk">
+            {formatSize(fileSize)}
+          </span>
         </div>
       </div>
       )}

@@ -331,9 +331,9 @@ app.get('/file/stat', (req, res) => {
   if (!filePath) return res.status(400).json({ error: 'path is required' });
   try {
     const st = fs.statSync(filePath);
-    res.json({ exists: true, mtime: st.mtimeMs });
+    res.json({ exists: true, mtime: st.mtimeMs, size: st.size });
   } catch (err) {
-    if (err.code === 'ENOENT') return res.json({ exists: false, mtime: 0 });
+    if (err.code === 'ENOENT') return res.json({ exists: false, mtime: 0, size: 0 });
     res.status(500).json({ error: err.message });
   }
 });

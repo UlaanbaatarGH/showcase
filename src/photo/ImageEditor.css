@@ -197,3 +197,12 @@
   background: var(--color-border);
   flex-shrink: 0;
 }
+
+/* File size indicator in the image editor toolbar (V0.5) */
+.image-editor-filesize {
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  padding: 0 0.5rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

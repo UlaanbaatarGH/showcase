@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
+import { setAuthToken } from './data/backend.js';
 
 // FIX310 + FIX300: holds the current session token and the app_user profile row.
 const AuthContext = createContext(null);
@@ -37,6 +38,7 @@ export function AuthProvider({ children }) {
   // Whenever we have a fresh session, ensure the app_user row exists
   // (self-heals if it was never created) and cache the profile for the UI.
   useEffect(() => {
+    setAuthToken(session?.access_token ?? null);
     if (!session) { setProfile(null); return; }
     const { access_token, user } = session;
     const loginName =

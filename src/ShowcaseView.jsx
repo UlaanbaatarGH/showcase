@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import SetupPanel from './SetupPanel.jsx';
+import { getShowcase, getFolderImages } from './data/backend.js';
 
 function romanToInt(s) {
   const m = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
@@ -63,26 +64,24 @@ export default function ShowcaseView() {
   const [showSetup, setShowSetup] = useState(false);
 
   useEffect(() => {
-    fetch('/api/showcase')
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    getShowcase()
       .then((d) => {
         setData(d);
         if (d.folders?.length) setSelectedFolderId(d.folders[0].id);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(e.message || String(e)));
   }, []);
 
   useEffect(() => {
     if (selectedFolderId == null) return;
     setImages([]);
-    fetch(`/api/folders/${selectedFolderId}/images`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    getFolderImages(selectedFolderId)
       .then((imgs) => {
         setImages(imgs);
         const mainIdx = imgs.findIndex((i) => i.is_main);
         setCurrentImageIdx(mainIdx >= 0 ? mainIdx : 0);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(e.message || String(e)));
   }, [selectedFolderId]);
 
   const properties = data?.properties ?? [];

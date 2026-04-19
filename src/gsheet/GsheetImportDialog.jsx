@@ -203,10 +203,9 @@ function RecapList({ title, items }) {
       </div>
       {items.length > 0 && (
         <ul className="gsheet-recap-items">
-          {items.slice(0, 20).map((x, i) => (
+          {items.map((x, i) => (
             <li key={i}>{x}</li>
           ))}
-          {items.length > 20 && <li className="gsheet-recap-more">…and {items.length - 20} more</li>}
         </ul>
       )}
     </div>

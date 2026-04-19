@@ -43,6 +43,9 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     try {
       const r = await importGsheet(project.id, plan);
       setResult(r);
+      // FIX370.3.2.2.3.5: refresh the current view before the Done popup
+      // so the user sees the imported data behind it.
+      onDone?.();
       setStage('done');
     } catch (ex) {
       setFatal(ex.message || String(ex));
@@ -51,7 +54,6 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
   }
 
   function handleDone() {
-    onDone?.();
     onClose?.();
   }
 

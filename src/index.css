@@ -327,74 +327,65 @@ body {
 .sc-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9375rem;
+  font-size: 0.85rem;
 }
 .sc-table thead th {
   position: sticky;
   top: 0;
-  background: #20203a;
+  z-index: 2;
+  background: var(--color-bg-lighter);
+  color: var(--color-text);
   text-align: left;
-  padding: 0.4rem 0.75rem 0.5rem;
-  border-bottom: 1px solid #333;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  letter-spacing: 0.03em;
-  opacity: 0.95;
-  vertical-align: top;
-}
-.sc-sort-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: none;
-  border: none;
-  color: inherit;
-  padding: 0.1rem 0;
-  margin-bottom: 0.35rem;
+  font-weight: normal;
   cursor: pointer;
-  font: inherit;
-  font-size: 0.8125rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  opacity: 0.85;
+  user-select: none;
+  white-space: nowrap;
 }
-.sc-sort-btn:hover { opacity: 1; }
+.sc-table thead tr.sc-filter-row th {
+  top: 29px;               /* stick just below the header row */
+  padding: 2px 4px;
+  cursor: default;
+  background: var(--color-bg-lighter);
+}
 .sc-sort-arrow {
-  font-size: 0.75rem;
-  opacity: 0.8;
+  font-size: 0.7rem;
 }
 .sc-filter-input {
   display: block;
   width: 100%;
-  padding: 0.25rem 0.4rem;
-  font-size: 0.8125rem;
-  background: #1a1a2e;
-  color: #eee;
-  border: 1px solid #333;
+  padding: 2px 4px;
+  font-size: 0.8rem;
+  background: #fff;
+  color: #222;
+  border: 1px solid #aaa;
   border-radius: 3px;
   font-family: inherit;
 }
 .sc-filter-input:focus {
   outline: none;
-  border-color: #667;
+  border-color: var(--color-accent);
 }
 .sc-empty {
-  padding: 2rem !important;
+  padding: 20px !important;
   text-align: center;
-  opacity: 0.5;
   font-style: italic;
+  color: var(--color-text-muted) !important;
+  background: var(--color-bg) !important;
 }
 .sc-th-thumb {
   width: 64px;
 }
-.sc-table tbody tr {
-  cursor: pointer;
-  border-bottom: 1px solid #222;
+.sc-table tbody tr { cursor: pointer; }
+.sc-table tbody tr:nth-child(even) td { background: #cccccc; }
+.sc-table tbody tr:nth-child(odd)  td { background: #dedede; }
+.sc-table tbody tr.selected td {
+  background: #1e4a85;
+  color: #fff;
 }
-.sc-table tbody tr:hover { background: #232338; }
-.sc-table tbody tr.selected { background: #2a2a4a; }
 .sc-table td {
-  padding: 0.5rem 0.75rem;
+  color: #222;
+  border: 1px solid #bbb;
+  padding: 3px 6px;
   vertical-align: middle;
 }
 .sc-td-thumb {

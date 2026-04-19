@@ -257,22 +257,35 @@ export default function ShowcaseView() {
         ? folderColumnName
         : properties.find((p) => p.id === col.property_id)?.label ?? '(missing)';
     return (
-      <th key={key} style={col.width ? { width: col.width } : undefined}>
-        <button
-          type="button"
-          className="sc-sort-btn"
-          onClick={(e) => handleHeaderClick(key, e.ctrlKey || e.metaKey)}
-          title="Click to sort. Ctrl-click to add a secondary sort key."
-        >
-          <span>{label}</span>
-          <span className="sc-sort-arrow">{sortIndicator(key)}</span>
-        </button>
+      <th
+        key={key}
+        style={col.width ? { width: col.width } : undefined}
+        onClick={(e) => handleHeaderClick(key, e.ctrlKey || e.metaKey)}
+        title="Click to sort. Ctrl-click to add a secondary sort key."
+      >
+        {label}
+        <span className="sc-sort-arrow"> {sortIndicator(key)}</span>
+      </th>
+    );
+  };
+
+  const renderFilterCell = (col) => {
+    if (col.type === 'main_image_icon') {
+      return <th key="main_image_icon" className="sc-th-thumb" aria-hidden="true" />;
+    }
+    const key = columnKey(col);
+    const label =
+      col.type === 'folder_name'
+        ? folderColumnName
+        : properties.find((p) => p.id === col.property_id)?.label ?? '(missing)';
+    return (
+      <th key={key}>
         <input
           type="text"
           className="sc-filter-input"
           value={filters[key] ?? ''}
           onChange={(e) => setFilter(key, e.target.value)}
-          placeholder="Filter"
+          placeholder="filter…"
           aria-label={`Filter ${label}`}
         />
       </th>
@@ -439,6 +452,9 @@ export default function ShowcaseView() {
           <table className="sc-table">
             <thead>
               <tr>{configuredColumns.map(renderHeaderCell)}</tr>
+              <tr className="sc-filter-row">
+                {configuredColumns.map(renderFilterCell)}
+              </tr>
             </thead>
             <tbody>
               {displayedFolders.map((f) => (

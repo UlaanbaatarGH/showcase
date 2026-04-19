@@ -33,6 +33,17 @@ function columnKey(col) {
   return col.type;
 }
 
+// FIX500.2.3.2.1.2.1.1 / .1.1: width sample is free text; column width = the
+// text's character count, expressed in `ch` units. FIX500.2.3.2.1.2.1.1.1:
+// when the text is *just* a number n, treat it as n characters (i.e. 'n zeros').
+function widthCss(width) {
+  if (width == null) return undefined;
+  const t = String(width).trim();
+  if (!t) return undefined;
+  const n = /^\d+$/.test(t) ? Number(t) : t.length;
+  return `${n}ch`;
+}
+
 function getColumnValue(folder, col) {
   if (col.type === 'folder_name') return folder.name ?? '';
   if (col.type === 'img') return folder.main_image_url ? 'x' : '';
@@ -294,7 +305,7 @@ export default function ShowcaseView() {
         <th
           key="main_image_icon"
           className="sc-th-thumb"
-          style={col.width ? { width: col.width } : undefined}
+          style={widthCss(col.width) ? { width: widthCss(col.width) } : undefined}
           aria-label="Main image"
         />
       );
@@ -309,7 +320,7 @@ export default function ShowcaseView() {
     return (
       <th
         key={key}
-        style={col.width ? { width: col.width } : undefined}
+        style={widthCss(col.width) ? { width: widthCss(col.width) } : undefined}
         onClick={(e) => handleHeaderClick(key, e.ctrlKey || e.metaKey)}
         title="Click to sort. Ctrl-click to add a secondary sort key."
       >
@@ -350,7 +361,7 @@ export default function ShowcaseView() {
         <td
           key="main_image_icon"
           className="sc-td-thumb"
-          style={col.width ? { width: col.width } : undefined}
+          style={widthCss(col.width) ? { width: widthCss(col.width) } : undefined}
         >
           {folder.main_image_url ? (
             <img
@@ -370,7 +381,8 @@ export default function ShowcaseView() {
     }
     const key = columnKey(col);
     const cellStyle = {};
-    if (col.width) cellStyle.width = col.width;
+    const w = widthCss(col.width);
+    if (w) cellStyle.width = w;
     if (col.wrap) cellStyle.whiteSpace = 'normal';
     if (col.type === 'folder_name') {
       return (

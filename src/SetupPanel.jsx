@@ -73,7 +73,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     return col.type;
   };
   const displayedColumnName = (col) => {
-    if (col.type === 'folder_name') return 'Folder name';
+    if (col.type === 'folder_name') return 'Item name';
     if (col.type === 'main_image_icon') return 'Main image icon';
     if (col.type === 'property') {
       const p = properties.find((pp) => pp.id === col.property_id);
@@ -87,7 +87,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     if (!used.has('main_image_icon'))
       options.push({ key: 'main_image_icon', label: 'Main image icon', create: () => ({ type: 'main_image_icon' }) });
     if (!used.has('folder_name'))
-      options.push({ key: 'folder_name', label: 'Folder name', create: () => ({ type: 'folder_name' }) });
+      options.push({ key: 'folder_name', label: 'Item name', create: () => ({ type: 'folder_name' }) });
     for (const p of properties) {
       if ((p.label ?? '').trim() && !used.has(`prop_${p.id}`)) {
         options.push({
@@ -241,7 +241,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                           type="button"
                           onClick={() => removeColumn(i)}
                           disabled={col.type === 'folder_name'}
-                          title={col.type === 'folder_name' ? "'Folder name' cannot be removed" : 'Remove'}
+                          title={col.type === 'folder_name' ? "'Item name' cannot be removed" : 'Remove'}
                           aria-label="Remove"
                         >
                           ✕
@@ -275,7 +275,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                 </div>
               )}
 
-              <h3>Folder column name</h3>
+              <h3>Item column name</h3>
               <input
                 type="text"
                 value={showcase.folder_column_name ?? ''}

@@ -13,8 +13,20 @@ export default function GroupingPanel({
   const initialGroups = viewSetup?.showcase?.groups ?? [];
   const groupByProp = new Map(initialGroups.map((g) => [g.property_id, g]));
 
-  const [rows, setRows] = useState(() =>
-    (properties ?? []).map((p) => {
+  // FIX510.2.1.5.2: expose an 'Img' meta-property so users can group by
+  // having/not-having a main image. Its id is the string 'img' — distinct
+  // from any numeric property id.
+  const [rows, setRows] = useState(() => {
+    const imgGroup = groupByProp.get('img');
+    const imgRow = {
+      id: 'img',
+      label: 'Img',
+      group: !!imgGroup,
+      segment: '',             // segment doesn't apply to Img
+      default: !!imgGroup?.default,
+      meta: true,              // no segment input for meta rows
+    };
+    const propRows = (properties ?? []).map((p) => {
       const g = groupByProp.get(p.id);
       return {
         id: p.id,
@@ -23,8 +35,9 @@ export default function GroupingPanel({
         segment: g?.segment ?? '',
         default: !!g?.default,
       };
-    }),
-  );
+    });
+    return [imgRow, ...propRows];
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -107,7 +120,7 @@ export default function GroupingPanel({
                 )}
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td>{r.id}</td>
+                    <td>{r.meta ? '—' : r.id}</td>
                     <td>{r.label}</td>
                     <td style={{ textAlign: 'center' }}>
                       <input
@@ -127,8 +140,7 @@ export default function GroupingPanel({
                       <input
                         type="text"
                         value={r.segment}
-                        disabled={!r.group}
-                        placeholder="e.g. 1900-1909 or A-D"
+                        disabled={!r.group || r.meta}
                         onChange={(e) =>
                           updateRow(r.id, { segment: e.target.value })
                         }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import SetupPanel from './SetupPanel.jsx';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
-import { parseSegment, bucketsWithValues, bucketFor } from './grouping/segments.js';
+import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages } from './data/backend.js';
 
@@ -143,12 +143,22 @@ export default function ShowcaseView() {
   const activeGroup = groups.find((g) => g.property_id === activeGroupPropId) || null;
   const activeParsed = activeGroup ? parseSegment(activeGroup.segment) : null;
 
+  // FIX510.2.1.5.2: the special 'img' meta-property groups items by whether
+  // they have a main image. Other groups read from folder.properties JSONB
+  // keyed by the numeric property id.
+  const valueForGroup = (folder) => {
+    if (!activeGroup) return undefined;
+    if (activeGroup.property_id === 'img') {
+      return folder.main_image_url ? 'With image' : 'No image';
+    }
+    return folder.properties?.[String(activeGroup.property_id)];
+  };
+
   const bucketList = useMemo(() => {
     if (!activeGroup || !activeParsed) return [];
-    const values = (data?.folders ?? []).map(
-      (f) => f.properties?.[String(activeGroup.property_id)],
-    );
+    const values = (data?.folders ?? []).map(valueForGroup);
     return bucketsWithValues(values, activeParsed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroup, activeParsed, data]);
 
   const displayedFolders = useMemo(() => {
@@ -157,7 +167,11 @@ export default function ShowcaseView() {
     // FIX372.6.2.11: apply the active grouping bucket filter.
     if (activeGroup && activeBucketKey && activeParsed) {
       rows = rows.filter((f) => {
-        const v = f.properties?.[String(activeGroup.property_id)];
+        const v = valueForGroup(f);
+        if (activeBucketKey === NO_VALUE_KEY) {
+          // FIX372.6.2.3: folders with no bucketable value sit in this pile.
+          return bucketFor(v, activeParsed) == null;
+        }
         const b = bucketFor(v, activeParsed);
         return b != null && b.key === activeBucketKey;
       });
@@ -250,16 +264,22 @@ export default function ShowcaseView() {
             value={activeGroupPropId ?? ''}
             onChange={(e) => {
               const v = e.target.value;
-              setActiveGroupPropId(v === '' ? null : Number(v));
+              const next =
+                v === '' ? null : v === 'img' ? 'img' : Number(v);
+              setActiveGroupPropId(next);
               setActiveBucketKey(null);
             }}
           >
             <option value="">(none)</option>
             {groups.map((g) => {
-              const p = properties.find((pp) => pp.id === g.property_id);
+              const label =
+                g.property_id === 'img'
+                  ? 'Img'
+                  : properties.find((pp) => pp.id === g.property_id)?.label
+                    ?? `Property ${g.property_id}`;
               return (
-                <option key={g.property_id} value={g.property_id}>
-                  {p ? p.label : `Property ${g.property_id}`}
+                <option key={String(g.property_id)} value={g.property_id}>
+                  {label}
                 </option>
               );
             })}

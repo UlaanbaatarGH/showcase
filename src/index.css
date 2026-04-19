@@ -378,9 +378,10 @@ body {
 .sc-table tbody tr { cursor: pointer; }
 .sc-table tbody tr:nth-child(even) td { background: #cccccc; }
 .sc-table tbody tr:nth-child(odd)  td { background: #dedede; }
+/* FIX510.2.1.5: light orange row selection */
 .sc-table tbody tr.selected td {
-  background: #1e4a85;
-  color: #fff;
+  background: #ffd39b;
+  color: #222;
 }
 .sc-table td {
   color: #222;

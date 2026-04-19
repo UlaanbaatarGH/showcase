@@ -78,13 +78,22 @@ export function bucketFor(value, parsed) {
   return null;
 }
 
+// FIX372.6.2.3: sentinel key used for the trailing "No value" bucket that
+// collects items whose value for the grouping property is missing or not
+// placeable under the current segment.
+export const NO_VALUE_KEY = '__novalue__';
+
 // Given all folder values for a single property and a parsed segment, return
 // the list of buckets that have at least one matching value, with count.
 export function bucketsWithValues(folderValues, parsed) {
   const byKey = new Map();
+  let noValueCount = 0;
   for (const v of folderValues) {
     const b = bucketFor(v, parsed);
-    if (!b) continue;
+    if (!b) {
+      noValueCount += 1;
+      continue;
+    }
     const existing = byKey.get(b.key);
     if (existing) existing.count += 1;
     else byKey.set(b.key, { ...b, count: 1 });
@@ -94,6 +103,9 @@ export function bucketsWithValues(folderValues, parsed) {
     if (a.sort != null && b.sort != null) return a.sort - b.sort;
     return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
   });
+  if (noValueCount > 0) {
+    list.push({ key: NO_VALUE_KEY, label: 'No value', count: noValueCount });
+  }
   return list;
 }
 

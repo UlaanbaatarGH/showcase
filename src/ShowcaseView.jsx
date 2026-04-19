@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import SetupPanel from './SetupPanel.jsx';
+import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
+import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages } from './data/backend.js';
 
 function romanToInt(s) {
@@ -54,6 +56,7 @@ function compareValues(a, b) {
 }
 
 export default function ShowcaseView() {
+  const { profile } = useAuth();
   const [data, setData] = useState(null);
   const [selectedFolderId, setSelectedFolderId] = useState(null);
   const [images, setImages] = useState([]);
@@ -62,6 +65,19 @@ export default function ShowcaseView() {
   const [sortKeys, setSortKeys] = useState([]);
   const [filters, setFilters] = useState({});
   const [showSetup, setShowSetup] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  const reloadShowcase = () =>
+    getShowcase()
+      .then((d) => {
+        setData(d);
+        if (d.folders?.length && selectedFolderId == null) {
+          setSelectedFolderId(d.folders[0].id);
+        }
+      })
+      .catch((e) => setError(e.message || String(e)));
 
   useEffect(() => {
     getShowcase()
@@ -71,6 +87,15 @@ export default function ShowcaseView() {
       })
       .catch((e) => setError(e.message || String(e)));
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (selectedFolderId == null) return;
@@ -255,6 +280,34 @@ export default function ShowcaseView() {
 
   return (
     <div className="sc-layout">
+      <div className="sc-topbar">
+        {profile && (
+          <div className="sc-menu" ref={menuRef}>
+            <button
+              type="button"
+              className="sc-menu-trigger"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              Import ▾
+            </button>
+            {menuOpen && (
+              <ul className="sc-menu-items" role="menu">
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setMenuOpen(false); setImportOpen(true); }}
+                  >
+                    Google sheet
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
       <header className="sc-header">
         <h1>{data.project?.name ?? 'Showcase'}</h1>
         <button
@@ -344,6 +397,18 @@ export default function ShowcaseView() {
           viewSetup={viewSetup}
           onCancel={() => setShowSetup(false)}
           onSave={handleSaveSetup}
+        />
+      )}
+      {importOpen && data.project && (
+        <GsheetImportDialog
+          project={{
+            id: data.project.id,
+            name: data.project.name,
+            properties,
+            folders: data.folders,
+          }}
+          onClose={() => setImportOpen(false)}
+          onDone={reloadShowcase}
         />
       )}
     </div>

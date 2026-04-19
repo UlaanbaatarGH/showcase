@@ -45,6 +45,8 @@ export default {
   getFolderImages: (folderId) => call(`/api/folders/${folderId}/images`),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
+  importGsheet: (projectId, plan) =>
+    call(`/api/projects/${projectId}/import-gsheet`, { method: 'POST', body: plan }),
   // Planned writes — backend routes will be added when FIX entries land.
   createFolder: notYet('createFolder'),
   renameFolder: notYet('renameFolder'),

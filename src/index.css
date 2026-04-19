@@ -668,3 +668,123 @@ body {
   margin-top: 0.25rem;
 }
 .signin-toggle:hover { text-decoration: underline; }
+
+/* FIX370: Showcase top bar + Import menu */
+.sc-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-light);
+  border-bottom: 1px solid var(--color-border);
+  min-height: 2.5rem;
+}
+.sc-menu { position: relative; }
+.sc-menu-trigger {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  padding: 0.3rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.sc-menu-trigger:hover { background: var(--color-bg-lighter); }
+.sc-menu-items {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+.sc-menu-items li { margin: 0; }
+.sc-menu-items button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+}
+.sc-menu-items button:hover { background: var(--color-bg-light); }
+
+/* FIX370: Google Sheet import dialog */
+.gsheet-dialog { width: min(560px, 100%); }
+.gsheet-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+}
+.gsheet-stage h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+.gsheet-hint { color: var(--color-text-muted); font-size: 0.85rem; margin: 0; }
+.gsheet-stage label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.gsheet-stage input[type="text"] {
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  color: #222;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+}
+.gsheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.gsheet-busy { color: var(--color-text-muted); font-size: 0.9rem; }
+.gsheet-errors {
+  margin: 0;
+  padding-left: 1.25rem;
+  max-height: 40vh;
+  overflow-y: auto;
+  color: var(--color-invalid);
+  font-size: 0.9rem;
+}
+.gsheet-err-fatal {
+  color: var(--color-invalid);
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--color-invalid);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+.gsheet-recap-section { margin-bottom: 0.25rem; }
+.gsheet-recap-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+.gsheet-recap-count { color: var(--color-text-muted); font-weight: 400; }
+.gsheet-recap-items {
+  margin: 0 0 0.5rem;
+  padding-left: 1.25rem;
+  max-height: 20vh;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.gsheet-recap-more { color: var(--color-text-muted); font-style: italic; list-style: none; }
+.gsheet-empty { color: var(--color-text-muted); font-style: italic; }
+.gsheet-result {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.95rem;
+}

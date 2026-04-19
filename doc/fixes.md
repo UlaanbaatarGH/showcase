@@ -1,3 +1,298 @@
+# UI conventions
+
+- **FIX201** UI conventions
+
+
+
+- **FIX201.1** Form
+
+
+
+- **FIX201.1.1** Text input value: white background, dark grey text colour. No bold. No italic.
+
+
+
+- **FIX201.1.1.1** Ghost value in a text input: Italic, dark grey text colour. No bold.
+
+
+
+- **FIX201.1.2** Disabled text input value: light grey background, dark grey text colour. No bold. No italic.
+
+
+
+- **FIX201.1.3** One line text input must always have the same height.
+
+
+
+- **FIX201.1.10** Field label: white. No Bold. No Italic.
+
+
+
+- **FIX201.1.11** Section label: white. No Bold. No Italic. Upper case.
+
+
+
+- **FIX201.1.20** Table header: White. (popup top banner) blue background. No Bold. No Italic.
+
+
+
+# Access Rights
+
+- **FIX300** Access Rights
+
+
+
+- **FIX300.1** Four rights: The common CRUD listed below with increasing impact:
+
+
+
+- **FIX300.1.1** R: Read
+
+
+
+- **FIX300.1.2** U: Update
+
+
+
+- **FIX300.1.3** C: Create
+
+
+
+- **FIX300.1.4** D: Delete
+
+
+
+# User
+
+- **FIX310** User
+
+
+
+- **FIX310.1** A User is defined by
+
+
+
+- **FIX310.1.1** A login name
+
+
+
+- **FIX310.1.2** A login password
+
+
+
+- **FIX310.1.3** A general profile: admin/common
+
+
+
+- **FIX310.1.4** For a user profile, a list of projects with access rights
+
+
+
+# Project
+
+- **FIX350** Project
+
+
+
+- **FIX350.1** A project is defined by
+
+
+
+- **FIX350.1.1** A name
+
+
+
+- **FIX350.1.2** An image that represents the project
+
+
+
+- **FIX350.1.3** A root directory for the backend app
+
+
+
+- **FIX350.1.4** A public/private state
+
+
+
+- **FIX350.1.5** An owner : The user who created the project
+
+
+
+- **FIX350.2** Project structure
+
+
+
+- **FIX350.2.1** Folder tree structure with a single root folder and no depth limit
+
+
+
+- **FIX350.2.2** Each folder may contain 2 types of data:
+
+
+
+- **FIX350.2.2.1** A list of image files with a defined order
+
+
+
+- **FIX350.2.2.2** Each image may optionally have attributes
+
+
+
+- **FIX350.2.2.2.1** A caption
+
+
+
+- **FIX350.2.2.2.2** A category
+
+
+
+- **FIX350.2.2.2** A set of properties (name, value)
+
+
+
+- **FIX350.2.3** List of property names
+
+
+
+- **FIX350.2.3.1** It is defined by a Master Folder and applies to the master folder and all its subfolders.
+
+
+
+- **FIX350.2.3.2** No Master Folder can have another Master Folder in the parent lineage or in any of the subfolders at any depth.
+
+
+
+- **FIX350.2.3.3** A project may have several Master Folders.
+
+
+
+- **FIX350.2.3.4** Changing the list of properties of a Master Folder automatically applies to all the subfolders.
+
+
+
+- **FIX350.10** User access to a project
+
+
+
+- **FIX350.10.1** Three groups of actions
+
+
+
+- **FIX350.10.1.1** Group 1: Admin profile only
+
+
+
+- **FIX350.10.1.1.1** Project creation
+
+
+
+- **FIX350.10.1.1.2** Folder creation/reorder/deletion which has no Master Folder above. As such it includes Master Folders.
+
+
+
+- **FIX350.10.1.2** Group 2: All profiles .The access rights are globally given for all these actions:
+
+
+
+- **FIX350.10.1.2.1** Property creation/deletion
+
+
+
+- **FIX350.10.1.3** Group 3: All profiles. The access rights are globally given for all these actions:
+
+
+
+- **FIX350.10.1.3.1** Folder creation (under a Master Folder)
+
+
+
+- **FIX350.10.1.3.2** Folder name (under a Master Folder)
+
+
+
+- **FIX350.10.1.3.3** Folder order (under a Master Folder)
+
+
+
+- **FIX350.10.1.3.4** Property creation (at Master Folder level)
+
+
+
+- **FIX350.10.1.3.5** Property name (at Master Folder level)
+
+
+
+- **FIX350.10.1.3.4** Property value
+
+
+
+- **FIX350.10.1.3.5** Image creation
+
+
+
+- **FIX350.10.1.3.6** Image order
+
+
+
+- **FIX350.10.1.3.7** Image capture attribute
+
+
+
+- **FIX350.10.1.3.8** Image category attribute
+
+
+
+- **FIX350.10.2** A common user is given 2 sets of access rights: For Group 2 and Group 3.\
+  For instance: Group 2: \'-\' and Group 3: \'CRU\'
+
+
+
+# Frontend
+
+## App home page
+
+- **FIX400** Home page
+
+
+
+- **FIX400.1** Purpose
+
+
+
+- **FIX400.2** UI Layout
+
+
+
+- **FIX400.2.1** List of projects with name and associated image
+
+
+
+- **FIX400.2.2** Button 'sign in'
+
+
+
+- **FIX400.3** UI User Actions
+
+
+
+- **FIX400.3.1** Click project name or project photo opens the project
+
+
+
+- **FIX400.4** Functional Rules
+
+
+
+- **FIX400.4.1** Until the user signs in, only public projects are listed.
+
+
+
+- **FIX400.4.2** Once signed in, public and private projects the user has read access are listed.
+
+
+
+# Backend app
+
 - **FIX500** Photo module
 
 
@@ -1467,4 +1762,95 @@
 
 - **FIX520.5.1** On item selection in the Showcase List panel, if the item has a Main Image Icon defined, then it is this image in full scale that is first displayed
 
+
+
+# Local Agent
+
+- **TECH1** Local Agent
+
+
+
+- **TECH1.1** A Local Agent is used for interacting with OS files or processes.
+
+
+
+- **TECH1.1.1** Implementation is ./agent/agent.js
+
+
+
+## Agent status
+
+- **TECH1.2** Get Agent Status
+
+
+
+- **TECH1.2.1** Server entry point: GET /agent/status\
+  Health check, also reports whether the target Vite is running.
+
+
+
+## Playwright script execution
+
+- **TECH1.3** Playwright script execution
+
+
+
+- **TECH1.3.1** Launch Vite server\
+  Server entry point to spawn Vite on port 5174: POST /runner/start-target.\
+  kills any previous target, spawns fresh Vite on 5174, waits 2 seconds then confirms.
+
+
+
+- **TECH1.3.2** Execute a test script\
+  Server entry point to spawn Playwright with stream results: POST /runner/run-test {script-path}\
+  Spawns Playwright, streams every output line back to TELL via SSE, sends \[DONE:0\] or \[DONE:1\] when finished
+
+
+
+## Search for available projects
+
+- **TECH1.4** Search for available projects
+
+
+
+- **TECH1.4.1** Search root directory\
+  Reads the environment variable TELL_PROJECT_ROOT to get a root folder or use the user's home folder if variable is not defined.
+
+
+
+- **TECH1.4.2** Search for projects: From the Search root directory, search for sub-folders at any depth having a **project.tell** file defined.
+
+
+
+- **TECH1.4.3** Return the list of project folders with their related path to the Search root directory with server entry point GET /agent/projects.
+
+
+
+## Read/write in the file system
+
+- **TECH1.5** Read/write in the file system
+
+
+
+- **TECH1.5.1** GET /agent/project/read?path=\... --- read project.tell
+
+
+
+- **TECH1.5.2** POST /agent/project/write { path, content } --- write project.tell
+
+
+
+- **TECH1.5.3** GET /agent/file/list?path= --- list .md files in a folder
+
+
+
+- **TECH1.5.4** POST /file/open { path } --- register file + read content
+
+
+
+- **TECH1.5.5** POST /file/save { content } --- write to registered file
+
+
+
+- **TECH1.5.6** GET /file/status --- registered file status
 

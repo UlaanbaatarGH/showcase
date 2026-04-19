@@ -120,16 +120,18 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     .map((h, idx) => ({ label: h, idx }))
     .filter((c) => c.label && c.idx !== folderColIdx);
 
-  // 2.1.3 / 2.1.4 / 2.1.5 — row-level checks
+  // 2.1.3 / 2.1.4 / 2.1.5 — row-level checks only run when the '#' column
+  // exists; otherwise per-row '#' errors would just be noise flowing from
+  // the already-reported 2.1.1 failure.
   const rowFolderNames = [];
-  {
+  if (folderColIdx >= 0) {
     const seen = new Map();
     dataRows.forEach((row, i) => {
       if (isRowBlank(row)) {
         rowFolderNames.push(null);
         return;
       }
-      const name = folderColIdx >= 0 ? (row[folderColIdx] ?? '').trim() : '';
+      const name = (row[folderColIdx] ?? '').trim();
       if (!name) {
         errors.push(`FIX370.2.1.3: row ${i + 2} has a blank '#' value.`);
         rowFolderNames.push(null);

@@ -35,6 +35,7 @@ function columnKey(col) {
 
 function getColumnValue(folder, col) {
   if (col.type === 'folder_name') return folder.name ?? '';
+  if (col.type === 'img') return folder.main_image_url ? 'x' : '';
   if (col.type === 'property')
     return folder.properties?.[String(col.property_id)] ?? '';
   return '';
@@ -118,7 +119,7 @@ export default function ShowcaseView() {
   const viewSetup = data?.view_setup ?? {};
   const showcaseCfg = viewSetup.showcase ?? {};
   const configuredColumns = showcaseCfg.columns ?? [];
-  const folderColumnName = showcaseCfg.folder_column_name || 'Item name';
+  const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
   const groups = showcaseCfg.groups ?? [];
 
@@ -255,6 +256,8 @@ export default function ShowcaseView() {
     const label =
       col.type === 'folder_name'
         ? folderColumnName
+        : col.type === 'img'
+        ? 'Img'
         : properties.find((p) => p.id === col.property_id)?.label ?? '(missing)';
     return (
       <th
@@ -277,6 +280,8 @@ export default function ShowcaseView() {
     const label =
       col.type === 'folder_name'
         ? folderColumnName
+        : col.type === 'img'
+        ? 'Img'
         : properties.find((p) => p.id === col.property_id)?.label ?? '(missing)';
     return (
       <th key={key}>
@@ -324,6 +329,13 @@ export default function ShowcaseView() {
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
           {folder.name}
+        </td>
+      );
+    }
+    if (col.type === 'img') {
+      return (
+        <td key={key} className="sc-td-img" style={cellStyle}>
+          {folder.main_image_url ? 'x' : ''}
         </td>
       );
     }

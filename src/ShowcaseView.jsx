@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import SetupPanel from './SetupPanel.jsx';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
+import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { useAuth } from './AuthContext.jsx';
@@ -81,6 +82,7 @@ export default function ShowcaseView() {
   const [showSetup, setShowSetup] = useState(false);
   const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importImagesOpen, setImportImagesOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeGroupPropId, setActiveGroupPropId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
@@ -439,6 +441,15 @@ export default function ShowcaseView() {
                     Google sheet
                   </button>
                 </li>
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
+                  >
+                    Import images
+                  </button>
+                </li>
               </ul>
             )}
           </div>
@@ -595,6 +606,13 @@ export default function ShowcaseView() {
           viewSetup={viewSetup}
           onCancel={() => setShowGrouping(false)}
           onSave={handleSaveGrouping}
+        />
+      )}
+      {importImagesOpen && data.project && (
+        <ImportImagesDialog
+          project={{ id: data.project.id, name: data.project.name }}
+          onClose={() => setImportImagesOpen(false)}
+          onDone={reloadShowcase}
         />
       )}
     </div>

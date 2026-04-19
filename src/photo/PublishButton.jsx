@@ -97,7 +97,7 @@ async function publishFolder(folderPath, onProgress) {
   const mainImageRaw = await readText(folderPath + '/.main-image.txt');
   const mainImageName = (mainImageRaw || '').trim() || null;
 
-  const sortContent = await readText(folderPath + '/.sort.txt');
+  const sortContent = await readText(folderPath + '/sort.txt');
   const sortOrder = sortContent
     ? sortContent.split('\n').map((s) => s.trim()).filter(Boolean)
     : null;

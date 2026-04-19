@@ -183,10 +183,10 @@ async function writeMainImage(folderPath, name) {
   });
 }
 
-// FIX501.3.3.2.1: read .sort.txt to honor the persisted order
+// FIX501.3.3.2.1: read sort.txt to honor the persisted order
 async function readSortFile(folderPath) {
   try {
-    const res = await fetch(`${SERVER_URL}/file/read?path=${encodeURIComponent(folderPath + '/.sort.txt')}`);
+    const res = await fetch(`${SERVER_URL}/file/read?path=${encodeURIComponent(folderPath + '/sort.txt')}`);
     if (!res.ok) return null;
     const data = await res.json();
     return (data.content || '').split('\n').filter(Boolean);
@@ -213,7 +213,7 @@ export default function FolderPanel({ folderPath, refreshKey, mainImageIconHeigh
     setProperties(await readProperties(folderPath));
     const entries = await fetchDirList(folderPath);
     let imgNames = entries.filter(e => e.type === 'file' && isImageFile(e.name)).map(e => e.name);
-    // FIX501.3.3.2.1: apply the persisted sort order (.sort.txt) if present
+    // FIX501.3.3.2.1: apply the persisted sort order (sort.txt) if present
     const sortOrder = await readSortFile(folderPath);
     if (sortOrder && sortOrder.length > 0) {
       const orderMap = new Map(sortOrder.map((n, i) => [n, i]));

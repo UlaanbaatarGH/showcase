@@ -17,7 +17,7 @@ export function parseGsheetUrl(url) {
   };
 }
 
-async function fetchCsv(sheetId, params) {
+async function fetchGvizCsv(sheetId, params) {
   const base = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`;
   const qs = new URLSearchParams({ tqx: 'out:csv', ...params });
   const r = await fetch(`${base}?${qs}`);
@@ -29,8 +29,20 @@ async function fetchCsv(sheetId, params) {
   return text;
 }
 
+async function fetchExportCsv(sheetId, gid) {
+  // /export?format=csv preserves every cell regardless of the column's
+  // inferred type — unlike gviz, which drops non-numeric text from a column
+  // Google has typed as 'number' (e.g. leading-zero-padded '099', '100').
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${encodeURIComponent(gid)}`;
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const text = await r.text();
+  if (text.trim().startsWith('<')) return null;
+  return text;
+}
+
 export async function fetchMainCsv(sheetId, gid) {
-  const text = await fetchCsv(sheetId, { gid });
+  const text = await fetchExportCsv(sheetId, gid);
   if (text == null) {
     throw new Error(
       'Could not fetch the main sheet. Make sure the sheet is shared as ' +
@@ -41,15 +53,17 @@ export async function fetchMainCsv(sheetId, gid) {
   return text;
 }
 
-export async function fetchSetupCsv(sheetId, mainCsv) {
-  // Google's gviz endpoint silently falls back to the default (first) sheet
-  // when the named tab doesn't exist and returns its CSV with HTTP 200. To
-  // tell "no setup tab" apart from "setup tab happens to be the first tab",
-  // compare with the main CSV: identical → no setup tab exists.
-  const text = await fetchCsv(sheetId, { sheet: 'setup' });
-  if (text == null) return null;
-  if (mainCsv != null && text.trim() === mainCsv.trim()) return null;
-  return text;
+export async function fetchSetupCsv(sheetId, gid) {
+  // The setup tab is optional. gviz is case-sensitive on sheet names and
+  // silently falls back to the default sheet when the requested name
+  // doesn't exist. To distinguish "no setup tab" from "setup tab happens to
+  // be the default one", fetch the main sheet via the same gviz endpoint
+  // and compare: identical output ⇒ fallback ⇒ no setup tab exists.
+  const setupText = await fetchGvizCsv(sheetId, { sheet: 'setup' });
+  if (setupText == null) return null;
+  const mainViaGviz = await fetchGvizCsv(sheetId, { gid });
+  if (mainViaGviz != null && setupText.trim() === mainViaGviz.trim()) return null;
+  return setupText;
 }
 
 // ---------- CSV parser (RFC 4180-ish) ----------
@@ -303,6 +317,6 @@ export async function planFromUrl(url, project) {
     return { errors: ['The URL does not look like a Google Sheets link.'] };
   }
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
-  const setupCsv = await fetchSetupCsv(parsed.sheetId, mainCsv);
+  const setupCsv = await fetchSetupCsv(parsed.sheetId, parsed.gid);
   return buildPlan({ mainCsv, setupCsv, project });
 }

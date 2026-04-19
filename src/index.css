@@ -407,6 +407,11 @@ body {
 .sc-td-name {
   font-weight: 600;
 }
+.sc-td-img {
+  text-align: center;
+  font-weight: 600;
+  width: 3rem;
+}
 
 /* Image viewer */
 .sc-viewer {

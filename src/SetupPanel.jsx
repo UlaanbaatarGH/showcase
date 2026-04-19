@@ -9,11 +9,21 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   const [fileExplorer, setFileExplorer] = useState({
     main_img_icon_height: initialViewSetup?.file_explorer?.main_img_icon_height ?? 100,
   });
-  const [showcase, setShowcase] = useState(() => ({
-    folder_column_name: initialViewSetup?.showcase?.folder_column_name ?? null,
-    roman_year_converter: !!initialViewSetup?.showcase?.roman_year_converter,
-    columns: (initialViewSetup?.showcase?.columns ?? []).map((c) => ({ ...c })),
-  }));
+  const [showcase, setShowcase] = useState(() => {
+    // FIX500.2.3.2.1.2.1.3: '#' and 'Img' are default items in the list —
+    // always present, never removable. Inject them if missing from the
+    // saved setup.
+    const saved = (initialViewSetup?.showcase?.columns ?? []).map((c) => ({ ...c }));
+    const columns = [];
+    if (!saved.some((c) => c.type === 'folder_name')) columns.push({ type: 'folder_name' });
+    if (!saved.some((c) => c.type === 'img')) columns.push({ type: 'img' });
+    columns.push(...saved);
+    return {
+      folder_column_name: initialViewSetup?.showcase?.folder_column_name ?? null,
+      roman_year_converter: !!initialViewSetup?.showcase?.roman_year_converter,
+      columns,
+    };
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
@@ -73,7 +83,8 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     return col.type;
   };
   const displayedColumnName = (col) => {
-    if (col.type === 'folder_name') return 'Item name';
+    if (col.type === 'folder_name') return '#';
+    if (col.type === 'img') return 'Img';
     if (col.type === 'main_image_icon') return 'Main image icon';
     if (col.type === 'property') {
       const p = properties.find((pp) => pp.id === col.property_id);
@@ -87,7 +98,9 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     if (!used.has('main_image_icon'))
       options.push({ key: 'main_image_icon', label: 'Main image icon', create: () => ({ type: 'main_image_icon' }) });
     if (!used.has('folder_name'))
-      options.push({ key: 'folder_name', label: 'Item name', create: () => ({ type: 'folder_name' }) });
+      options.push({ key: 'folder_name', label: '#', create: () => ({ type: 'folder_name' }) });
+    if (!used.has('img'))
+      options.push({ key: 'img', label: 'Img', create: () => ({ type: 'img' }) });
     for (const p of properties) {
       if ((p.label ?? '').trim() && !used.has(`prop_${p.id}`)) {
         options.push({
@@ -103,7 +116,8 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     setShowcase({ ...showcase, columns: [...showcase.columns, option.create()] });
   };
   const removeColumn = (i) => {
-    if (showcase.columns[i].type === 'folder_name') return;
+    const t = showcase.columns[i].type;
+    if (t === 'folder_name' || t === 'img') return;
     setShowcase({ ...showcase, columns: showcase.columns.filter((_, idx) => idx !== i) });
   };
   const moveColumnBy = (i, dir) => {
@@ -240,8 +254,14 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                         <button
                           type="button"
                           onClick={() => removeColumn(i)}
-                          disabled={col.type === 'folder_name'}
-                          title={col.type === 'folder_name' ? "'Item name' cannot be removed" : 'Remove'}
+                          disabled={col.type === 'folder_name' || col.type === 'img'}
+                          title={
+                            col.type === 'folder_name'
+                              ? "'#' cannot be removed"
+                              : col.type === 'img'
+                              ? "'Img' cannot be removed"
+                              : 'Remove'
+                          }
                           aria-label="Remove"
                         >
                           ✕

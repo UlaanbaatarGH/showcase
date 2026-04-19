@@ -322,12 +322,26 @@ body {
 /* Folders list — table format (FIX510.2.1) */
 .sc-list-panel {
   overflow: auto;
-  border-right: 1px solid #333;
 }
+.sc-splitter {
+  cursor: col-resize;
+  background: var(--color-border);
+  transition: background 0.15s;
+}
+.sc-splitter:hover { background: var(--color-accent); }
 .sc-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  /* FIX510 column-width behavior: columns with an explicit width hint get
+     that width; the remaining panel width is distributed proportionally
+     among columns without a hint. */
+  table-layout: fixed;
+}
+.sc-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sc-table thead th {
   position: sticky;

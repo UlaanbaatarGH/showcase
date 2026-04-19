@@ -86,7 +86,38 @@ export default function ShowcaseView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeGroupPropId, setActiveGroupPropId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
+  const [listWidth, setListWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('sc-list-width'));
+    return Number.isFinite(saved) && saved > 200 ? saved : 640;
+  });
   const menuRef = useRef(null);
+  const mainRef = useRef(null);
+
+  // Draggable vertical splitter between the item table and the image viewer.
+  const onSplitterDown = (e) => {
+    e.preventDefault();
+    const mainRect = mainRef.current?.getBoundingClientRect();
+    const groupsOffset = activeGroup && mainRect ? 220 : 0;
+    const startX = e.clientX;
+    const startW = listWidth;
+    const minList = 240;
+    const minViewer = 240;
+    const move = (ev) => {
+      const dx = ev.clientX - startX;
+      const maxList = (mainRect?.width ?? 1200) - groupsOffset - minViewer - 6;
+      const next = Math.max(minList, Math.min(maxList, startW + dx));
+      setListWidth(next);
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      // Persist between sessions.
+      try { localStorage.setItem('sc-list-width', String(listWidth)); }
+      catch { /* ignore */ }
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
 
   const reloadShowcase = () =>
     getShowcase()
@@ -475,11 +506,12 @@ export default function ShowcaseView() {
       </div>
       <div
         className="sc-main"
-        style={
-          activeGroup
-            ? { gridTemplateColumns: '220px minmax(400px, 1fr) 1fr' }
-            : undefined
-        }
+        ref={mainRef}
+        style={{
+          gridTemplateColumns: activeGroup
+            ? `220px ${listWidth}px 6px 1fr`
+            : `${listWidth}px 6px 1fr`,
+        }}
       >
         {/* FIX372.6.2.0: the group dropdown is at the top-left of the side
             panel when one is shown, otherwise at the top-left of the item
@@ -535,6 +567,13 @@ export default function ShowcaseView() {
             </tbody>
           </table>
         </section>
+        <div
+          className="sc-splitter"
+          onMouseDown={onSplitterDown}
+          role="separator"
+          aria-orientation="vertical"
+          title="Drag to resize"
+        />
         <section className="sc-viewer">
           {currentImage ? (
             <>

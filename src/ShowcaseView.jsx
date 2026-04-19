@@ -307,9 +307,6 @@ export default function ShowcaseView() {
             )}
           </div>
         )}
-      </div>
-      <header className="sc-header">
-        <h1>{data.project?.name ?? 'Showcase'}</h1>
         <button
           type="button"
           className="sc-setup-btn"
@@ -319,6 +316,9 @@ export default function ShowcaseView() {
         >
           ⚙
         </button>
+      </div>
+      <header className="sc-header">
+        <h1>{data.project?.name ?? 'Showcase'}</h1>
       </header>
       <div className="sc-main">
         <section className="sc-list-panel">

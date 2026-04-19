@@ -172,15 +172,18 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   }
 
   // Setup sheet parse (optional).
+  // FIX370.1.2.1: each non-blank row is (name, id, main). FIX370.1.2.4: any
+  // non-blank value in col 3 marks this row's property as the "Main" one
+  // (for display in the recap only — doesn't affect the import itself).
   let setupEntries = null;
   if (setupCsv != null) {
     const setupRows = parseCsv(setupCsv).filter((r) => !isRowBlank(r));
     setupEntries = [];
-    // No header row assumed — each non-blank row is (name, id).
     for (let i = 0; i < setupRows.length; i++) {
       const row = setupRows[i];
       const label = (row[0] ?? '').trim();
       const idStr = (row[1] ?? '').trim();
+      const mainStr = (row[2] ?? '').trim();
       if (!label) continue;
       // '#' is the folder-name column, not a property — skip if it shows up
       // in the setup sheet (e.g. copy-paste of main-sheet headers).
@@ -190,7 +193,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         errors.push(`FIX370 setup sheet: row ${i + 1} has a non-integer id "${idStr}".`);
         continue;
       }
-      setupEntries.push({ label, id });
+      setupEntries.push({ label, id, main: mainStr !== '' });
     }
   }
 
@@ -272,18 +275,36 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
 
   if (errors.length > 0) return { errors };
 
+  // FIX370.3.2.2.2.3/4: find the "Main" property in the setup sheet (if any)
+  // so the recap can postfix each folder with its value under that property.
+  const mainEntry = setupEntries?.find((e) => e.main) ?? null;
+  const mainLabel = mainEntry?.label ?? null;
+  const mainColIdx = mainLabel
+    ? (propHeaders.find((c) => c.label === mainLabel)?.idx ?? null)
+    : null;
+
   // Build new folders + updates.
   const projectFolderNames = new Set((project.folders || []).map((f) => f.name));
-  const newFolders = [];
-  const updatedFolders = [];
+  const newFolderNames = [];
+  const newFolderDisplays = [];
+  const updatedFolderDisplays = [];
   const updates = [];
 
   dataRows.forEach((row, i) => {
     const name = rowFolderNames[i];
     if (!name) return;
     const isNew = !projectFolderNames.has(name);
-    if (isNew) newFolders.push(name);
-    else updatedFolders.push(name);
+    let display = name;
+    if (mainColIdx != null) {
+      const v = (row[mainColIdx] ?? '').trim();
+      if (v) display = `${name} — ${v}`;
+    }
+    if (isNew) {
+      newFolderNames.push(name);
+      newFolderDisplays.push(display);
+    } else {
+      updatedFolderDisplays.push(display);
+    }
     for (const col of propHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;
       const value = (row[col.idx] ?? '').trim();
@@ -291,7 +312,6 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     }
   });
 
-  const renameByNew = new Map(renames.map((r) => [r.label, propById.get(r.id)?.label || '?']));
   const recap = {
     newProperties,
     renames: renames.map((r) => ({
@@ -299,16 +319,14 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       from: propById.get(r.id)?.label || '?',
       to: r.label,
     })),
-    newFolders,
-    updatedFolders,
+    newFolders: newFolderDisplays,
+    updatedFolders: updatedFolderDisplays,
   };
-  // renameByNew not used below; kept for potential diagnostic logging.
-  void renameByNew;
 
   const plan = {
     new_properties: newProperties,
     renames: renames.map((r) => ({ id: r.id, label: r.label })),
-    new_folders: newFolders,
+    new_folders: newFolderNames,
     updates,
   };
 

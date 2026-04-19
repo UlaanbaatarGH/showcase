@@ -345,6 +345,7 @@ export default function ShowcaseView() {
   return (
     <div className="sc-layout">
       <div className="sc-topbar">
+        <h1 className="sc-project-title">{data.project?.name ?? 'Showcase'}</h1>
         {profile && (
           <div className="sc-menu" ref={menuRef}>
             <button
@@ -390,9 +391,6 @@ export default function ShowcaseView() {
           ⚙
         </button>
       </div>
-      <header className="sc-header">
-        <h1>{data.project?.name ?? 'Showcase'}</h1>
-      </header>
       <div
         className="sc-main"
         style={

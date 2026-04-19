@@ -141,8 +141,8 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
               title="Renamed properties"
               items={recap.renames.map((r) => `${r.from} → ${r.to}`)}
             />
-            <RecapList title="New folders" items={recap.newFolders} />
-            <RecapList title="Updated folders" items={recap.updatedFolders} />
+            <RecapList title="New items" items={recap.newFolders} />
+            <RecapList title="Updated items" items={recap.updatedFolders} />
             {recap.newProperties.length === 0 &&
               recap.renames.length === 0 &&
               recap.newFolders.length === 0 &&
@@ -176,8 +176,8 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
             <ul className="gsheet-result">
               <li>New properties: {result.new_properties_count ?? 0}</li>
               <li>Renames: {result.renames_count ?? 0}</li>
-              <li>New folders: {result.new_folders_count ?? 0}</li>
-              <li>Updated folders: {result.updated_folders_count ?? 0}</li>
+              <li>New items: {result.new_folders_count ?? 0}</li>
+              <li>Updated items: {result.updated_folders_count ?? 0}</li>
             </ul>
             <div className="gsheet-actions">
               <button

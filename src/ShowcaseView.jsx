@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import SetupPanel from './SetupPanel.jsx';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
+import GroupingPanel from './grouping/GroupingPanel.jsx';
+import { parseSegment, bucketsWithValues, bucketFor } from './grouping/segments.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages } from './data/backend.js';
 
@@ -65,8 +67,11 @@ export default function ShowcaseView() {
   const [sortKeys, setSortKeys] = useState([]);
   const [filters, setFilters] = useState({});
   const [showSetup, setShowSetup] = useState(false);
+  const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeGroupPropId, setActiveGroupPropId] = useState(null);
+  const [activeBucketKey, setActiveBucketKey] = useState(null);
   const menuRef = useRef(null);
 
   const reloadShowcase = () =>
@@ -113,12 +118,49 @@ export default function ShowcaseView() {
   const viewSetup = data?.view_setup ?? {};
   const showcaseCfg = viewSetup.showcase ?? {};
   const configuredColumns = showcaseCfg.columns ?? [];
-  const folderColumnName = showcaseCfg.folder_column_name || 'Folder name';
+  const folderColumnName = showcaseCfg.folder_column_name || 'Item name';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
+  const groups = showcaseCfg.groups ?? [];
+
+  // FIX372.6.1.1: apply default group on load / whenever view_setup changes,
+  // but only if the current selection is no longer valid.
+  useEffect(() => {
+    if (!groups.length) {
+      if (activeGroupPropId != null) setActiveGroupPropId(null);
+      if (activeBucketKey != null) setActiveBucketKey(null);
+      return;
+    }
+    const stillValid = groups.some((g) => g.property_id === activeGroupPropId);
+    if (!stillValid) {
+      const dflt = groups.find((g) => g.default);
+      setActiveGroupPropId(dflt ? dflt.property_id : null);
+      setActiveBucketKey(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  const activeGroup = groups.find((g) => g.property_id === activeGroupPropId) || null;
+  const activeParsed = activeGroup ? parseSegment(activeGroup.segment) : null;
+
+  const bucketList = useMemo(() => {
+    if (!activeGroup || !activeParsed) return [];
+    const values = (data?.folders ?? []).map(
+      (f) => f.properties?.[String(activeGroup.property_id)],
+    );
+    return bucketsWithValues(values, activeParsed);
+  }, [activeGroup, activeParsed, data]);
 
   const displayedFolders = useMemo(() => {
     if (!data) return [];
     let rows = data.folders;
+    // FIX372.6.2.3: apply the active grouping bucket filter.
+    if (activeGroup && activeBucketKey && activeParsed) {
+      rows = rows.filter((f) => {
+        const v = f.properties?.[String(activeGroup.property_id)];
+        const b = bucketFor(v, activeParsed);
+        return b != null && b.key === activeBucketKey;
+      });
+    }
     const activeFilters = Object.entries(filters).filter(([, v]) => v && v.trim());
     if (activeFilters.length > 0) {
       const colByKey = new Map(configuredColumns.map((c) => [columnKey(c), c]));
@@ -145,7 +187,7 @@ export default function ShowcaseView() {
       });
     }
     return rows;
-  }, [data, filters, sortKeys, configuredColumns]);
+  }, [data, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed]);
 
   const handleHeaderClick = (key, ctrl) => {
     setSortKeys((keys) => {
@@ -182,6 +224,15 @@ export default function ShowcaseView() {
     setSortKeys([]);
     setFilters({});
     setShowSetup(false);
+  };
+
+  const handleSaveGrouping = (result) => {
+    setData((prev) => ({
+      ...prev,
+      properties: result.properties ?? prev.properties,
+      view_setup: result.view_setup ?? prev.view_setup,
+    }));
+    setShowGrouping(false);
   };
 
   if (error) return <div className="sc-error">Error: {error}</div>;
@@ -307,6 +358,15 @@ export default function ShowcaseView() {
             )}
           </div>
         )}
+        {profile && (
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            onClick={() => setShowGrouping(true)}
+          >
+            Grouping
+          </button>
+        )}
         <button
           type="button"
           className="sc-setup-btn"
@@ -320,8 +380,62 @@ export default function ShowcaseView() {
       <header className="sc-header">
         <h1>{data.project?.name ?? 'Showcase'}</h1>
       </header>
-      <div className="sc-main">
+      <div
+        className="sc-main"
+        style={
+          activeGroup
+            ? { gridTemplateColumns: '180px minmax(400px, 1fr) 1fr' }
+            : undefined
+        }
+      >
+        {/* FIX372.6.2: side panel appears only when a group is selected. */}
+        {activeGroup && (
+          <section className="sc-groups-panel">
+            <ul className="sc-buckets">
+              {bucketList.map((b) => (
+                <li
+                  key={b.key}
+                  className={b.key === activeBucketKey ? 'selected' : ''}
+                  onClick={() =>
+                    setActiveBucketKey(b.key === activeBucketKey ? null : b.key)
+                  }
+                >
+                  {b.label}
+                </li>
+              ))}
+              {bucketList.length === 0 && (
+                <li className="sc-buckets-empty">(no matching values)</li>
+              )}
+            </ul>
+          </section>
+        )}
         <section className="sc-list-panel">
+          {/* FIX372.6.1: group selector at the top-left of the item table. */}
+          {groups.length > 0 && (
+            <div className="sc-group-selector">
+              <label>
+                Group by:&nbsp;
+                <select
+                  value={activeGroupPropId ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setActiveGroupPropId(v === '' ? null : Number(v));
+                    setActiveBucketKey(null);
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {groups.map((g) => {
+                    const p = properties.find((pp) => pp.id === g.property_id);
+                    return (
+                      <option key={g.property_id} value={g.property_id}>
+                        {p ? p.label : `Property ${g.property_id}`}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            </div>
+          )}
           <table className="sc-table">
             <thead>
               <tr>{configuredColumns.map(renderHeaderCell)}</tr>
@@ -339,7 +453,7 @@ export default function ShowcaseView() {
               {displayedFolders.length === 0 && (
                 <tr>
                   <td colSpan={configuredColumns.length || 1} className="sc-empty">
-                    No folders match the current filter.
+                    No items match the current filter.
                   </td>
                 </tr>
               )}
@@ -387,7 +501,7 @@ export default function ShowcaseView() {
               </div>
             </>
           ) : (
-            <div className="sc-viewer-empty">No images in this folder.</div>
+            <div className="sc-viewer-empty">No images in this item.</div>
           )}
         </section>
       </div>
@@ -409,6 +523,14 @@ export default function ShowcaseView() {
           }}
           onClose={() => setImportOpen(false)}
           onDone={reloadShowcase}
+        />
+      )}
+      {showGrouping && (
+        <GroupingPanel
+          properties={properties}
+          viewSetup={viewSetup}
+          onCancel={() => setShowGrouping(false)}
+          onSave={handleSaveGrouping}
         />
       )}
     </div>

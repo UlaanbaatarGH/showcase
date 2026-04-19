@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import SignInPanel from './SignInPanel.jsx';
+import { listProjects } from './data/backend.js';
 
 // FIX400: Home page.
 // FIX400.2.1 list of projects with name and cover image
@@ -14,11 +15,9 @@ export default function HomeView({ onOpenProject }) {
   const [signInOpen, setSignInOpen] = useState(false);
 
   const loadProjects = useCallback(() => {
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch('/api/projects', { headers })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    listProjects()
       .then(setProjects)
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(e.message || String(e)));
   }, [token]);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);

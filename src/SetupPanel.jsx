@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { saveSetup } from './data/backend.js';
 
 export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
   const [tab, setTab] = useState('file_explorer');
@@ -21,21 +22,15 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     setSaving(true);
     setError(null);
     try {
-      const r = await fetch('/api/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          properties: properties
-            .filter((p) => (p.label ?? '').trim())
-            .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
-          view_setup: {
-            file_explorer: fileExplorer,
-            showcase,
-          },
-        }),
+      const data = await saveSetup({
+        properties: properties
+          .filter((p) => (p.label ?? '').trim())
+          .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
+        view_setup: {
+          file_explorer: fileExplorer,
+          showcase,
+        },
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || `Save failed (${r.status})`);
       onSave(data);
     } catch (e) {
       setError(String(e.message || e));

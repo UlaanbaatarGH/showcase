@@ -1,0 +1,52 @@
+// Cloud implementation of the backend interface. Talks to the FastAPI service
+// on Render through the Vercel proxy (prod) or the Vite dev proxy (local dev).
+
+let authToken = null;
+
+export function setAuthToken(t) {
+  authToken = t || null;
+}
+
+async function call(url, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  let { body } = opts;
+  if (body != null && typeof body !== 'string') {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(body);
+  }
+  const r = await fetch(url, { ...opts, headers, body });
+  const text = await r.text();
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = text; }
+  }
+  if (!r.ok) {
+    const detail =
+      (data && typeof data === 'object' && (data.detail || data.error)) ||
+      (typeof data === 'string' && data) ||
+      `HTTP ${r.status}`;
+    const err = new Error(String(detail).slice(0, 200));
+    err.status = r.status;
+    throw err;
+  }
+  return data;
+}
+
+const notYet = (name) => () => {
+  throw new Error(`${name}: not implemented yet on the cloud backend`);
+};
+
+export default {
+  setAuthToken,
+  // Reads
+  listProjects: () => call('/api/projects'),
+  getShowcase: () => call('/api/showcase'),
+  getFolderImages: (folderId) => call(`/api/folders/${folderId}/images`),
+  // Writes
+  saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
+  // Planned writes — backend routes will be added when FIX entries land.
+  createFolder: notYet('createFolder'),
+  renameFolder: notYet('renameFolder'),
+  setFolderProperty: notYet('setFolderProperty'),
+};

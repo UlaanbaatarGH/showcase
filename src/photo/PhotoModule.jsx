@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ImageEditor from './ImageEditor.jsx';
 import FolderPanel from './FolderPanel.jsx';
-import ShowcaseView from './ShowcaseView.jsx';
+import ShowcaseView from '../ShowcaseView.jsx';
 import SlaveFileExplorer from './SlaveFileExplorer.jsx';
 import './PhotoModule.css';
 
@@ -1270,19 +1270,13 @@ export default function PhotoModule({ onClose }) {
         </div>
       )}
 
-      {/* FIX502: Showcase View */}
+      {/* FIX502: Showcase View — now the single shared component in src/ShowcaseView.jsx.
+          Reads through the generic backend interface (Cloud impl in prod, Local impl in dev
+          which currently delegates to Cloud). Local-filesystem-backed data for the admin will
+          come when the Local Agent gains matching endpoints. */}
       {currentView === 'showcase' && (
         <div className="photo-view-showcase" data-yagu-id="view-showcase">
-          <ShowcaseView
-            rootFolder={rootFolder}
-            columns={setup.showcaseColumns || [{ name: 'Folder name', widthSample: '', wrap: false }]}
-            folderColumnName={setup.folderColumnName || ''}
-            romanYearConverter={!!setup.romanYearConverter}
-            mainImageIconHeight={setup.mainImageIconHeight || 80}
-            refreshKey={folderPanelRefresh}
-            selectedPath={showcaseSelectedPath}
-            onSelectPath={setShowcaseSelectedPath}
-          />
+          <ShowcaseView />
         </div>
       )}
 

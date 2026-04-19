@@ -191,6 +191,26 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         errors.push(`FIX370.2.2.2: setup sheet references unknown property id ${e.id}.`);
       }
     }
+    // 2.2.3 — a setup entry with no id means "new property"; its name must
+    // not collide with an existing property in the project.
+    for (const e of setupEntries) {
+      if (e.id == null && propByLabel.has(e.label)) {
+        errors.push(
+          `FIX370.2.2.3: property "${e.label}" cannot be declared as new — it already exists.`,
+        );
+      }
+    }
+    // 2.2.4 — a setup entry with an id must not clash with an existing
+    // property that has the same name but a different id.
+    for (const e of setupEntries) {
+      if (e.id == null) continue;
+      const byName = propByLabel.get(e.label);
+      if (byName && byName.id !== e.id) {
+        errors.push(
+          `FIX370.2.2.4: property "${e.label}" already exists with id ${byName.id}, not id ${e.id}.`,
+        );
+      }
+    }
     // 2.2.1 — each main-sheet property header must appear exactly once in setup.
     const setupLabels = setupEntries.map((e) => e.label);
     const countBy = (arr) => {

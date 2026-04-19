@@ -11,10 +11,12 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.detail || `Backend ${r.status}`);
-    res.setHeader('Cache-Control', 's-maxage=0');
-    res.json(data);
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch { data = { detail: (text || `Backend ${r.status}`).slice(0, 500) }; }
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(r.status).json(data);
   } catch (e) {
     res.setHeader('Cache-Control', 's-maxage=0');
     res.status(502).json({ error: e.message });

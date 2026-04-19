@@ -241,6 +241,33 @@ export default function ShowcaseView() {
 
   const currentImage = images[currentImageIdx];
 
+  const groupSelector =
+    groups.length > 0 ? (
+      <div className="sc-group-selector">
+        <label>
+          Group by:&nbsp;
+          <select
+            value={activeGroupPropId ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              setActiveGroupPropId(v === '' ? null : Number(v));
+              setActiveBucketKey(null);
+            }}
+          >
+            <option value="">(none)</option>
+            {groups.map((g) => {
+              const p = properties.find((pp) => pp.id === g.property_id);
+              return (
+                <option key={g.property_id} value={g.property_id}>
+                  {p ? p.label : `Property ${g.property_id}`}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+      </div>
+    ) : null;
+
   const renderHeaderCell = (col) => {
     if (col.type === 'main_image_icon') {
       return (
@@ -407,13 +434,17 @@ export default function ShowcaseView() {
         className="sc-main"
         style={
           activeGroup
-            ? { gridTemplateColumns: '180px minmax(400px, 1fr) 1fr' }
+            ? { gridTemplateColumns: '220px minmax(400px, 1fr) 1fr' }
             : undefined
         }
       >
-        {/* FIX372.6.2: side panel appears only when a group is selected. */}
+        {/* FIX372.6.2.0: the group dropdown is at the top-left of the side
+            panel when one is shown, otherwise at the top-left of the item
+            table. Rendered once via groupSelector and placed in the right
+            parent below. */}
         {activeGroup && (
           <section className="sc-groups-panel">
+            {groupSelector}
             <ul className="sc-buckets">
               {bucketList.map((b) => (
                 <li
@@ -433,32 +464,7 @@ export default function ShowcaseView() {
           </section>
         )}
         <section className="sc-list-panel">
-          {/* FIX372.6.1: group selector at the top-left of the item table. */}
-          {groups.length > 0 && (
-            <div className="sc-group-selector">
-              <label>
-                Group by:&nbsp;
-                <select
-                  value={activeGroupPropId ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setActiveGroupPropId(v === '' ? null : Number(v));
-                    setActiveBucketKey(null);
-                  }}
-                >
-                  <option value="">(none)</option>
-                  {groups.map((g) => {
-                    const p = properties.find((pp) => pp.id === g.property_id);
-                    return (
-                      <option key={g.property_id} value={g.property_id}>
-                        {p ? p.label : `Property ${g.property_id}`}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            </div>
-          )}
+          {groups.length > 0 && !activeGroup && groupSelector}
           <table className="sc-table">
             <thead>
               <tr>{configuredColumns.map(renderHeaderCell)}</tr>

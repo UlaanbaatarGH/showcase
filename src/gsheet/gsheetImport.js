@@ -41,9 +41,15 @@ export async function fetchMainCsv(sheetId, gid) {
   return text;
 }
 
-export async function fetchSetupCsv(sheetId) {
-  // Returns null if the tab doesn't exist — the 'setup' tab is optional.
-  return fetchCsv(sheetId, { sheet: 'setup' });
+export async function fetchSetupCsv(sheetId, mainCsv) {
+  // Google's gviz endpoint silently falls back to the default (first) sheet
+  // when the named tab doesn't exist and returns its CSV with HTTP 200. To
+  // tell "no setup tab" apart from "setup tab happens to be the first tab",
+  // compare with the main CSV: identical → no setup tab exists.
+  const text = await fetchCsv(sheetId, { sheet: 'setup' });
+  if (text == null) return null;
+  if (mainCsv != null && text.trim() === mainCsv.trim()) return null;
+  return text;
 }
 
 // ---------- CSV parser (RFC 4180-ish) ----------
@@ -277,6 +283,6 @@ export async function planFromUrl(url, project) {
     return { errors: ['The URL does not look like a Google Sheets link.'] };
   }
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
-  const setupCsv = await fetchSetupCsv(parsed.sheetId);
+  const setupCsv = await fetchSetupCsv(parsed.sheetId, mainCsv);
   return buildPlan({ mainCsv, setupCsv, project });
 }

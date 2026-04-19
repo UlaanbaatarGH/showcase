@@ -153,7 +153,7 @@ export default function ShowcaseView() {
   const displayedFolders = useMemo(() => {
     if (!data) return [];
     let rows = data.folders;
-    // FIX372.6.2.3: apply the active grouping bucket filter.
+    // FIX372.6.2.11: apply the active grouping bucket filter.
     if (activeGroup && activeBucketKey && activeParsed) {
       rows = rows.filter((f) => {
         const v = f.properties?.[String(activeGroup.property_id)];
@@ -400,7 +400,7 @@ export default function ShowcaseView() {
                     setActiveBucketKey(b.key === activeBucketKey ? null : b.key)
                   }
                 >
-                  {b.label}
+                  {b.label} <span className="sc-bucket-count">({b.count})</span>
                 </li>
               ))}
               {bucketList.length === 0 && (

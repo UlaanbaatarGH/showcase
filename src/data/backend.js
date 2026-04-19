@@ -16,6 +16,9 @@ export const getFolderImages = impl.getFolderImages;
 // Writes
 export const saveSetup = impl.saveSetup;
 export const importGsheet = impl.importGsheet;
+export const getExistingImages = impl.getExistingImages;
+export const signUpload = impl.signUpload;
+export const confirmImage = impl.confirmImage;
 export const createFolder = impl.createFolder;
 export const renameFolder = impl.renameFolder;
 export const setFolderProperty = impl.setFolderProperty;

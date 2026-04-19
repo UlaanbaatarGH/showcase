@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import HomeView from './HomeView.jsx';
 import ShowcaseView from './ShowcaseView.jsx';
+import { AuthProvider } from './AuthContext.jsx';
 
 const PhotoModule = lazy(() => import('./photo/PhotoModule.jsx'));
 
@@ -17,7 +18,7 @@ function getViewFromHash() {
   return getDefaultView();
 }
 
-export default function App() {
+function AppBody() {
   const [view, setView] = useState(getViewFromHash);
 
   useEffect(() => {
@@ -42,7 +43,17 @@ export default function App() {
   }
 
   if (view === 'home') {
-    return <HomeView onEnter={() => { window.location.hash = '#showcase'; }} />;
+    // FIX400.3.1: click a project opens it. Only one project supported end-to-end
+    // for now, so we just navigate to #showcase.
+    return <HomeView onOpenProject={() => { window.location.hash = '#showcase'; }} />;
   }
   return <ShowcaseView />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppBody />
+    </AuthProvider>
+  );
 }

@@ -12,7 +12,7 @@ import './PhotoModule.css';
 
 const SERVER_URL = 'http://localhost:3001';
 const LS_KEY = 'photo-module-root';
-const SORT_FILE = '.sort.txt';
+const SORT_FILE = 'sort.txt';
 const SETUP_FILE = '.photo-setup.json'; // FIX500.2.1.3.10.1
 const PROPERTIES_FILE = 'properties.txt'; // FIX500.20 / FIX501.3.3.5.2.2
 const MAIN_IMAGE_FILE = '.main-image.txt'; // FIX501.3.5.3 / FIX501.30.3.3
@@ -1051,7 +1051,7 @@ export default function PhotoModule({ onClose }) {
         try { await agentRename(p + '.meta.json', dst + '.meta.json'); } catch { /* no meta file */ }
       }
     }
-    // FIX501.3.3.2.3: reorder — persist the order in .sort.txt of destFolder
+    // FIX501.3.3.2.3: reorder — persist the order in sort.txt of destFolder
     if (beforeName) {
       const entries = await fetchDirList(destFolder);
       const existingOrder = await readSortFile(destFolder);

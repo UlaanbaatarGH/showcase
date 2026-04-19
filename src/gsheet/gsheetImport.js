@@ -54,13 +54,18 @@ export async function fetchMainCsv(sheetId, gid) {
 }
 
 export async function fetchSetupCsv(sheetId, gid) {
-  // The setup tab is optional. gviz is case-sensitive on sheet names and
-  // silently falls back to the default sheet when the requested name
-  // doesn't exist. To distinguish "no setup tab" from "setup tab happens to
-  // be the default one", fetch the main sheet via the same gviz endpoint
-  // and compare: identical output ⇒ fallback ⇒ no setup tab exists.
+  // The setup tab is optional. gviz silently falls back to some default
+  // content when the requested sheet name doesn't exist — it may return the
+  // main sheet, or (more recently) a one-column list of the main sheet's
+  // column names. A real setup tab per spec has (name, id) pairs — so rows
+  // with at least 2 cells. We reject the fallbacks using two checks:
+  //  (a) no row has ≥2 cells ⇒ not a setup sheet;
+  //  (b) exact match with the main sheet ⇒ fallback.
   const setupText = await fetchGvizCsv(sheetId, { sheet: 'setup' });
   if (setupText == null) return null;
+  const rows = parseCsv(setupText);
+  const hasTwoColRow = rows.some((r) => r.length >= 2);
+  if (!hasTwoColRow) return null;
   const mainViaGviz = await fetchGvizCsv(sheetId, { gid });
   if (mainViaGviz != null && setupText.trim() === mainViaGviz.trim()) return null;
   return setupText;

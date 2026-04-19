@@ -79,13 +79,15 @@ export function bucketFor(value, parsed) {
 }
 
 // Given all folder values for a single property and a parsed segment, return
-// the list of buckets that have at least one matching value, sorted.
+// the list of buckets that have at least one matching value, with count.
 export function bucketsWithValues(folderValues, parsed) {
   const byKey = new Map();
   for (const v of folderValues) {
     const b = bucketFor(v, parsed);
     if (!b) continue;
-    if (!byKey.has(b.key)) byKey.set(b.key, b);
+    const existing = byKey.get(b.key);
+    if (existing) existing.count += 1;
+    else byKey.set(b.key, { ...b, count: 1 });
   }
   const list = Array.from(byKey.values());
   list.sort((a, b) => {

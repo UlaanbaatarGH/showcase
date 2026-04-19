@@ -819,6 +819,7 @@ body {
   padding: 0.4rem 0.75rem;
 }
 .sc-buckets-empty:hover { background: transparent !important; }
+.sc-bucket-count { color: var(--color-text-muted); }
 .sc-group-selector {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--color-border);

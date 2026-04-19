@@ -438,7 +438,7 @@ export default function ShowcaseView() {
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); setImportOpen(true); }}
                   >
-                    Google sheet
+                    Properties (Google sheet)
                   </button>
                 </li>
                 <li>
@@ -447,7 +447,7 @@ export default function ShowcaseView() {
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
                   >
-                    Import images
+                    Images (hard disk)
                   </button>
                 </li>
               </ul>

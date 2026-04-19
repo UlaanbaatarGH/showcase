@@ -53,21 +53,18 @@ export async function fetchMainCsv(sheetId, gid) {
   return text;
 }
 
-export async function fetchSetupCsv(sheetId, gid) {
+export async function fetchSetupCsv(sheetId) {
   // The setup tab is optional. gviz silently falls back to some default
-  // content when the requested sheet name doesn't exist — it may return the
-  // main sheet, or (more recently) a one-column list of the main sheet's
-  // column names. A real setup tab per spec has (name, id) pairs — so rows
-  // with at least 2 cells. We reject the fallbacks using two checks:
-  //  (a) no row has ≥2 cells ⇒ not a setup sheet;
-  //  (b) exact match with the main sheet ⇒ fallback.
+  // content when the requested sheet name doesn't exist; that content is
+  // not predictable across workbooks (sometimes the main sheet, sometimes
+  // a list of its header names). Detect the fallback by asking for a
+  // deliberately-bogus sheet name and comparing: if 'setup' returns the
+  // same thing, no setup tab exists.
   const setupText = await fetchGvizCsv(sheetId, { sheet: 'setup' });
   if (setupText == null) return null;
-  const rows = parseCsv(setupText);
-  const hasTwoColRow = rows.some((r) => r.length >= 2);
-  if (!hasTwoColRow) return null;
-  const mainViaGviz = await fetchGvizCsv(sheetId, { gid });
-  if (mainViaGviz != null && setupText.trim() === mainViaGviz.trim()) return null;
+  const bogusName = `__showcase_probe_${Math.random().toString(36).slice(2)}__`;
+  const fallbackText = await fetchGvizCsv(sheetId, { sheet: bogusName });
+  if (fallbackText != null && setupText.trim() === fallbackText.trim()) return null;
   return setupText;
 }
 
@@ -185,6 +182,9 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const label = (row[0] ?? '').trim();
       const idStr = (row[1] ?? '').trim();
       if (!label) continue;
+      // '#' is the folder-name column, not a property — skip if it shows up
+      // in the setup sheet (e.g. copy-paste of main-sheet headers).
+      if (label === FOLDER_COL) continue;
       const id = idStr === '' ? null : Number(idStr);
       if (idStr !== '' && !Number.isInteger(id)) {
         errors.push(`FIX370 setup sheet: row ${i + 1} has a non-integer id "${idStr}".`);
@@ -322,6 +322,6 @@ export async function planFromUrl(url, project) {
     return { errors: ['The URL does not look like a Google Sheets link.'] };
   }
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
-  const setupCsv = await fetchSetupCsv(parsed.sheetId, parsed.gid);
+  const setupCsv = await fetchSetupCsv(parsed.sheetId);
   return buildPlan({ mainCsv, setupCsv, project });
 }

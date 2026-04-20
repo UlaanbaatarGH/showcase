@@ -150,7 +150,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     <div className="setup-overlay" onClick={onCancel}>
       <div className="setup-panel" onClick={(e) => e.stopPropagation()}>
         <header className="setup-header">
-          <h2>Photo Setup</h2>
+          <h2>Photo Setup panel</h2>
         </header>
         <div className="setup-tabs">
           <button

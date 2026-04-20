@@ -508,8 +508,11 @@ export default function ShowcaseView() {
         className="sc-main"
         ref={mainRef}
         style={{
+          // FIX372.6.2.5: the Item Grouping panel always fits its listed
+          // values — CSS grid's max-content resizes automatically as the
+          // bucket list changes (new group picked, default group applied).
           gridTemplateColumns: activeGroup
-            ? `220px ${listWidth}px 6px 1fr`
+            ? `max-content ${listWidth}px 6px 1fr`
             : `${listWidth}px 6px 1fr`,
         }}
       >

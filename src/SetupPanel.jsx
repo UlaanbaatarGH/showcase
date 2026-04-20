@@ -35,8 +35,12 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
           .filter((p) => (p.label ?? '').trim())
           .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
         view_setup: {
+          ...(initialViewSetup || {}),
           file_explorer: fileExplorer,
-          showcase,
+          showcase: {
+            ...(initialViewSetup?.showcase || {}),
+            ...showcase,
+          },
         },
       });
       onSave(data);

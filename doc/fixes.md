@@ -247,119 +247,479 @@
 
 
 
-# Frontend
+# Import
 
-## App home page
+## Properties import from Google Sheet
 
-- **FIX400** Home page
+- **FIX370** Google Sheet (gsheet) import
 
 
 
-- **FIX400.1** Purpose
+- **FIX370.1** gsheet structure:
 
 
 
-- **FIX400.2** UI Layout
+- **FIX370.1.1** Mandatory sheet with a name different from 'setup'
 
 
 
-- **FIX400.2.1** List of projects with name and associated image
+- **FIX370.1.1.1** Row 0 as a header with a different property name for each column
 
 
 
-- **FIX400.2.2** Button 'sign in'
+- **FIX370.1.1.2** Row 1..N are the values
 
 
 
-- **FIX400.3** UI User Actions
+- **FIX370.1.2** Optional sheet with name 'setup'
 
 
 
-- **FIX400.3.1** Click project name or project photo opens the project
+- **FIX370.1.2.1(old)** List of (property-name, property-id) on 2 columns.
 
 
 
-- **FIX400.4** Functional Rules
+- **FIX370.1.2.1** List of (property-name, property-id, main) on 3 columns.
 
 
 
-- **FIX400.4.1** Until the user signs in, only public projects are listed.
+- **FIX370.1.2.2** Useful for renaming an existing property.
 
 
 
-- **FIX400.4.2** Once signed in, public and private projects the user has read access are listed.
+- **FIX370.1.2.3** New properties are listed with no id.
 
 
 
-# Backend app
+- **FIX370.1.2.4** 3rd parameter main is just meant to point to the field value to use when giving a recap before the effective import. Any non-blank value suits to says it is the main.
 
-- **FIX500** Photo module
 
 
+- **FIX370.2** Import consistency checks
 
-## Overview
 
-### UI Overview
 
-- **FIX500.1** UI overview\
-  ┌──────────────────────────────────────────┐\
-  │ Menu │ Setup │\
-  ├──────────────────────────────────────────┤\
-  │ Current view details │\
-  │ │\
-  │ │\
-  │ │\
-  └──────────────────────────────────────────┘
+- **FIX370.2.0** Id \<gsheet-consistency-checks\>
 
 
 
-- **FIX500.1.1** Menu
+- **FIX370.2.1** On main sheet
 
 
 
-- **FIX500.1.1.1(old)** View
+- **FIX370.2.1.1** A '#' column is mandatory. It stands the field 'folder name'.
 
 
 
-- **FIX500.1.1.1** Top menu **'**View'
+- **FIX370.2.1.2** Two column headers cannot have the same property name
 
 
 
-- **FIX500.1.1.1.1** Menu option 'File Explorer': Opens \<view-file-explorer\>
+- **FIX370.2.1.3** The \# value cannot be blank
 
 
 
-- **FIX500.1.1.1.2** Menu option 'Showcase': \<view-showcase\>
+- **FIX370.2.1.4** Two rows cannot have the \# value
 
 
 
-- **FIX500.1.2** Setup
+- **FIX370.2.1.5** Fully blank rows are acceptable and ignored
 
 
 
-- **FIX500.1.2.1** Button setup
+- **FIX370.2.1.6** When no setup sheet is defined
 
 
 
-- **FIX500.1.2.1.0** Id \<button-photo-setup\>
+- **FIX370.2.1.6.1** All property names must exist
 
 
 
-- **FIX500.1.2.1.2** Icon: wheel
+- **FIX370.2.2** On setup sheet, when defined
 
 
 
-- **FIX500.1.2.1.3** Action: Opens the Photo Setup panel
+- **FIX370.2.2.1** All properties of the main sheet must be listed once
 
 
 
-### Setup
+- **FIX370.2.2.2** All property id must exist
+
+
+
+- **FIX370.2.2.3** A Property name with no Id cannot already exist.
+
+
+
+- **FIX370.2.2.4** A Property name with an Id cannot already exist with another id.
+
+
+
+- **FIX370.3** Import command
+
+
+
+- **FIX370.3.1** An 'Import' menu is displayed on the app top bar
+
+
+
+- **FIX370.3.1.1** Visible only for logged in users
+
+
+
+- **FIX370.3.1.2(old)** Menu option 'Properties (Google sheet)'.
+
+
+
+- **FIX370.3.1.2** Menu option 'Image Properties'.
+
+
+
+- **FIX370.3.2** Import action
+
+
+
+- **FIX370.3.2.1** Opens a popup to enter the gsheet url
+
+
+
+- **FIX370.3.2.1.1** The last gsheet is stored in the navigator's Local Storage
+
+
+
+- **FIX370.3.2.2** On user confirmation,
+
+
+
+- **FIX370.3.2.2.1** The gsheet is read and the import consistency checks run \<gsheet-consistency-checks\>. List all the errors in an error popup. Import process is denied.
+
+
+
+- **FIX370.3.2.2.2** Show an import recap for user validation with:
+
+
+
+- **FIX370.3.2.2.2.1** List of new properties
+
+
+
+- **FIX370.3.2.2.2.2** List of renamed properties
+
+
+
+- **FIX370.3.2.2.2.3(old)** List of new folders: \# and Main property (if defined in setup)
+
+
+
+- **FIX370.3.2.2.2.3** List of new folders: \# and Main property (if defined in setup)
+
+
+
+- **FIX370.3.2.2.2.4(old)** List of updated folders: \# and Main property (if defined in setup)
+
+
+
+- **FIX370.3.2.2.2.4** List of updated folders: \# and Main property (if defined in setup)
+
+
+
+- **FIX370.3.2.2.2.5** Cancel and Import buttons
+
+
+
+- **FIX370.3.2.2.3** Effective import
+
+
+
+- **FIX370.3.2.2.3.1** Add the new properties
+
+
+
+- **FIX370.3.2.2.3.2** Rename the properties to rename
+
+
+
+- **FIX370.3.2.2.3.3** Create the new folders with the Id provided by the \# field of the gsheet.
+
+
+
+- **FIX370.3.2.2.3.4** Update all property values.
+
+
+
+- **FIX370.3.2.2.3.5** Refresh current view.
+
+
+
+- **FIX370.3.2.2.3.10\[ex-370.3.2.2.3.5\]** Import done popup with Ok button.
+
+
+
+- **FIX370** Google Sheet (gsheet) import
+
+
+
+## Image import from hard disk
+
+- **FIX371** Image file import from hard disk
+
+
+
+- **FIX371.1** Hard disk structure:
+
+
+
+- **FIX371.1.1** One or several folders
+
+
+
+- **FIX371.1.2** Folder name is an item id.
+
+
+
+- **FIX371.1.2** Each folder contains
+
+
+
+- **FIX371.1.2.1** one or several image files
+
+
+
+- **FIX371.1.2.2** A text file defining the display order of the images, by listing the filenames: sort.txt
+
+
+
+- **FIX371.2** Import command
+
+
+
+- **FIX371.2.1** Menu Import
+
+
+
+- **FIX371.2.2(old)** Menu option 'Images (hard disk)'
+
+
+
+- **FIX371.2.2** Menu option 'Images
+
+
+
+- **FIX371.2.2.1** Put menu option at first place
+
+
+
+- **FIX371.3** Opens a popup to select one or several folders (Item Folder)
+
+
+
+- **FIX371.5** Before effectively import, show an import recap for user validation with:
+
+
+
+- **FIX371.5.1** Select image files of type jpg, jpeg, png, webp.
+
+
+
+- **FIX371.5.2** List of items id with the number of new, updated, ignored images.
+
+
+
+- **FIX371.5.3** To differentiate new/update, the file timestamp is not considered, but a file name may end up with a version suffix, '\_v{n}', before the extension.\
+  For instance: 114-20260304_164506_v2.jpg
+
+
+
+- **FIX371.5.3.1** A file with no version is equivalent to a V0.
+
+
+
+- **FIX371.5.3.2** A file which base name (name without version) does not exist is a new file.
+
+
+
+- **FIX371.5.3.3** A file which base name (name without version) already exists, with same or smaller version is ignored.
+
+
+
+- **FIX371.5.3.4** A file which base name (name without version) already exists, with bigger version is an update.
+
+
+
+- **FIX371.5.5** Cancel and Import buttons
+
+
+
+- **FIX371.6** Effective import
+
+
+
+- **FIX371.6.1** Creates new Item, when the id is not known
+
+
+
+- **FIX371.6.2** Upload the images
+
+
+
+- **FIX371.6.3** Refresh view.
+
+
+
+# Items grouping
+
+- **FIX372** Items grouping
+
+
+
+- **FIX372.1** Terms: So far the term 'Folder' has been used to identify an element of the Showcase view, but it is wrong. It only reflects the disk structure which requires a folder to hold the images. The generic term 'Item' is to be used.
+
+
+
+- **FIX372.2** Principle:
+
+
+
+- **FIX372.2.1** Group by value: Instead of listing all the items of the project, it might be interesting to show only a subset of items which share a particular field value.
+
+
+
+- **FIX372.2.2** Group by segment of values.
+
+
+
+- **FIX372.2.2.1** For integer fields, the range of all values can be split by segments.\
+  For instance, with a field Year, segments of 10 years, anchored on year 1900.
+
+
+
+- **FIX372.2.2.1** For string fields, the range of all values can be split by segments based on the first letter.\
+  For instance, A-D, E-H, ..
+
+
+
+- **FIX372.3** Item Group definition
+
+
+
+- **FIX372.3.1** An item group is associated with an existing Property, and then optionally enter a segment.
+
+
+
+- **FIX372.3.1.1** Integer segment: '{lower-number}-{upper-number}'\
+  For instance, '1900-1909'
+
+
+
+- **FIX372.3.1.2** Text segment: '{lower-letter}-{upper-letter}'\
+  For instance, 'A-D'
+
+
+
+- **FIX372.5** UI Creation/maintenance
+
+
+
+- **FIX372.5.1** Top menu Grouping
+
+
+
+- **FIX372.5.1.1** Opens a layer popup with
+
+
+
+- **FIX372.5.1.1.1** A table with the list of existing Properties
+
+
+
+- **FIX372.5.1.1.1.1** Column 'Id'
+
+
+
+- **FIX372.5.1.1.1.2** Column 'Name'
+
+
+
+- **FIX372.5.1.1.1.3** Column 'Group' with a checkbox
+
+
+
+- **FIX372.5.1.1.1.4** Column 'Group segment' with an input field, enabled only when the Group is checked.
+
+
+
+- **FIX372.5.1.1.1.5** Column 'Default' with a checkbox. It says whether this group is active by default
+
+
+
+- **FIX372.5.1.1.1.5.1** Checking one row unchecks the others.
+
+
+
+- **FIX510.2.1.5.2** Also add the meta property 'Img' in the list, so items can be grouped by having/no having an image.
+
+
+
+- **FIX372.5.1.2** Cancel & Ok button
+
+
+
+- **FIX372.6** Display on the Showcase view
+
+
+
+- **FIX372.6.1(old)** When at least one Item group is defined, a dropdown list is displayed at the top left of the item table, listing all the existing groups. A group is labelled after the property name it relates to.
+
+
+
+- **FIX372.6.1** When at least one Item group is defined, a dropdown list is displayed, listing all the existing groups. A group is labelled after the property name it relates to.
+
+
+
+- **FIX372.6.1.1** No Group is selected by default unless a Group has the field 'Default' checked.
+
+
+
+- **FIX372.6.1.2** The user can always clear the value, refusing to display items by group.
+
+
+
+- **FIX372.6.2** When a Group is selected, either by default or by a user action, a side panel is opened on the left the Item table.
+
+
+
+- **FIX372.6.2.0** The group dropdown is displayed at the top left of the side panel, otherwise it is displayed at the top left of the item table.
+
+
+
+- **FIX372.6.2.1** The list of existing values for the group property, or the list of segments having at least one existing value for the group property.
+
+
+
+- **FIX372.6.2.2** Each listed value is postfixed with the number of matching items between ( ).\
+  For instance, 1900-1909 (25) when 25 items have a year in the range \[1900..1909\].
+
+
+
+- **FIX372.6.2.3** When items have no value for this grouping property, then they are added to a special 'No value ({n-of-items})' group placed at the end of the list of values.
+
+
+
+- **FIX372.6.2.10\[ex-372.6.2.2\]** Listed values can be clicked
+
+
+
+- **FIX372.6.2.11\[ex-372.6.2.3\]** On click the table of items is refreshed keeping only matching items
+
+
+
+# Setup
 
 - **FIX500.2** Photo Setup panel
 
 
 
-### Setup: General panel
+## Setup: General panel
 
 - **FIX500.2.1** Setup general panel
 
@@ -407,10 +767,6 @@
 
 
 
-- **FIX500.2.1.3.10.0(removed)** Id \<photo-setup-save\>
-
-
-
 - **FIX500.2.1.3.10.1** Saves setup data to a text file.
 
 
@@ -419,7 +775,7 @@
 
 
 
-### Setup: File Explorer view setup panel
+## Setup: File Explorer view setup panel
 
 - **FIX500.2.2** File Explorer view setup panel
 
@@ -493,7 +849,7 @@
 
 
 
-### Setup: Showcase view setup panel
+## Setup: Showcase view setup panel
 
 - **FIX500.2.3** Showcase view setup panel
 
@@ -527,7 +883,7 @@
 
 
 
-- **FIX500.2.3.2.1.2.1** List of items: Contains 'Folder name' by default
+- **FIX500.2.3.2.1.2.1** List of items:
 
 
 
@@ -535,19 +891,48 @@
 
 
 
+- **FIX500.2.3.2.1.2.1.1.1** If text is just a number n, it should be interpreted as n '0'
+
+
+
 - **FIX500.2.3.2.1.2.1.2** For each item, checkbox to indicate whether the text of the field value should wrap.
 
 
 
-- **FIX500.2.3.2.1.2.2** Item picker: Aggregates\
+- **FIX500.2.3.2.1.2.1.3** Default items in the list
+
+
+
+- **FIX500.2.3.2.1.2.1.3.1** '#': The Item id (ex-folder name)
+
+
+
+- **FIX500.2.3.2.1.2.1.3.2(removed)** 'Img': Boolean value {'x', ' '}. 'x' is set when the item has an uploaded image file.
+
+
+
+- **FIX500.2.3.2.1.2.2(old)** Item picker: Aggregates\
   - 'Folder name',\
   - The list of properties: Property labels from \<list-photo-properties\>\
   - 'Main image icon'
 
 
 
-- **FIX500.2.3.2.1.2.3** Field 'Folder column name'\
+- **FIX500.2.3.2.1.2.2** Item picker: Aggregates\
+  - 'Folder name',\
+  - The list of properties: Property labels from \<list-photo-properties\>\
+  - 'Main image icon'\
+  - 'With image' (labelled 'Img' once column is added to the Item table).
+
+
+
+- **FIX500.2.3.2.1.2.3(old)** Field 'Folder column name'\
   Optional input text field to replace 'Folder name' column name by another text.
+
+
+
+- **FIX500.2.3.2.1.2.3** Field '#'\
+  Optional input text field to replace '#' column name by another text.
 
 
 
@@ -573,6 +958,122 @@
 
 
 - **FIX500.2.3.4** UI Insertion in the App: Refer to \<panel-general-setup\>
+
+
+
+# Frontend
+
+## App home page
+
+- **FIX400** Home page
+
+
+
+- **FIX400.1** Purpose
+
+
+
+- **FIX400.2** UI Layout
+
+
+
+- **FIX400.2.1** List of projects with name and associated image
+
+
+
+- **FIX400.2.2** Button 'sign in'
+
+
+
+- **FIX400.3** UI User Actions
+
+
+
+- **FIX400.3.1** Click project name or project photo opens the project
+
+
+
+- **FIX400.4** Functional Rules
+
+
+
+- **FIX400.4.1** Until the user signs in, only public projects are listed.
+
+
+
+- **FIX400.4.2** Once signed in, public and private projects the user has read access are listed.
+
+
+
+## Project home page
+
+- **FIX401** Project Home page
+
+
+
+- **FIX401.1** It is the Showcase View
+
+
+
+# Backend app
+
+- **FIX500** Photo module
+
+
+
+## Overview
+
+### UI Overview
+
+- **FIX500.1** UI overview\
+  ┌──────────────────────────────────────────┐\
+  │ Menu │ Setup │\
+  ├──────────────────────────────────────────┤\
+  │ Current view details │\
+  │ │\
+  │ │\
+  │ │\
+  └──────────────────────────────────────────┘
+
+
+
+- **FIX500.1.1** Menu
+
+
+
+- **FIX500.1.1.1(old)** View
+
+
+
+- **FIX500.1.1.1** Top menu **'**View'
+
+
+
+- **FIX500.1.1.1.1** Menu option 'File Explorer': Opens \<view-file-explorer\>
+
+
+
+- **FIX500.1.1.1.2** Menu option 'Showcase': \<view-showcase\>
+
+
+
+- **FIX500.1.2** Setup
+
+
+
+- **FIX500.1.2.1** Button setup
+
+
+
+- **FIX500.1.2.1.0** Id \<button-photo-setup\>
+
+
+
+- **FIX500.1.2.1.2** Icon: wheel
+
+
+
+- **FIX500.1.2.1.3** Action: Opens the Photo Setup panel
 
 
 
@@ -1671,6 +2172,10 @@
 
 
 - **FIX510.2.1.4(on hold)** List values can be edited, except for fields Folder name and Main image icon.
+
+
+
+- **FIX510.2.1.5** Row selection colour is light orange.
 
 
 

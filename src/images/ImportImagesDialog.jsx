@@ -92,8 +92,8 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
   const nothingToDo = totalNew === 0 && totalUpd === 0;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal gsheet-dialog" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal gsheet-dialog">
         {stage === 'pick' && (
           <div className="gsheet-stage">
             <h2>Import images from disk</h2>

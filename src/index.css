@@ -856,6 +856,11 @@ body {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
+  /* Reserve room for the vertical scrollbar at all times so its appearance
+     never narrows the pill area enough to trigger a horizontal scrollbar.
+     Combined with the outer grid column being max-content, the panel width
+     already accounts for the gutter. */
+  scrollbar-gutter: stable;
 }
 /* FIX372.6.2.6.1: single-column grid makes every pill the same width as
    the widest pill — the column is sized to max-content, so no hardcoded

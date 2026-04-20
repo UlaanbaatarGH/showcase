@@ -6,6 +6,7 @@ import GroupingPanel from './grouping/GroupingPanel.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages } from './data/backend.js';
+import { computePropertyValue } from './properties/formulas.js';
 
 function romanToInt(s) {
   const m = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
@@ -45,11 +46,14 @@ function widthCss(width) {
   return `${n}ch`;
 }
 
-function getColumnValue(folder, col) {
+function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
   if (col.type === 'folder_name') return folder.name ?? '';
   if (col.type === 'img') return folder.has_image ? 'x' : '';
-  if (col.type === 'property')
+  if (col.type === 'property') {
+    const prop = propertiesById?.get(col.property_id);
+    if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
     return folder.properties?.[String(col.property_id)] ?? '';
+  }
   return '';
 }
 
@@ -164,6 +168,17 @@ export default function ShowcaseView() {
   }, [selectedFolderId]);
 
   const properties = data?.properties ?? [];
+  // Lookup maps for formula evaluation — rebuilt whenever the property list
+  // changes. Used by getColumnValue, the grouping bucket logic, and the
+  // Item Details panel.
+  const propertiesById = useMemo(
+    () => new Map(properties.map((p) => [p.id, p])),
+    [properties],
+  );
+  const propertiesByLabel = useMemo(
+    () => new Map(properties.map((p) => [p.label, p])),
+    [properties],
+  );
   const viewSetup = data?.view_setup ?? {};
   const showcaseCfg = viewSetup.showcase ?? {};
   const configuredColumns = showcaseCfg.columns ?? [];
@@ -207,12 +222,15 @@ export default function ShowcaseView() {
 
   // FIX510.2.1.5.2 / <derived-property-img>: the special 'img' derived
   // property groups items by whether they have any attached image. Other
-  // groups read from folder.properties JSONB keyed by the numeric property id.
+  // groups read from the property definition — which may itself be a
+  // derived property with a formula, hence the computePropertyValue call.
   const valueForGroup = (folder) => {
     if (!activeGroup) return undefined;
     if (activeGroup.property_id === 'img') {
       return folder.has_image ? 'With image' : 'No image';
     }
+    const prop = propertiesById.get(activeGroup.property_id);
+    if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
     return folder.properties?.[String(activeGroup.property_id)];
   };
 
@@ -245,7 +263,7 @@ export default function ShowcaseView() {
         activeFilters.every(([key, v]) => {
           const col = colByKey.get(key);
           if (!col) return true;
-          return String(getColumnValue(f, col))
+          return String(getColumnValue(f, col, propertiesById, propertiesByLabel))
             .toLowerCase()
             .includes(v.trim().toLowerCase());
         }),
@@ -257,14 +275,17 @@ export default function ShowcaseView() {
         for (const { key, dir } of sortKeys) {
           const col = colByKey.get(key);
           if (!col) continue;
-          const cmp = compareValues(getColumnValue(a, col), getColumnValue(b, col));
+          const cmp = compareValues(
+            getColumnValue(a, col, propertiesById, propertiesByLabel),
+            getColumnValue(b, col, propertiesById, propertiesByLabel),
+          );
           if (cmp !== 0) return dir === 'desc' ? -cmp : cmp;
         }
         return (a.sort_order ?? 0) - (b.sort_order ?? 0);
       });
     }
     return rows;
-  }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed]);
+  }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed, propertiesById, propertiesByLabel]);
 
   const handleHeaderClick = (key, ctrl) => {
     setSortKeys((keys) => {
@@ -450,11 +471,11 @@ export default function ShowcaseView() {
       );
     }
     // property
-    const prop = properties.find((p) => p.id === col.property_id);
+    const prop = propertiesById.get(col.property_id);
     if (!prop) return <td key={key} style={cellStyle}>—</td>;
-    const raw = folder.properties?.[String(prop.id)];
+    const raw = computePropertyValue(folder, prop, propertiesByLabel);
     const display =
-      raw == null || raw === ''
+      raw === '' || raw == null
         ? '—'
         : formatYearValue(raw, prop.label, romanYearConverter);
     return (
@@ -720,8 +741,10 @@ export default function ShowcaseView() {
                   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
                 // FIX518.4.5: a property is rendered as a checkbox when every
                 // non-blank value across all items is 'x' (case-insensitive,
-                // trimmed). Computed once per render from data.folders.
+                // trimmed). Only applies to stored properties — derived ones
+                // (FIX500.2.2.5.3.2) always render as their computed value.
                 const isBooleanProperty = (p) => {
+                  if (p.formula) return false;
                   const key = String(p.id);
                   let sawAny = false;
                   for (const f of data.folders) {
@@ -735,7 +758,7 @@ export default function ShowcaseView() {
                   return sawAny;
                 };
                 const renderValue = (p) => {
-                  const raw = selectedFolder.properties?.[String(p.id)] ?? '';
+                  const raw = computePropertyValue(selectedFolder, p, propertiesByLabel);
                   if (isBooleanProperty(p)) {
                     const checked = String(raw).trim().toLowerCase() === 'x';
                     return (

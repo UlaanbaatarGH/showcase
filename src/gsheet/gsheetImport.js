@@ -351,9 +351,16 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       if (changed) {
         updatedFolderDisplays.push(display);
         // Temporary trace to diagnose unexpected "updated" reports — remove
-        // once the comparison is fully trusted.
+        // once the comparison is fully trusted. Stringified so the actual
+        // values appear inline without expanding objects in devtools.
+        const lines = diffs
+          .map(
+            (d) =>
+              `  ${d.label} (id=${d.finalId ?? 'new'}): cur=${JSON.stringify(d.curValue)}  new=${JSON.stringify(d.newValue)}`,
+          )
+          .join('\n');
         // eslint-disable-next-line no-console
-        console.log(`[gsheet recap] item ${name} marked updated:`, diffs);
+        console.log(`[gsheet recap] item ${name} marked updated (${diffs.length} diff${diffs.length > 1 ? 's' : ''}):\n${lines}`);
       }
     }
     for (const col of propHeaders) {

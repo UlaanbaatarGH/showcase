@@ -850,25 +850,35 @@ body {
 .sc-buckets {
   list-style: none;
   margin: 0;
-  padding: 0.25rem 0;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
+/* FIX372.6.2.6: values shown as pills with semi-circle ends. */
 .sc-buckets li {
-  padding: 0.4rem 0.75rem;
+  padding: 0.25rem 0.9rem;
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--color-text);
-  border-left: 3px solid transparent;
+  background: var(--color-bg-lighter);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  white-space: nowrap;
+  align-self: flex-start;
 }
-.sc-buckets li:hover { background: var(--color-bg-lighter); }
+.sc-buckets li:hover { background: var(--color-bg); }
 .sc-buckets li.selected {
   background: var(--color-selected);
-  border-left-color: var(--color-selected-border);
+  border-color: var(--color-selected-border);
 }
 .sc-buckets-empty {
   color: var(--color-text-muted);
   font-style: italic;
   cursor: default !important;
-  padding: 0.4rem 0.75rem;
+  background: transparent !important;
+  border: none !important;
+  padding: 0.4rem 0.25rem !important;
 }
 .sc-buckets-empty:hover { background: transparent !important; }
 .sc-bucket-count { color: var(--color-text-muted); }

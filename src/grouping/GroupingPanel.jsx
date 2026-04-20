@@ -13,7 +13,7 @@ export default function GroupingPanel({
   const initialGroups = viewSetup?.showcase?.groups ?? [];
   const groupByProp = new Map(initialGroups.map((g) => [g.property_id, g]));
 
-  // FIX510.2.1.5.2: expose an 'Img' meta-property so users can group by
+  // FIX510.2.1.5.2: expose an 'Img' derived property so users can group by
   // having/not-having a main image. Its id is the string 'img' — distinct
   // from any numeric property id.
   const [rows, setRows] = useState(() => {
@@ -24,7 +24,7 @@ export default function GroupingPanel({
       group: !!imgGroup,
       segment: '',             // segment doesn't apply to Img
       default: !!imgGroup?.default,
-      meta: true,              // no segment input for meta rows
+      derived: true,           // no segment input for derived rows
     };
     const propRows = (properties ?? []).map((p) => {
       const g = groupByProp.get(p.id);
@@ -120,7 +120,7 @@ export default function GroupingPanel({
                 )}
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td>{r.meta ? '—' : r.id}</td>
+                    <td>{r.derived ? '—' : r.id}</td>
                     <td>{r.label}</td>
                     <td style={{ textAlign: 'center' }}>
                       <input
@@ -140,7 +140,7 @@ export default function GroupingPanel({
                       <input
                         type="text"
                         value={r.segment}
-                        disabled={!r.group || r.meta}
+                        disabled={!r.group || r.derived}
                         onChange={(e) =>
                           updateRow(r.id, { segment: e.target.value })
                         }

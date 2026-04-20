@@ -187,9 +187,9 @@ export default function ShowcaseView() {
   const activeGroup = groups.find((g) => g.property_id === activeGroupPropId) || null;
   const activeParsed = activeGroup ? parseSegment(activeGroup.segment) : null;
 
-  // FIX510.2.1.5.2 / <meta-property-img>: the special 'img' meta-property
-  // groups items by whether they have any attached image. Other groups read
-  // from folder.properties JSONB keyed by the numeric property id.
+  // FIX510.2.1.5.2 / <derived-property-img>: the special 'img' derived
+  // property groups items by whether they have any attached image. Other
+  // groups read from folder.properties JSONB keyed by the numeric property id.
   const valueForGroup = (folder) => {
     if (!activeGroup) return undefined;
     if (activeGroup.property_id === 'img') {

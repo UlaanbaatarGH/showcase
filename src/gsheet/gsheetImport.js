@@ -183,28 +183,38 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   }
 
   // Setup sheet parse (optional).
-  // FIX370.1.2.1: each non-blank row is (name, id, main). FIX370.1.2.4: any
-  // non-blank value in col 3 marks this row's property as the "Main" one
-  // (for display in the recap only — doesn't affect the import itself).
+  // FIX370.1.2.1: each non-blank row has three columns —
+  //   col 0: property id (optional, blank = "new property")
+  //   col 1: property name — if it ends with "(*)" this row is the main
+  //          property used by the recap display (FIX370.1.2.1.2.1)
+  //   col 2: optional short name (not yet consumed downstream)
   let setupEntries = null;
   if (setupCsv != null) {
     const setupRows = parseCsv(setupCsv).filter((r) => !isRowBlank(r));
     setupEntries = [];
+    const MAIN_MARK = '(*)';
     for (let i = 0; i < setupRows.length; i++) {
       const row = setupRows[i];
-      const label = (row[0] ?? '').trim();
-      const idStr = (row[1] ?? '').trim();
-      const mainStr = (row[2] ?? '').trim();
+      const idStr = (row[0] ?? '').trim();
+      let label = (row[1] ?? '').trim();
       if (!label) continue;
       // '#' is the folder-name column, not a property — skip if it shows up
       // in the setup sheet (e.g. copy-paste of main-sheet headers).
       if (label === FOLDER_COL) continue;
+      // FIX370.1.2.1.2.1: name ending with "(*)" flags this row as the main
+      // property. Strip the marker so the stored label matches the header.
+      let main = false;
+      if (label.endsWith(MAIN_MARK)) {
+        main = true;
+        label = label.slice(0, -MAIN_MARK.length).trim();
+        if (!label) continue;
+      }
       const id = idStr === '' ? null : Number(idStr);
       if (idStr !== '' && !Number.isInteger(id)) {
         errors.push(`FIX370 setup sheet: row ${i + 1} has a non-integer id "${idStr}".`);
         continue;
       }
-      setupEntries.push({ label, id, main: mainStr !== '' });
+      setupEntries.push({ label, id, main });
     }
   }
 

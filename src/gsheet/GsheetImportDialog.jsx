@@ -58,10 +58,9 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div
         className="modal gsheet-dialog"
-        onClick={(e) => e.stopPropagation()}
       >
         {stage === 'url' && (
           <form className="gsheet-stage" onSubmit={handleFetch}>

@@ -285,6 +285,20 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
 
   // Build new folders + updates.
   const projectFolderNames = new Set((project.folders || []).map((f) => f.name));
+  const folderByName = new Map((project.folders || []).map((f) => [f.name, f]));
+  // Resolve each header column to the property id it will carry after import.
+  // null means the header is a brand-new property (no current value yet on
+  // any existing folder, so any non-blank value counts as a change).
+  const labelToFinalId = new Map();
+  for (const col of propHeaders) {
+    if (setupCsv != null) {
+      const e = setupEntries.find((x) => x.label === col.label);
+      labelToFinalId.set(col.label, e?.id ?? null);
+    } else {
+      labelToFinalId.set(col.label, propByLabel.get(col.label)?.id ?? null);
+    }
+  }
+
   const newFolderNames = [];
   const newFolderDisplays = [];
   const updatedFolderDisplays = [];
@@ -303,7 +317,25 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       newFolderNames.push(name);
       newFolderDisplays.push(display);
     } else {
-      updatedFolderDisplays.push(display);
+      // Existing folder is reported as 'updated' only when at least one
+      // property value in the row actually differs from what the project
+      // currently stores. Values are compared as trimmed strings so blanks
+      // and surrounding whitespace don't show up as spurious changes.
+      const folder = folderByName.get(name);
+      const currentProps = folder?.properties || {};
+      let changed = false;
+      for (const col of propHeaders) {
+        const finalId = labelToFinalId.get(col.label);
+        const newValue = (row[col.idx] ?? '').trim();
+        const curValue = finalId != null
+          ? String(currentProps[String(finalId)] ?? '').trim()
+          : '';
+        if (curValue !== newValue) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) updatedFolderDisplays.push(display);
     }
     for (const col of propHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;

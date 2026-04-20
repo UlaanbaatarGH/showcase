@@ -538,34 +538,49 @@ export default function ShowcaseView() {
           // FIX372.6.2.9: when the active group uses a segment (integer or
           // text range), each pill gets a tint along a gradient so consecutive
           // segments are visually distinguished. Exact-value groups keep the
-          // flat pill background. The 'No value' bucket is never tinted.
+          // flat pill background. The 'No value' and 'All' buckets are never
+          // tinted.
           const isSegmentMode =
             activeParsed &&
             (activeParsed.type === 'integer' || activeParsed.type === 'text');
+          // FIX372.6.2.10: 'All ({n-of-items})' pill at the top of the list
+          // clears the bucket filter so every item in the current group is
+          // displayed. Total = sum of all bucket counts (incl. 'No value').
+          const ALL_KEY = '__all__';
+          const totalCount = bucketList.reduce((s, b) => s + b.count, 0);
+          const displayBuckets =
+            bucketList.length === 0
+              ? []
+              : [{ key: ALL_KEY, label: 'All', count: totalCount }, ...bucketList];
           const segCount = bucketList.filter((b) => b.key !== NO_VALUE_KEY).length;
           let segIdx = 0;
           return (
             <section className="sc-groups-panel">
               {groupSelector}
               <ul className={`sc-buckets${isSegmentMode ? ' segment-mode' : ''}`}>
-                {bucketList.map((b) => {
+                {displayBuckets.map((b) => {
+                  const isAll = b.key === ALL_KEY;
                   const isNoValue = b.key === NO_VALUE_KEY;
                   let style;
-                  if (isSegmentMode && !isNoValue) {
+                  if (isSegmentMode && !isNoValue && !isAll) {
                     const t = segCount > 1 ? segIdx / (segCount - 1) : 0;
                     segIdx += 1;
                     // HSL hue sweep from navy-blue to teal, fixed saturation
                     // and dark lightness matching --color-bg-lighter (#0f3460).
                     style = { background: `hsl(${214 - t * 40}, 65%, 22%)` };
                   }
+                  const selected = isAll
+                    ? activeBucketKey == null
+                    : b.key === activeBucketKey;
                   return (
                     <li
                       key={b.key}
-                      className={b.key === activeBucketKey ? 'selected' : ''}
+                      className={selected ? 'selected' : ''}
                       style={style}
-                      onClick={() =>
-                        setActiveBucketKey(b.key === activeBucketKey ? null : b.key)
-                      }
+                      onClick={() => {
+                        if (isAll) setActiveBucketKey(null);
+                        else setActiveBucketKey(b.key === activeBucketKey ? null : b.key);
+                      }}
                     >
                       {b.label} <span className="sc-bucket-count">({b.count})</span>
                     </li>

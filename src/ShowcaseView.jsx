@@ -520,27 +520,50 @@ export default function ShowcaseView() {
             panel when one is shown, otherwise at the top-left of the item
             table. Rendered once via groupSelector and placed in the right
             parent below. */}
-        {activeGroup && (
-          <section className="sc-groups-panel">
-            {groupSelector}
-            <ul className="sc-buckets">
-              {bucketList.map((b) => (
-                <li
-                  key={b.key}
-                  className={b.key === activeBucketKey ? 'selected' : ''}
-                  onClick={() =>
-                    setActiveBucketKey(b.key === activeBucketKey ? null : b.key)
+        {activeGroup && (() => {
+          // FIX372.6.2.9: when the active group uses a segment (integer or
+          // text range), each pill gets a tint along a gradient so consecutive
+          // segments are visually distinguished. Exact-value groups keep the
+          // flat pill background. The 'No value' bucket is never tinted.
+          const isSegmentMode =
+            activeParsed &&
+            (activeParsed.type === 'integer' || activeParsed.type === 'text');
+          const segCount = bucketList.filter((b) => b.key !== NO_VALUE_KEY).length;
+          let segIdx = 0;
+          return (
+            <section className="sc-groups-panel">
+              {groupSelector}
+              <ul className={`sc-buckets${isSegmentMode ? ' segment-mode' : ''}`}>
+                {bucketList.map((b) => {
+                  const isNoValue = b.key === NO_VALUE_KEY;
+                  let style;
+                  if (isSegmentMode && !isNoValue) {
+                    const t = segCount > 1 ? segIdx / (segCount - 1) : 0;
+                    segIdx += 1;
+                    // HSL hue sweep from navy-blue to teal, fixed saturation
+                    // and dark lightness matching --color-bg-lighter (#0f3460).
+                    style = { background: `hsl(${214 - t * 40}, 65%, 22%)` };
                   }
-                >
-                  {b.label} <span className="sc-bucket-count">({b.count})</span>
-                </li>
-              ))}
-              {bucketList.length === 0 && (
-                <li className="sc-buckets-empty">(no matching values)</li>
-              )}
-            </ul>
-          </section>
-        )}
+                  return (
+                    <li
+                      key={b.key}
+                      className={b.key === activeBucketKey ? 'selected' : ''}
+                      style={style}
+                      onClick={() =>
+                        setActiveBucketKey(b.key === activeBucketKey ? null : b.key)
+                      }
+                    >
+                      {b.label} <span className="sc-bucket-count">({b.count})</span>
+                    </li>
+                  );
+                })}
+                {bucketList.length === 0 && (
+                  <li className="sc-buckets-empty">(no matching values)</li>
+                )}
+              </ul>
+            </section>
+          );
+        })()}
         <section className="sc-list-panel">
           {groups.length > 0 && !activeGroup && groupSelector}
           <table className="sc-table">

@@ -1,6 +1,23 @@
 import { useState } from 'react';
 import { saveSetup } from './data/backend.js';
 
+// FIX500.2.2.5.3: a property's name field may be either a plain label
+// ("Year") or a definition with a formula ("pageCount = numberOf(pages)").
+// These helpers convert between the stored {label, formula} shape and the
+// single-line input the user sees.
+function parsePropertyInput(raw) {
+  const s = String(raw ?? '');
+  const eq = s.indexOf('=');
+  if (eq === -1) return { label: s.trim(), formula: null };
+  const label = s.slice(0, eq).trim();
+  const formula = s.slice(eq + 1).trim();
+  return { label, formula: formula || null };
+}
+function formatPropertyInput(p) {
+  if (p.formula) return `${p.label} = ${p.formula}`;
+  return p.label ?? '';
+}
+
 export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
   const [tab, setTab] = useState('file_explorer');
   const [properties, setProperties] = useState(() =>
@@ -45,6 +62,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
             id: p.id,
             label: p.label.trim(),
             short_label: (p.short_label ?? '').trim() || null,
+            formula: p.formula || null,
             sort_order: i,
           })),
         view_setup: {
@@ -68,7 +86,13 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   const addProperty = () => {
     setProperties([
       ...properties,
-      { id: nextTempId, label: '', short_label: '', sort_order: properties.length },
+      {
+        id: nextTempId,
+        label: '',
+        short_label: '',
+        formula: null,
+        sort_order: properties.length,
+      },
     ]);
     setNextTempId(nextTempId - 1);
   };
@@ -82,9 +106,12 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
       ),
     }));
   };
-  const updatePropertyLabel = (i, label) => {
+  const updatePropertyLabel = (i, rawInput) => {
+    const { label, formula } = parsePropertyInput(rawInput);
     const updated = [...properties];
-    updated[i] = { ...updated[i], label };
+    // _raw tracks the user's exact text so mid-edit state (partial formula,
+    // trailing spaces, etc.) isn't clobbered by round-tripping through parse.
+    updated[i] = { ...updated[i], label, formula, _raw: rawInput };
     setProperties(updated);
   };
   const updatePropertyShortLabel = (i, short_label) => {
@@ -209,9 +236,9 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                       <td>
                         <input
                           type="text"
-                          value={p.label ?? ''}
+                          value={p._raw !== undefined ? p._raw : formatPropertyInput(p)}
                           onChange={(e) => updatePropertyLabel(i, e.target.value)}
-                          placeholder="e.g. Year, Author…"
+                          placeholder="e.g. Year  —  or  pageCount = numberOf(pages)"
                         />
                       </td>
                       <td>

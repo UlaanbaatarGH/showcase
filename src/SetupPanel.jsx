@@ -41,7 +41,12 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
       const data = await saveSetup({
         properties: properties
           .filter((p) => (p.label ?? '').trim())
-          .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
+          .map((p, i) => ({
+            id: p.id,
+            label: p.label.trim(),
+            short_label: (p.short_label ?? '').trim() || null,
+            sort_order: i,
+          })),
         view_setup: {
           ...(initialViewSetup || {}),
           file_explorer: fileExplorer,
@@ -61,7 +66,10 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
 
   // --- Property list handlers (File Explorer tab) ---
   const addProperty = () => {
-    setProperties([...properties, { id: nextTempId, label: '', sort_order: properties.length }]);
+    setProperties([
+      ...properties,
+      { id: nextTempId, label: '', short_label: '', sort_order: properties.length },
+    ]);
     setNextTempId(nextTempId - 1);
   };
   const removeProperty = (i) => {
@@ -77,6 +85,11 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   const updatePropertyLabel = (i, label) => {
     const updated = [...properties];
     updated[i] = { ...updated[i], label };
+    setProperties(updated);
+  };
+  const updatePropertyShortLabel = (i, short_label) => {
+    const updated = [...properties];
+    updated[i] = { ...updated[i], short_label };
     setProperties(updated);
   };
   const movePropertyBy = (i, dir) => {
@@ -176,14 +189,18 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                 <thead>
                   <tr>
                     <th style={{ width: '3rem' }}>Id</th>
-                    <th>Label</th>
+                    {/* FIX500.2.2.2.1.1.2 / <property-name> */}
+                    <th>Property name</th>
+                    {/* FIX500.2.2.2.1.1.3 / <property-short-name>: optional
+                        short label used in the Showcase column headers. */}
+                    <th style={{ width: '10rem' }}>Property short name</th>
                     <th style={{ width: '8rem' }} />
                   </tr>
                 </thead>
                 <tbody>
                   {properties.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="setup-empty">No properties defined.</td>
+                      <td colSpan={4} className="setup-empty">No properties defined.</td>
                     </tr>
                   )}
                   {properties.map((p, i) => (
@@ -195,6 +212,14 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                           value={p.label ?? ''}
                           onChange={(e) => updatePropertyLabel(i, e.target.value)}
                           placeholder="e.g. Year, Author…"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={p.short_label ?? ''}
+                          onChange={(e) => updatePropertyShortLabel(i, e.target.value)}
+                          placeholder="(optional)"
                         />
                       </td>
                       <td className="setup-row-actions">

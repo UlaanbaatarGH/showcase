@@ -187,7 +187,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   //   col 0: property id (optional, blank = "new property")
   //   col 1: property name — if it ends with "(*)" this row is the main
   //          property used by the recap display (FIX370.1.2.1.2.1)
-  //   col 2: optional short name (not yet consumed downstream)
+  //   col 2: optional short name (FIX370.1.2.1.3 / <property-short-name>)
   let setupEntries = null;
   if (setupCsv != null) {
     const setupRows = parseCsv(setupCsv).filter((r) => !isRowBlank(r));
@@ -197,6 +197,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const row = setupRows[i];
       const idStr = (row[0] ?? '').trim();
       let label = (row[1] ?? '').trim();
+      const shortLabel = (row[2] ?? '').trim() || null;
       if (!label) continue;
       // '#' is the folder-name column, not a property — skip if it shows up
       // in the setup sheet (e.g. copy-paste of main-sheet headers).
@@ -214,7 +215,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         errors.push(`FIX370 setup sheet: row ${i + 1} has a non-integer id "${idStr}".`);
         continue;
       }
-      setupEntries.push({ label, id, main });
+      setupEntries.push({ label, id, main, shortLabel });
     }
   }
 
@@ -271,10 +272,13 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       }
     }
     // Build resolution from setup: new entries (no id) → create; entries with
-    // id + label differing from current → rename.
+    // id + label differing from current → rename. The optional short label
+    // from the setup row is carried into the payload for new properties.
     for (const e of setupEntries) {
       if (e.id == null) {
-        if (!propByLabel.has(e.label)) newProperties.push(e.label);
+        if (!propByLabel.has(e.label)) {
+          newProperties.push({ label: e.label, short_label: e.shortLabel ?? null });
+        }
       } else {
         const existing = propById.get(e.id);
         if (existing && existing.label !== e.label) {
@@ -383,7 +387,8 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   });
 
   const recap = {
-    newProperties,
+    // Recap renders the list as plain text, so expose labels only.
+    newProperties: newProperties.map((p) => p.label),
     renames: renames.map((r) => ({
       id: r.id,
       from: propById.get(r.id)?.label || '?',
@@ -395,6 +400,8 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   };
 
   const plan = {
+    // Backend accepts {label, short_label} objects (or plain strings for
+    // legacy callers) — see FIX370.1.2.1.3 in showcase-api.
     new_properties: newProperties,
     renames: renames.map((r) => ({ id: r.id, label: r.label })),
     new_folders: newFolderNames,

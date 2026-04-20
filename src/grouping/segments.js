@@ -98,9 +98,25 @@ export function bucketsWithValues(folderValues, parsed) {
     if (existing) existing.count += 1;
     else byKey.set(b.key, { ...b, count: 1 });
   }
+  // FIX372.6.2.11: order the bucket list by increasing value.
+  //   .11.1 — if every value is a number, sort numerically.
+  //   .11.2 — otherwise, sort alphabetically (case-insensitive).
+  // Segmented groups (integer / text ranges) already carry a numeric `sort`
+  // key per bucket, so they take the numeric path automatically.
   const list = Array.from(byKey.values());
+  const hasAllSortKeys = list.length > 0 && list.every((b) => b.sort != null);
+  const allNumericLabels =
+    !hasAllSortKeys &&
+    list.length > 0 &&
+    list.every((b) => {
+      const t = b.label.trim();
+      if (!t) return false;
+      const n = Number(t);
+      return Number.isFinite(n) && String(n) === t;
+    });
   list.sort((a, b) => {
-    if (a.sort != null && b.sort != null) return a.sort - b.sort;
+    if (hasAllSortKeys) return a.sort - b.sort;
+    if (allNumericLabels) return Number(a.label) - Number(b.label);
     return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
   });
   if (noValueCount > 0) {

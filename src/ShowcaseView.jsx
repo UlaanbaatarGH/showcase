@@ -187,6 +187,20 @@ export default function ShowcaseView() {
   const activeGroup = groups.find((g) => g.property_id === activeGroupPropId) || null;
   const activeParsed = activeGroup ? parseSegment(activeGroup.segment) : null;
 
+  // FIX510.3 / <setup-property-tagged-deleted>: items whose value for the
+  // configured deletion property is non-blank are hidden from the Showcase
+  // view — they don't participate in sorting, filtering or grouping.
+  const deletedPropertyId = viewSetup.file_explorer?.deleted_property_id ?? null;
+  const liveFolders = useMemo(() => {
+    const all = data?.folders ?? [];
+    if (deletedPropertyId == null) return all;
+    const key = String(deletedPropertyId);
+    return all.filter((f) => {
+      const v = (f.properties || {})[key];
+      return v == null || String(v).trim() === '';
+    });
+  }, [data, deletedPropertyId]);
+
   // FIX510.2.1.5.2 / <derived-property-img>: the special 'img' derived
   // property groups items by whether they have any attached image. Other
   // groups read from folder.properties JSONB keyed by the numeric property id.
@@ -200,14 +214,14 @@ export default function ShowcaseView() {
 
   const bucketList = useMemo(() => {
     if (!activeGroup || !activeParsed) return [];
-    const values = (data?.folders ?? []).map(valueForGroup);
+    const values = liveFolders.map(valueForGroup);
     return bucketsWithValues(values, activeParsed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroup, activeParsed, data]);
+  }, [activeGroup, activeParsed, liveFolders]);
 
   const displayedFolders = useMemo(() => {
     if (!data) return [];
-    let rows = data.folders;
+    let rows = liveFolders;
     // FIX372.6.2.11: apply the active grouping bucket filter.
     if (activeGroup && activeBucketKey && activeParsed) {
       rows = rows.filter((f) => {
@@ -246,7 +260,7 @@ export default function ShowcaseView() {
       });
     }
     return rows;
-  }, [data, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed]);
+  }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed]);
 
   const handleHeaderClick = (key, ctrl) => {
     setSortKeys((keys) => {
@@ -660,6 +674,7 @@ export default function ShowcaseView() {
             name: data.project.name,
             properties,
             folders: data.folders,
+            deleted_property_id: deletedPropertyId,
           }}
           onClose={() => setImportOpen(false)}
           onDone={reloadShowcase}

@@ -143,10 +143,12 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
             />
             <RecapList title="New items" items={recap.newFolders} />
             <RecapList title="Updated items" items={recap.updatedFolders} />
+            <RecapList title="Deleted items" items={recap.deletedFolders} />
             {recap.newProperties.length === 0 &&
               recap.renames.length === 0 &&
               recap.newFolders.length === 0 &&
-              recap.updatedFolders.length === 0 && (
+              recap.updatedFolders.length === 0 &&
+              recap.deletedFolders.length === 0 && (
                 <div className="gsheet-empty">Nothing to import.</div>
               )}
             <div className="gsheet-actions">
@@ -161,7 +163,8 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
                   recap.newProperties.length === 0 &&
                   recap.renames.length === 0 &&
                   recap.newFolders.length === 0 &&
-                  recap.updatedFolders.length === 0
+                  recap.updatedFolders.length === 0 &&
+                  recap.deletedFolders.length === 0
                 }
               >
                 Import

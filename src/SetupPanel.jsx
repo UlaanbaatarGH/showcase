@@ -8,6 +8,9 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   );
   const [fileExplorer, setFileExplorer] = useState({
     main_img_icon_height: initialViewSetup?.file_explorer?.main_img_icon_height ?? 100,
+    // FIX500.2.2.2.3 / <setup-property-tagged-deleted>: id of the property
+    // that marks an item as deleted when non-blank. null = no such property.
+    deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
   });
   const [showcase, setShowcase] = useState(() => {
     // FIX500.2.3.2.1.2.1.3.1: '#' is the one default item in the list —
@@ -30,13 +33,26 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     setSaving(true);
     setError(null);
     try {
+      // If the property picked as the deletion marker no longer exists in
+      // the saved property list, drop the reference so we don't persist a
+      // dangling id.
+      const keptIds = new Set(
+        properties.filter((p) => (p.label ?? '').trim()).map((p) => p.id),
+      );
+      const effectiveFileExplorer = {
+        ...fileExplorer,
+        deleted_property_id:
+          fileExplorer.deleted_property_id != null && keptIds.has(fileExplorer.deleted_property_id)
+            ? fileExplorer.deleted_property_id
+            : null,
+      };
       const data = await saveSetup({
         properties: properties
           .filter((p) => (p.label ?? '').trim())
           .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
         view_setup: {
           ...(initialViewSetup || {}),
-          file_explorer: fileExplorer,
+          file_explorer: effectiveFileExplorer,
           showcase: {
             ...(initialViewSetup?.showcase || {}),
             ...showcase,
@@ -212,6 +228,27 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                   setFileExplorer({ ...fileExplorer, main_img_icon_height: Number.isFinite(n) && n > 0 ? n : 100 });
                 }}
               />
+
+              {/* FIX500.2.2.2.3: pick the property whose non-blank value marks
+                  an item as deleted. Deleted items are hidden from the
+                  Showcase list/sort/filter/grouping (FIX510.3). */}
+              <h3>Property indicating Item is deleted</h3>
+              <select
+                value={fileExplorer.deleted_property_id ?? ''}
+                onChange={(e) =>
+                  setFileExplorer({
+                    ...fileExplorer,
+                    deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">— none —</option>
+                {properties
+                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
             </section>
           )}
 

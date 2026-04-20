@@ -324,6 +324,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const folder = folderByName.get(name);
       const currentProps = folder?.properties || {};
       let changed = false;
+      const diffs = [];
       for (const col of propHeaders) {
         const finalId = labelToFinalId.get(col.label);
         const newValue = (row[col.idx] ?? '').trim();
@@ -332,10 +333,16 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
           : '';
         if (curValue !== newValue) {
           changed = true;
-          break;
+          diffs.push({ label: col.label, finalId, curValue, newValue });
         }
       }
-      if (changed) updatedFolderDisplays.push(display);
+      if (changed) {
+        updatedFolderDisplays.push(display);
+        // Temporary trace to diagnose unexpected "updated" reports — remove
+        // once the comparison is fully trusted.
+        // eslint-disable-next-line no-console
+        console.log(`[gsheet recap] item ${name} marked updated:`, diffs);
+      }
     }
     for (const col of propHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;

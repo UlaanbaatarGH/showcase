@@ -46,7 +46,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
             ? fileExplorer.deleted_property_id
             : null,
       };
-      const data = await saveSetup({
+      const payload = {
         properties: properties
           .filter((p) => (p.label ?? '').trim())
           .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
@@ -58,7 +58,16 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
             ...showcase,
           },
         },
-      });
+      };
+      // eslint-disable-next-line no-console
+      console.log('[setup save] sending properties:', payload.properties.map((p) => `${p.id}:${p.label}`).join(', '));
+      // eslint-disable-next-line no-console
+      console.log('[setup save] file_explorer:', payload.view_setup.file_explorer);
+      const data = await saveSetup(payload);
+      // eslint-disable-next-line no-console
+      console.log('[setup save] backend returned properties:', (data.properties || []).map((p) => `${p.id}:${p.label}`).join(', '));
+      // eslint-disable-next-line no-console
+      console.log('[setup save] backend returned file_explorer:', data.view_setup?.file_explorer);
       onSave(data);
     } catch (e) {
       setError(String(e.message || e));

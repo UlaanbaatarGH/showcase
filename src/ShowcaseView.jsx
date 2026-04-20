@@ -467,18 +467,18 @@ export default function ShowcaseView() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { setMenuOpen(false); setImportOpen(true); }}
+                    onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
                   >
-                    Properties (Google sheet)
+                    Images
                   </button>
                 </li>
                 <li>
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
+                    onClick={() => { setMenuOpen(false); setImportOpen(true); }}
                   >
-                    Images (hard disk)
+                    Image Properties
                   </button>
                 </li>
               </ul>

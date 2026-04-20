@@ -76,10 +76,14 @@ export default function GroupingPanel({
       };
 
       const result = await saveSetup({
-        // Preserve current properties list untouched.
+        // Preserve current properties list untouched — forward every
+        // persisted field, otherwise the backend UPDATE would overwrite
+        // short_label / formula with NULL on each save.
         properties: (properties ?? []).map((p, i) => ({
           id: p.id,
           label: p.label,
+          short_label: p.short_label ?? null,
+          formula: p.formula ?? null,
           sort_order: p.sort_order ?? i,
         })),
         view_setup: nextViewSetup,

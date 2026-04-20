@@ -310,9 +310,21 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     }
   }
 
+  // FIX370.3.2.2.2.5 / <setup-property-tagged-deleted>: recap the folders
+  // that will be tagged as deleted after the import (i.e. the rows where
+  // the deletion property's value is non-blank). null = feature disabled.
+  const deletedPropertyId = project.deleted_property_id ?? null;
+  const deletedColIdx =
+    deletedPropertyId != null
+      ? (propHeaders.find(
+          (c) => labelToFinalId.get(c.label) === deletedPropertyId,
+        )?.idx ?? null)
+      : null;
+
   const newFolderNames = [];
   const newFolderDisplays = [];
   const updatedFolderDisplays = [];
+  const deletedFolderDisplays = [];
   const updates = [];
 
   dataRows.forEach((row, i) => {
@@ -349,6 +361,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       }
       if (changed) updatedFolderDisplays.push(display);
     }
+    if (deletedColIdx != null) {
+      const v = (row[deletedColIdx] ?? '').trim();
+      if (v) deletedFolderDisplays.push(display);
+    }
     for (const col of propHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;
       const value = (row[col.idx] ?? '').trim();
@@ -365,6 +381,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     })),
     newFolders: newFolderDisplays,
     updatedFolders: updatedFolderDisplays,
+    deletedFolders: deletedFolderDisplays,
   };
 
   const plan = {

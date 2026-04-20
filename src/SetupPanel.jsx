@@ -33,41 +33,24 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     setSaving(true);
     setError(null);
     try {
-      // If the property picked as the deletion marker no longer exists in
-      // the saved property list, drop the reference so we don't persist a
-      // dangling id.
-      const keptIds = new Set(
-        properties.filter((p) => (p.label ?? '').trim()).map((p) => p.id),
-      );
-      const effectiveFileExplorer = {
-        ...fileExplorer,
-        deleted_property_id:
-          fileExplorer.deleted_property_id != null && keptIds.has(fileExplorer.deleted_property_id)
-            ? fileExplorer.deleted_property_id
-            : null,
-      };
-      const payload = {
+      // Persist deleted_property_id as-is — a stale id pointing at a property
+      // that no longer exists is harmless (dropdown falls back to "— none —"
+      // and the liveFolders lookup returns undefined for every folder, hiding
+      // nothing). Auto-clearing here would cascade if, for any reason, the
+      // local properties state was briefly missing the target property.
+      const data = await saveSetup({
         properties: properties
           .filter((p) => (p.label ?? '').trim())
           .map((p, i) => ({ id: p.id, label: p.label.trim(), sort_order: i })),
         view_setup: {
           ...(initialViewSetup || {}),
-          file_explorer: effectiveFileExplorer,
+          file_explorer: fileExplorer,
           showcase: {
             ...(initialViewSetup?.showcase || {}),
             ...showcase,
           },
         },
-      };
-      // eslint-disable-next-line no-console
-      console.log('[setup save] sending properties:', payload.properties.map((p) => `${p.id}:${p.label}`).join(', '));
-      // eslint-disable-next-line no-console
-      console.log('[setup save] file_explorer:', payload.view_setup.file_explorer);
-      const data = await saveSetup(payload);
-      // eslint-disable-next-line no-console
-      console.log('[setup save] backend returned properties:', (data.properties || []).map((p) => `${p.id}:${p.label}`).join(', '));
-      // eslint-disable-next-line no-console
-      console.log('[setup save] backend returned file_explorer:', data.view_setup?.file_explorer);
+      });
       onSave(data);
     } catch (e) {
       setError(String(e.message || e));

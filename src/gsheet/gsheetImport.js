@@ -103,6 +103,17 @@ export function parseCsv(text) {
   return rows;
 }
 
+// Normalize a cell value for equality comparison between the gsheet and
+// the stored property: Unicode NFC, convert non-breaking space to regular
+// space, strip zero-width characters and BOM, then trim.
+function normalizeForCompare(v) {
+  return String(v ?? '')
+    .normalize('NFC')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+    .trim();
+}
+
 function isRowBlank(row) {
   return row.every((c) => (c ?? '').trim() === '');
 }
@@ -319,17 +330,18 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     } else {
       // Existing folder is reported as 'updated' only when at least one
       // property value in the row actually differs from what the project
-      // currently stores. Values are compared as trimmed strings so blanks
-      // and surrounding whitespace don't show up as spurious changes.
+      // currently stores. Values are normalized before comparison so
+      // invisible characters (NBSP, zero-width, CR, BOM) and Unicode form
+      // (NFC vs NFD) don't produce spurious diffs.
       const folder = folderByName.get(name);
       const currentProps = folder?.properties || {};
       let changed = false;
       const diffs = [];
       for (const col of propHeaders) {
         const finalId = labelToFinalId.get(col.label);
-        const newValue = (row[col.idx] ?? '').trim();
+        const newValue = normalizeForCompare(row[col.idx]);
         const curValue = finalId != null
-          ? String(currentProps[String(finalId)] ?? '').trim()
+          ? normalizeForCompare(currentProps[String(finalId)])
           : '';
         if (curValue !== newValue) {
           changed = true;

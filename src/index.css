@@ -429,7 +429,36 @@ body {
 }
 
 /* Image viewer */
+/* FIX515: Item Details panel wrapper — tab strip on top, active tab body
+   fills the rest. Centering / padding moved into .sc-viewer-body so the
+   Details tab can left-align its own content. */
 .sc-viewer {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sc-viewer-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+.sc-viewer-tabs button {
+  padding: 0.4rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.sc-viewer-tabs button:hover { background: var(--color-bg-lighter); }
+.sc-viewer-tabs button.active {
+  border-bottom-color: var(--color-selected-border);
+  color: #fff;
+}
+.sc-viewer-body {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -437,6 +466,27 @@ body {
   padding: 2rem;
   gap: 1rem;
   overflow: hidden;
+}
+/* FIX518: Item details list — left-aligned name + value pairs. */
+.sc-details {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 1rem 1.5rem;
+}
+.sc-details-list {
+  border-collapse: collapse;
+  width: auto;
+}
+.sc-details-list th,
+.sc-details-list td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.25rem 1.5rem 0.25rem 0;
+}
+.sc-details-list th {
+  font-weight: normal;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 .sc-viewer-img {
   max-width: 100%;

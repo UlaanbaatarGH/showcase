@@ -74,6 +74,10 @@ export default function ShowcaseView() {
   const { profile } = useAuth();
   const [data, setData] = useState(null);
   const [selectedFolderId, setSelectedFolderId] = useState(null);
+  // FIX515: Item Details panel — two tabs sharing the right column.
+  // FIX515.4.1: tab persists when the selected item changes (state lives
+  // here, not reset by selection). FIX515.4.2: 'Images' is the default.
+  const [viewerTab, setViewerTab] = useState('images');
   const [images, setImages] = useState([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
@@ -630,47 +634,115 @@ export default function ShowcaseView() {
           title="Drag to resize"
         />
         <section className="sc-viewer">
-          {currentImage ? (
-            <>
-              <img
-                src={currentImage.url}
-                alt={currentImage.caption ?? ''}
-                className="sc-viewer-img"
-                style={
-                  currentImage.rotation
-                    ? { transform: `rotate(${currentImage.rotation}deg)` }
-                    : undefined
-                }
-              />
-              {currentImage.caption && (
-                <div className="sc-viewer-caption">{currentImage.caption}</div>
+          {/* FIX515.2.1: tab strip switches between Images and Details. */}
+          <div className="sc-viewer-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewerTab === 'images'}
+              className={viewerTab === 'images' ? 'active' : ''}
+              onClick={() => setViewerTab('images')}
+            >
+              Images
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={viewerTab === 'details'}
+              className={viewerTab === 'details' ? 'active' : ''}
+              onClick={() => setViewerTab('details')}
+            >
+              Details
+            </button>
+          </div>
+          {viewerTab === 'images' ? (
+            <div className="sc-viewer-body">
+              {currentImage ? (
+                <>
+                  <img
+                    src={currentImage.url}
+                    alt={currentImage.caption ?? ''}
+                    className="sc-viewer-img"
+                    style={
+                      currentImage.rotation
+                        ? { transform: `rotate(${currentImage.rotation}deg)` }
+                        : undefined
+                    }
+                  />
+                  {currentImage.caption && (
+                    <div className="sc-viewer-caption">{currentImage.caption}</div>
+                  )}
+                  <div className="sc-viewer-nav">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                      disabled={currentImageIdx === 0}
+                      aria-label="Previous image"
+                    >
+                      ‹
+                    </button>
+                    <span className="sc-viewer-pos">
+                      {currentImageIdx + 1} / {images.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                      }
+                      disabled={currentImageIdx >= images.length - 1}
+                      aria-label="Next image"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="sc-viewer-empty">No images in this item.</div>
               )}
-              <div className="sc-viewer-nav">
-                <button
-                  type="button"
-                  onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                  disabled={currentImageIdx === 0}
-                  aria-label="Previous image"
-                >
-                  ‹
-                </button>
-                <span className="sc-viewer-pos">
-                  {currentImageIdx + 1} / {images.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-                  }
-                  disabled={currentImageIdx >= images.length - 1}
-                  aria-label="Next image"
-                >
-                  ›
-                </button>
-              </div>
-            </>
+            </div>
           ) : (
-            <div className="sc-viewer-empty">No images in this item.</div>
+            // FIX518: Item Details panel — read-only list of all properties
+            // for the selected item, in the order configured in the File
+            // Explorer setup. Derived properties (e.g. Img) appear after the
+            // regular ones.
+            <div className="sc-details">
+              {(() => {
+                const selectedFolder = (data?.folders || []).find(
+                  (f) => f.id === selectedFolderId,
+                );
+                if (!selectedFolder) {
+                  return <div className="sc-viewer-empty">No item selected.</div>;
+                }
+                const ordered = [...properties].sort(
+                  (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+                );
+                return (
+                  <table className="sc-details-list">
+                    <tbody>
+                      <tr>
+                        <th>#</th>
+                        <td>{selectedFolder.name ?? ''}</td>
+                      </tr>
+                      {ordered.map((p) => (
+                        <tr key={`prop_${p.id}`}>
+                          <th>{p.label}</th>
+                          <td>
+                            {selectedFolder.properties?.[String(p.id)] ?? ''}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* FIX518.4.1: derived properties listed after the
+                          regular ones. <derived-property-img> doesn't relate
+                          to a specific property, so it goes at the end. */}
+                      <tr>
+                        <th>Img</th>
+                        <td>{selectedFolder.has_image ? 'x' : ''}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
           )}
         </section>
       </div>

@@ -859,18 +859,25 @@ body {
 }
 /* FIX372.6.2.6.1: single-column grid makes every pill the same width as
    the widest pill — the column is sized to max-content, so no hardcoded
-   width and it adjusts automatically when the bucket list changes. */
+   width and it adjusts automatically when the bucket list changes.
+   FIX372.6.2.6.3: align-content: start so the stack sits at the top of
+   the panel instead of stretching/centering vertically. */
 .sc-buckets {
   list-style: none;
   margin: 0;
   padding: 0.5rem;
   display: grid;
   grid-template-columns: max-content;
+  align-content: start;
   gap: 0.3rem;
 }
-/* FIX372.6.2.6: values shown as pills with semi-circle ends. */
+/* FIX372.6.2.6: values shown as pills with semi-circle ends.
+   FIX372.6.2.6.2: explicit line-height + border-box so every pill has
+   the same height regardless of label length. */
 .sc-buckets li {
+  box-sizing: border-box;
   padding: 0.25rem 0.9rem;
+  line-height: 1.4;
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--color-text);

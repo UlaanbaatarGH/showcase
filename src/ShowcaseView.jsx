@@ -362,12 +362,7 @@ export default function ShowcaseView() {
       );
     }
     const key = columnKey(col);
-    const label =
-      col.type === 'folder_name'
-        ? folderColumnName
-        : col.type === 'img'
-        ? 'Img'
-        : properties.find((p) => p.id === col.property_id)?.label ?? '(missing)';
+    const label = columnHeaderLabel(col);
     return (
       <th
         key={key}
@@ -381,17 +376,22 @@ export default function ShowcaseView() {
     );
   };
 
+  // FIX510.2.1.1.2 / <property-short-name>: Showcase column headers use the
+  // property's short name when defined; fall back to the full name otherwise.
+  const columnHeaderLabel = (col) => {
+    if (col.type === 'folder_name') return folderColumnName;
+    if (col.type === 'img') return 'Img';
+    const prop = properties.find((p) => p.id === col.property_id);
+    if (!prop) return '(missing)';
+    return (prop.short_label && prop.short_label.trim()) || prop.label;
+  };
+
   const renderFilterCell = (col) => {
     if (col.type === 'main_image_icon') {
       return <th key="main_image_icon" className="sc-th-thumb" aria-hidden="true" />;
     }
     const key = columnKey(col);
-    const label =
-      col.type === 'folder_name'
-        ? folderColumnName
-        : col.type === 'img'
-        ? 'Img'
-        : properties.find((p) => p.id === col.property_id)?.label ?? '(missing)';
+    const label = columnHeaderLabel(col);
     return (
       <th key={key}>
         <input

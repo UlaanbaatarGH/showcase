@@ -713,22 +713,56 @@ export default function ShowcaseView() {
                 if (!selectedFolder) {
                   return <div className="sc-viewer-empty">No item selected.</div>;
                 }
-                const ordered = [...properties].sort(
-                  (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
-                );
+                // FIX518.4.4: hide the property used as the deleted-marker.
+                // FIX518.4.2: order follows the File-Explorer setup sort order.
+                const ordered = [...properties]
+                  .filter((p) => p.id !== deletedPropertyId)
+                  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+                // FIX518.4.5: a property is rendered as a checkbox when every
+                // non-blank value across all items is 'x' (case-insensitive,
+                // trimmed). Computed once per render from data.folders.
+                const isBooleanProperty = (p) => {
+                  const key = String(p.id);
+                  let sawAny = false;
+                  for (const f of data.folders) {
+                    const v = (f.properties || {})[key];
+                    if (v == null) continue;
+                    const s = String(v).trim();
+                    if (s === '') continue;
+                    sawAny = true;
+                    if (s.toLowerCase() !== 'x') return false;
+                  }
+                  return sawAny;
+                };
+                const renderValue = (p) => {
+                  const raw = selectedFolder.properties?.[String(p.id)] ?? '';
+                  if (isBooleanProperty(p)) {
+                    const checked = String(raw).trim().toLowerCase() === 'x';
+                    return (
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        readOnly
+                        tabIndex={-1}
+                      />
+                    );
+                  }
+                  return raw;
+                };
+                // FIX518.4.3 / <item-id-new-name>: the '#' row uses the custom
+                // label from view_setup.showcase.folder_column_name if set.
+                const idLabel = folderColumnName;
                 return (
                   <table className="sc-details-list">
                     <tbody>
                       <tr>
-                        <th>#</th>
+                        <th>{idLabel}</th>
                         <td>{selectedFolder.name ?? ''}</td>
                       </tr>
                       {ordered.map((p) => (
                         <tr key={`prop_${p.id}`}>
                           <th>{p.label}</th>
-                          <td>
-                            {selectedFolder.properties?.[String(p.id)] ?? ''}
-                          </td>
+                          <td>{renderValue(p)}</td>
                         </tr>
                       ))}
                       {/* FIX518.4.1: derived properties listed after the
@@ -736,7 +770,14 @@ export default function ShowcaseView() {
                           to a specific property, so it goes at the end. */}
                       <tr>
                         <th>Img</th>
-                        <td>{selectedFolder.has_image ? 'x' : ''}</td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={!!selectedFolder.has_image}
+                            readOnly
+                            tabIndex={-1}
+                          />
+                        </td>
                       </tr>
                     </tbody>
                   </table>

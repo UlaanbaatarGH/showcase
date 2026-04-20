@@ -321,11 +321,14 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                 </div>
               )}
 
-              <h3>Item column name</h3>
+              {/* FIX500.2.3.2.1.2.3 / <item-id-new-name>: optional replacement
+                  label for the '#' column (item id). Stored at
+                  view_setup.showcase.folder_column_name. */}
+              <h3>New name for Property &apos;#&apos;</h3>
               <input
                 type="text"
                 value={showcase.folder_column_name ?? ''}
-                placeholder="Folder name (default)"
+                placeholder="#"
                 onChange={(e) =>
                   setShowcase({
                     ...showcase,

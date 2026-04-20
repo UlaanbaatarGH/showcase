@@ -336,7 +336,6 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const folder = folderByName.get(name);
       const currentProps = folder?.properties || {};
       let changed = false;
-      const diffs = [];
       for (const col of propHeaders) {
         const finalId = labelToFinalId.get(col.label);
         const newValue = normalizeForCompare(row[col.idx]);
@@ -345,23 +344,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
           : '';
         if (curValue !== newValue) {
           changed = true;
-          diffs.push({ label: col.label, finalId, curValue, newValue });
+          break;
         }
       }
-      if (changed) {
-        updatedFolderDisplays.push(display);
-        // Temporary trace to diagnose unexpected "updated" reports — remove
-        // once the comparison is fully trusted. Stringified so the actual
-        // values appear inline without expanding objects in devtools.
-        const lines = diffs
-          .map(
-            (d) =>
-              `  ${d.label} (id=${d.finalId ?? 'new'}): cur=${JSON.stringify(d.curValue)}  new=${JSON.stringify(d.newValue)}`,
-          )
-          .join('\n');
-        // eslint-disable-next-line no-console
-        console.log(`[gsheet recap] item ${name} marked updated (${diffs.length} diff${diffs.length > 1 ? 's' : ''}):\n${lines}`);
-      }
+      if (changed) updatedFolderDisplays.push(display);
     }
     for (const col of propHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;

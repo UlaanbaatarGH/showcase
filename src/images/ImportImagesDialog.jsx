@@ -22,7 +22,7 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
     setStage('scanning');
     setFatal(null);
     try {
-      const scanned = scanFiles(files);
+      const scanned = await scanFiles(files);
       const existing = await getExistingImages(project.id);
       const planItems = buildImportPlan(scanned, existing.items || {});
       setPlan(planItems);

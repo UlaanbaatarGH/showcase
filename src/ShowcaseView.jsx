@@ -47,7 +47,7 @@ function widthCss(width) {
 
 function getColumnValue(folder, col) {
   if (col.type === 'folder_name') return folder.name ?? '';
-  if (col.type === 'img') return folder.main_image_url ? 'x' : '';
+  if (col.type === 'img') return folder.has_image ? 'x' : '';
   if (col.type === 'property')
     return folder.properties?.[String(col.property_id)] ?? '';
   return '';
@@ -187,13 +187,13 @@ export default function ShowcaseView() {
   const activeGroup = groups.find((g) => g.property_id === activeGroupPropId) || null;
   const activeParsed = activeGroup ? parseSegment(activeGroup.segment) : null;
 
-  // FIX510.2.1.5.2: the special 'img' meta-property groups items by whether
-  // they have a main image. Other groups read from folder.properties JSONB
-  // keyed by the numeric property id.
+  // FIX510.2.1.5.2 / <meta-property-img>: the special 'img' meta-property
+  // groups items by whether they have any attached image. Other groups read
+  // from folder.properties JSONB keyed by the numeric property id.
   const valueForGroup = (folder) => {
     if (!activeGroup) return undefined;
     if (activeGroup.property_id === 'img') {
-      return folder.main_image_url ? 'With image' : 'No image';
+      return folder.has_image ? 'With image' : 'No image';
     }
     return folder.properties?.[String(activeGroup.property_id)];
   };

@@ -98,9 +98,10 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
           <div className="gsheet-stage">
             <h2>Import images from disk</h2>
             <p className="gsheet-hint">
-              Pick a folder that contains one or more item folders (each
-              subfolder name is the item's <b>#</b>). Accepted file types:
-              jpg, jpeg, png, webp.
+              Pick one folder. It can be either an Item Folder
+              containing images directly (its name is the item's <b>#</b>),
+              or a common parent folder whose immediate children are Item
+              Folders. Accepted file types: jpg, jpeg, png, webp.
             </p>
             <input
               ref={fileInputRef}

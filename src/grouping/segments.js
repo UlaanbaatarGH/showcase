@@ -78,7 +78,7 @@ export function bucketFor(value, parsed) {
   return null;
 }
 
-// FIX372.6.2.3: sentinel key used for the trailing "No value" bucket that
+// FIX374.2.3 [ex-FIX372.6.2.3]: sentinel key used for the trailing "No value" bucket that
 // collects items whose value for the grouping property is missing or not
 // placeable under the current segment.
 export const NO_VALUE_KEY = '__novalue__';
@@ -98,7 +98,7 @@ export function bucketsWithValues(folderValues, parsed) {
     if (existing) existing.count += 1;
     else byKey.set(b.key, { ...b, count: 1 });
   }
-  // FIX372.6.2.11: order the bucket list by increasing value.
+  // FIX374.2.11 [ex-FIX372.6.2.11]: order the bucket list by increasing value.
   //   .11.1 — if every value is a number, sort numerically.
   //   .11.2 — otherwise, sort alphabetically (case-insensitive).
   // Segmented groups (integer / text ranges) already carry a numeric `sort`

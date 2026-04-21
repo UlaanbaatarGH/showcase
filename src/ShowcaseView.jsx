@@ -87,7 +87,10 @@ export default function ShowcaseView() {
   const [error, setError] = useState(null);
   const [sortKeys, setSortKeys] = useState([]);
   const [filters, setFilters] = useState({});
-  const [showSetup, setShowSetup] = useState(false);
+  // FIX503.3.2 `<button-columns>` opens SetupPanel on the Showcase tab,
+  // FIX500.2 `<button-setup>` opens it on the File Explorer tab. A single
+  // string tracks both: null = closed, 'showcase' or 'file_explorer' = open.
+  const [setupTab, setSetupTab] = useState(null);
   const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
@@ -321,7 +324,7 @@ export default function ShowcaseView() {
     }));
     setSortKeys([]);
     setFilters({});
-    setShowSetup(false);
+    setSetupTab(null);
   };
 
   const handleSaveGrouping = (result) => {
@@ -487,22 +490,53 @@ export default function ShowcaseView() {
 
   return (
     <div className="sc-layout">
-      {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel. */}
+      {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel.
+          FIX503.2.10.1 left: <button-home>, <label-project-name>.
+          FIX503.2.10.2 right: <button-columns>, <button-item-grouping>,
+          <menu-import>, <button-setup>. */}
       <div className="sc-topbar" data-yagu-id="panel-showcase-header">
-        {/* FIX503.2.1.1: Home button (icon), left-aligned. */}
+        {/* FIX503.2.1 + FIX503.2.1.0 + FIX503.2.1.1 + FIX503.3.1
+            <button-home>: icon button, navigates to the home page. */}
         <button
           type="button"
           className="sc-home-btn"
+          data-yagu-id="button-home"
           onClick={() => { window.location.hash = '#home'; }}
           aria-label="Home"
           title="Home"
         >
           ⌂
         </button>
-        {/* FIX503.2.1.2: project's name label, left-aligned. */}
-        <h1 className="sc-project-title">{data.project?.name ?? 'Showcase'}</h1>
-        {/* FIX503.2.2.1 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Import menu, right-aligned, visible only when signed in (FIX369.1). */}
+        {/* FIX503.2.2 + FIX503.2.2.0 <label-project-name>. */}
+        <h1 className="sc-project-title" data-yagu-id="label-project-name">
+          {data.project?.name ?? 'Showcase'}
+        </h1>
+        {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 <button-columns>: opens
+            <panel-showcase-view-setup> in a layer popup. Not listed under
+            FIX503.5.1, so visible to anonymous visitors too. */}
+        <button
+          type="button"
+          className="sc-menu-trigger"
+          data-yagu-id="button-columns"
+          onClick={() => setSetupTab('showcase')}
+        >
+          Columns
+        </button>
+        {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.5.1 (.4.1.2)
+            <button-item-grouping>: opens <panel-item-grouping-setup> in a
+            layer popup, signed-in only. */}
+        {profile && (
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            data-yagu-id="button-item-grouping"
+            onClick={() => setShowGrouping(true)}
+          >
+            Grouping
+          </button>
+        )}
+        {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
+            Import menu, visible only when signed in (FIX369.1). */}
         {profile && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
@@ -540,26 +574,15 @@ export default function ShowcaseView() {
             )}
           </div>
         )}
-        {/* FIX503.2.2.2 + FIX503.5.1 (.4.1.2) / FIX373.1.0 [ex-FIX372.5.1.0] <button-item-grouping>:
-            Grouping button, right-aligned, signed-in only. */}
-        {profile && (
-          <button
-            type="button"
-            className="sc-menu-trigger"
-            data-yagu-id="button-item-grouping"
-            onClick={() => setShowGrouping(true)}
-          >
-            Grouping
-          </button>
-        )}
-        {/* FIX503.2.2.3 + FIX503.5.1 (.4.1.3) <button-setup>: Setup icon
-            button, right-aligned, signed-in only. */}
+        {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
+            <button-setup>: Setup icon button, signed-in only. Opens the
+            tabbed general panel defaulting to File Explorer. */}
         {profile && (
           <button
             type="button"
             className="sc-setup-btn"
             data-yagu-id="button-setup"
-            onClick={() => setShowSetup(true)}
+            onClick={() => setSetupTab('file_explorer')}
             aria-label="Open setup"
             title="Setup"
           >
@@ -834,11 +857,12 @@ export default function ShowcaseView() {
           )}
         </section>
       </div>
-      {showSetup && (
+      {setupTab && (
         <SetupPanel
           properties={properties}
           viewSetup={viewSetup}
-          onCancel={() => setShowSetup(false)}
+          initialTab={setupTab}
+          onCancel={() => setSetupTab(null)}
           onSave={handleSaveSetup}
         />
       )}

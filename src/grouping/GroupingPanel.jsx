@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { saveSetup } from '../data/backend.js';
 
-// FIX373 [ex-FIX372.5]: Grouping definition popup. One row per project property;
-// check 'Group' to mark it as a grouping axis, optionally enter a segment
-// string (e.g. '1900-1909' or 'A-D'), and pick at most one Default row.
+// FIX373 [ex-FIX372.5] / FIX373.0 <panel-item-grouping-setup>: Item Grouping
+// setup panel. One row per project property; check 'Group' to mark it as a
+// grouping axis, optionally enter a segment string (e.g. '1900-1909' or
+// 'A-D'), and pick at most one Default row.
 export default function GroupingPanel({
   properties,
   viewSetup,
@@ -45,7 +46,7 @@ export default function GroupingPanel({
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
-  // FIX373.1.1.1.5.1 [ex-FIX372.5.1.1.1.5.1]: checking Default on one row unchecks the others.
+  // FIX373.2.1.5.1 [ex-FIX372.5.1.1.1.5.1]: checking Default on one row unchecks the others.
   const setDefault = (id, checked) => {
     setRows((rs) =>
       rs.map((r) => ({
@@ -98,7 +99,11 @@ export default function GroupingPanel({
 
   return (
     <div className="setup-overlay" onClick={onCancel}>
-      <div className="setup-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="setup-panel"
+        data-yagu-id="panel-item-grouping-setup"
+        onClick={(e) => e.stopPropagation()}
+      >
         <header className="setup-header">
           <h2>Grouping</h2>
         </header>

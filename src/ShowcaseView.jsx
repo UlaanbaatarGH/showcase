@@ -794,7 +794,7 @@ export default function ShowcaseView() {
                 // FIX518.4.5: a property is rendered as a checkbox when every
                 // non-blank value across all items is 'x' (case-insensitive,
                 // trimmed). Only applies to stored properties — derived ones
-                // (FIX500.2.2.5.3.2) always render as their computed value.
+                // (FIX506.5.3.2) always render as their computed value.
                 const isBooleanProperty = (p) => {
                   if (p.formula) return false;
                   const key = String(p.id);

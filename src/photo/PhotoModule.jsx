@@ -13,7 +13,7 @@ import './PhotoModule.css';
 const SERVER_URL = 'http://localhost:3001';
 const LS_KEY = 'photo-module-root';
 const SORT_FILE = 'sort.txt';
-const SETUP_FILE = '.photo-setup.json'; // FIX500.2.1.3.10.1
+const SETUP_FILE = '.photo-setup.json'; // FIX505.3.10.1
 const PROPERTIES_FILE = 'properties.txt'; // FIX500.20 / FIX501.3.3.5.2.2
 const MAIN_IMAGE_FILE = '.main-image.txt'; // FIX501.3.5.3 / FIX501.30.3.3
 const NOTE_FILE = '.note.txt'; // FIX501.3.3.5.5
@@ -113,7 +113,7 @@ async function loadSetup(rootFolder) {
     const data = await res.json();
     if (!data.content) return { properties: [], showcaseColumns: [{ name: 'Folder name', widthSample: '', wrap: false }], mainImageIconHeight: 80, folderColumnName: '', romanYearConverter: false };
     const parsed = JSON.parse(data.content);
-    // FIX500.2.2.2.1.1: migrate / repair properties to ensure every entry has a valid numeric id
+    // FIX506.2.1.1: migrate / repair properties to ensure every entry has a valid numeric id
     const raw = parsed.properties || [];
     // Pass 1: normalize — strings → {id:null, label}; objects → keep valid numeric id, else null
     const props = raw.map(p => {
@@ -145,7 +145,7 @@ async function loadSetup(rootFolder) {
     const showcaseColumns = rawCols.some(c => c.name === 'Folder name')
       ? rawCols
       : [{ name: 'Folder name', widthSample: '', wrap: false }, ...rawCols];
-    // FIX500.2.2.2.2: Main Image Icon height (px) — cannot be empty, default 80
+    // FIX506.2.2: Main Image Icon height (px) — cannot be empty, default 80
     const rawH = parsed.mainImageIconHeight;
     const mainImageIconHeight = (typeof rawH === 'number' && rawH > 0) ? rawH : 80;
     // FIX500.2.3.2.1.2.3: optional override for the 'Folder name' column header
@@ -163,7 +163,7 @@ async function saveSetup(rootFolder, setup) {
   });
 }
 
-// FIX500.2.2.2.1.1: Property format = { id: number, label: string }
+// FIX506.2.1.1: Property format = { id: number, label: string }
 // properties.txt line format: "id:label:value"
 // FIX501.3.3.5.5: optional leading "#:note:<text>" line carries the folder note
 function serializePropertyFile(props, note) {
@@ -210,7 +210,7 @@ async function createPropertiesFile(folderPath, setupProperties) {
   await writePropertiesFile(folderPath, props);
 }
 
-// FIX500.2.1.3.10.2: Recursively find all folders containing properties.txt under a root
+// FIX505.3.10.2: Recursively find all folders containing properties.txt under a root
 async function findPropertyFolders(rootPath) {
   const result = [];
   async function walk(dirPath) {
@@ -225,7 +225,7 @@ async function findPropertyFolders(rootPath) {
   return result;
 }
 
-// FIX500.2.1.3.10.2: Apply setup changes to one properties.txt file
+// FIX505.3.10.2: Apply setup changes to one properties.txt file
 async function propagateSetupChange(folderPath, newSetupProps) {
   const existing = await readPropertiesFile(folderPath);
   if (!existing) return;
@@ -510,13 +510,13 @@ export default function PhotoModule({ onClose }) {
   const [setupDraft, setSetupDraft] = useState([]); // working copy while dialog is open
   // FIX500.2.3.2.1: Showcase columns draft
   const [showcaseDraft, setShowcaseDraft] = useState([{ name: 'Folder name', widthSample: '', wrap: false }]);
-  // FIX500.2.2.2.2: Main Image Icon height draft (as string — input can be typed)
+  // FIX506.2.2: Main Image Icon height draft (as string — input can be typed)
   const [iconHeightDraft, setIconHeightDraft] = useState('80');
   // FIX500.2.3.2.1.2.3: Folder column name override
   const [folderColumnNameDraft, setFolderColumnNameDraft] = useState('');
   // FIX500.2.3.2.1.2.4: Roman year converter
   const [romanYearDraft, setRomanYearDraft] = useState(false);
-  // FIX500.2.1.2.1 / FIX500.2.1.2.2: active tab in Setup dialog
+  // FIX505.2.1 / FIX505.2.2: active tab in Setup dialog
   const [setupTab, setSetupTab] = useState('file-explorer'); // 'file-explorer' | 'showcase'
   // FIX501.3.3.10.2: Track the currently selected folder path IF it has properties.txt
   const [folderWithProps, setFolderWithProps] = useState(null);
@@ -844,7 +844,7 @@ export default function PhotoModule({ onClose }) {
   }, [contextMenu, selectedPaths]);
 
   // FIX500.1.2: Photo setup handlers
-  // FIX500.2.2.2.1.1: properties are { id, label }
+  // FIX506.2.1.1: properties are { id, label }
   const nextPropertyId = (props) => (props.reduce((max, p) => Math.max(max, p.id), 0) + 1);
 
   const handleOpenSetup = () => {
@@ -875,17 +875,17 @@ export default function PhotoModule({ onClose }) {
     if (renameMap.size > 0) {
       columns = columns.map(c => renameMap.has(c.name) ? { ...c, name: renameMap.get(c.name) } : c);
     }
-    // FIX500.2.2.5.2: On save, update <list-showcase-columns-setup> — drop columns
+    // FIX506.5.2: On save, update <list-showcase-columns-setup> — drop columns
     // whose underlying property has been removed. Keep 'Folder name' and 'Main image icon'.
     const validNames = new Set(['Folder name', 'Main image icon', ...cleaned.map(p => p.label)]);
     columns = columns.filter(c => validNames.has(c.name));
-    // FIX500.2.2.2.2.1: Main Image Icon height — cannot be empty; fall back to 80 if invalid
+    // FIX506.2.2.1: Main Image Icon height — cannot be empty; fall back to 80 if invalid
     const parsedH = parseInt(iconHeightDraft, 10);
     const mainImageIconHeight = (Number.isFinite(parsedH) && parsedH > 0) ? parsedH : 80;
     const newSetup = { properties: cleaned, showcaseColumns: columns, mainImageIconHeight, folderColumnName: folderColumnNameDraft, romanYearConverter: romanYearDraft };
     await saveSetup(rootFolder, newSetup);
     setSetup(newSetup);
-    // FIX500.2.1.3.10.2: propagate changes to all folder property files
+    // FIX505.3.10.2: propagate changes to all folder property files
     const folders = await findPropertyFolders(rootFolder);
     for (const f of folders) {
       await propagateSetupChange(f, cleaned);
@@ -1398,12 +1398,12 @@ export default function PhotoModule({ onClose }) {
         </div>
       )}
 
-      {/* FIX500.2: Photo Setup panel (layer popup) / FIX500.2.1: Setup general panel / FIX500.2.1.4: layer popup */}
+      {/* FIX500.2: Photo Setup panel (layer popup) / FIX505: Setup general panel / FIX505.4: layer popup */}
       {setupDialogOpen && (
         <div className="photo-dialog-overlay">
           <div className="photo-dialog photo-setup-dialog" data-yagu-id="panel-general-setup">
             <div className="photo-dialog-title">Photo Setup</div>
-            {/* FIX500.2.1.2.1 / FIX500.2.1.2.2: Tabs */}
+            {/* FIX505.2.1 / FIX505.2.2: Tabs */}
             <div className="photo-setup-tabs">
               <button
                 className={`photo-setup-tab${setupTab === 'file-explorer' ? ' active' : ''}`}
@@ -1414,12 +1414,12 @@ export default function PhotoModule({ onClose }) {
                 onClick={() => setSetupTab('showcase')}
               >Showcase</button>
             </div>
-            {/* FIX500.2.1.2.3: View setup panel — bound to tab selection */}
+            {/* FIX505.2.3: View setup panel — bound to tab selection */}
             <div className="photo-setup-tab-content">
               {setupTab === 'file-explorer' && (
-                // FIX500.2.2: File Explorer view setup panel
+                // FIX506: File Explorer view setup panel
                 <div data-yagu-id="panel-file-explorer-view-setup">
-                  {/* FIX500.2.2.2.1: Field 'List of properties' */}
+                  {/* FIX506.2.1: Field 'List of properties' */}
                   <label className="photo-dialog-label">List of properties:</label>
                   <div className="photo-setup-list" data-yagu-id="list-photo-properties">
                     {setupDraft.length === 0 && (
@@ -1433,14 +1433,14 @@ export default function PhotoModule({ onClose }) {
                           placeholder="Property name"
                           onChange={e => handleSetupChange(idx, e.target.value)}
                         />
-                        {/* FIX500.2.2.2.1.2: insert above, remove */}
+                        {/* FIX506.2.1.2: insert above, remove */}
                         <button className="photo-setup-row-btn" title="Insert above" onClick={() => handleSetupInsert(idx)}>+</button>
                         <button className="photo-setup-row-btn" title="Remove" onClick={() => handleSetupRemove(idx)}>−</button>
                       </div>
                     ))}
                   </div>
                   <button className="photo-header-btn" onClick={handleSetupAdd}>Add property</button>
-                  {/* FIX500.2.2.2.2: Field 'Main Image Icon height' (px) */}
+                  {/* FIX506.2.2: Field 'Main Image Icon height' (px) */}
                   <div className="photo-setup-field-row">
                     <label className="photo-dialog-label" htmlFor="input-main-img-icon-height">Main Image Icon height (px):</label>
                     <input
@@ -1539,9 +1539,9 @@ export default function PhotoModule({ onClose }) {
               })()}
             </div>
             <div className="photo-dialog-buttons">
-              {/* FIX500.2.1.2.10: Cancel */}
+              {/* FIX505.2.10: Cancel */}
               <button className="photo-header-btn" onClick={handleSetupCancel}>Cancel</button>
-              {/* FIX500.2.1.2.11 / FIX500.2.1.3.10: Save */}
+              {/* FIX505.2.11 / FIX505.3.10: Save */}
               <button
                 className="photo-header-btn photo-dialog-ok"
                 onClick={handleSetupSave}

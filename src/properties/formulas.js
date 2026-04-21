@@ -1,11 +1,11 @@
-// FIX500.2.2.5.3 / FIX500.2.2.5.4: derived-property formulas.
+// FIX506.5.3 / FIX506.5.4: derived-property formulas.
 //
 // Syntax: <function-name>(<other-property-name>)
 //
 // Functions:
 //   numberOf(prop)  — count of "terms" in the referenced property's value:
-//     - 'a, b, c'   → 3   (FIX500.2.2.5.4.1.1, comma-separated)
-//     - '2..6'      → 5   (FIX500.2.2.5.4.1.2, inclusive integer range)
+//     - 'a, b, c'   → 3   (FIX506.5.4.1.1, comma-separated)
+//     - '2..6'      → 5   (FIX506.5.4.1.2, inclusive integer range)
 //     - '' / null   → ''  (unknown → blank, not 0, so the UI matches
 //                          an empty cell rather than a misleading 0)
 

@@ -526,6 +526,20 @@ body {
   font: inherit;
   font-size: 0.85rem;
 }
+.sc-viewer-toolbox button {
+  padding: 0.2rem 0.6rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.sc-viewer-toolbox button:disabled { opacity: 0.5; cursor: not-allowed; }
+.sc-viewer-toolbox button:not(:disabled):hover { background: var(--color-bg-lighter); }
+.sc-viewer-toolbox button.active {
+  background: var(--color-selected);
+  border-color: var(--color-selected-border);
+}
 /* FIX515.2.2 / FIX518.2.2 / FIX520.2.2 edition footer. */
 .sc-viewer-edit-footer {
   flex: 0 0 auto;
@@ -598,7 +612,9 @@ body {
 }
 .sc-viewer-img {
   max-width: 100%;
-  max-height: 75vh;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);

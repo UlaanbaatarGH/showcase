@@ -186,7 +186,7 @@ export default function ShowcaseView() {
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
   const groups = showcaseCfg.groups ?? [];
 
-  // FIX372.6.1.1: apply default group on load / whenever view_setup changes,
+  // FIX374.1.1 [ex-FIX372.6.1.1]: apply default group on load / whenever view_setup changes,
   // but only if the current selection is no longer valid.
   useEffect(() => {
     if (!groups.length) {
@@ -244,12 +244,12 @@ export default function ShowcaseView() {
   const displayedFolders = useMemo(() => {
     if (!data) return [];
     let rows = liveFolders;
-    // FIX372.6.2.11: apply the active grouping bucket filter.
+    // FIX374.2.11 [ex-FIX372.6.2.11]: apply the active grouping bucket filter.
     if (activeGroup && activeBucketKey && activeParsed) {
       rows = rows.filter((f) => {
         const v = valueForGroup(f);
         if (activeBucketKey === NO_VALUE_KEY) {
-          // FIX372.6.2.3: folders with no bucketable value sit in this pile.
+          // FIX374.2.3 [ex-FIX372.6.2.3]: folders with no bucketable value sit in this pile.
           return bucketFor(v, activeParsed) == null;
         }
         const b = bucketFor(v, activeParsed);
@@ -540,7 +540,7 @@ export default function ShowcaseView() {
             )}
           </div>
         )}
-        {/* FIX503.2.2.2 + FIX503.5.1 (.4.1.2) / FIX372.5.1.0 <button-item-grouping>:
+        {/* FIX503.2.2.2 + FIX503.5.1 (.4.1.2) / FIX373.1.0 [ex-FIX372.5.1.0] <button-item-grouping>:
             Grouping button, right-aligned, signed-in only. */}
         {profile && (
           <button
@@ -571,7 +571,7 @@ export default function ShowcaseView() {
         className="sc-main"
         ref={mainRef}
         style={{
-          // FIX372.6.2.5: the Item Grouping panel always fits its listed
+          // FIX374.2.5 [ex-FIX372.6.2.5]: the Item Grouping panel always fits its listed
           // values — CSS grid's max-content resizes automatically as the
           // bucket list changes (new group picked, default group applied).
           gridTemplateColumns: activeGroup
@@ -579,12 +579,12 @@ export default function ShowcaseView() {
             : `${listWidth}px 6px 1fr`,
         }}
       >
-        {/* FIX372.6.2.0: the group dropdown is at the top-left of the side
+        {/* FIX374.2.0 [ex-FIX372.6.2.0]: the group dropdown is at the top-left of the side
             panel when one is shown, otherwise at the top-left of the item
             table. Rendered once via groupSelector and placed in the right
             parent below. */}
         {activeGroup && (() => {
-          // FIX372.6.2.9: when the active group uses a segment (integer or
+          // FIX374.2.9 [ex-FIX372.6.2.9]: when the active group uses a segment (integer or
           // text range), each pill gets a tint along a gradient so consecutive
           // segments are visually distinguished. Exact-value groups keep the
           // flat pill background. The 'No value' and 'All' buckets are never
@@ -592,7 +592,7 @@ export default function ShowcaseView() {
           const isSegmentMode =
             activeParsed &&
             (activeParsed.type === 'integer' || activeParsed.type === 'text');
-          // FIX372.6.2.10: 'All ({n-of-items})' pill at the top of the list
+          // FIX374.2.10 [ex-FIX372.6.2.10]: 'All ({n-of-items})' pill at the top of the list
           // clears the bucket filter so every item in the current group is
           // displayed. Total = sum of all bucket counts (incl. 'No value').
           const ALL_KEY = '__all__';

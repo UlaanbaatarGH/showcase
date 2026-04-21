@@ -910,7 +910,7 @@ body {
 }
 
 /* FIX372: grouping side panel + selector */
-/* FIX372.6.2.8: the dropdown stays pinned at the top; only the list of
+/* FIX374.2.8 [ex-FIX372.6.2.8]: the dropdown stays pinned at the top; only the list of
    values scrolls when the panel overflows. */
 .sc-groups-panel {
   overflow: hidden;
@@ -930,10 +930,10 @@ body {
      already accounts for the gutter. */
   scrollbar-gutter: stable;
 }
-/* FIX372.6.2.6.1: single-column grid makes every pill the same width as
+/* FIX374.2.6.1 [ex-FIX372.6.2.6.1]: single-column grid makes every pill the same width as
    the widest pill — the column is sized to max-content, so no hardcoded
    width and it adjusts automatically when the bucket list changes.
-   FIX372.6.2.6.3: align-content: start so the stack sits at the top of
+   FIX374.2.6.3 [ex-FIX372.6.2.6.3]: align-content: start so the stack sits at the top of
    the panel instead of stretching/centering vertically. */
 .sc-buckets {
   list-style: none;
@@ -944,8 +944,8 @@ body {
   align-content: start;
   gap: 0.3rem;
 }
-/* FIX372.6.2.6: values shown as pills with semi-circle ends.
-   FIX372.6.2.6.2: explicit line-height + border-box so every pill has
+/* FIX374.2.6 [ex-FIX372.6.2.6]: values shown as pills with semi-circle ends.
+   FIX374.2.6.2 [ex-FIX372.6.2.6.2]: explicit line-height + border-box so every pill has
    the same height regardless of label length. */
 .sc-buckets li {
   box-sizing: border-box;
@@ -975,7 +975,7 @@ body {
 }
 .sc-buckets-empty:hover { background: transparent !important; }
 .sc-bucket-count { color: var(--color-text-muted); }
-/* FIX372.6.2.7: group dropdown row height matches the item-table filter
+/* FIX374.2.7 [ex-FIX372.6.2.7]: group dropdown row height matches the item-table filter
    row — same paddings, font-size and line-height as .sc-filter-input. */
 .sc-group-selector {
   padding: 2px 4px;

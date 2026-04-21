@@ -1012,7 +1012,7 @@ export default function PhotoModule({ onClose }) {
         setSelectedPaths(new Set([target]));
         setLastSelectedPath(target);
         setCurrentView('file-explorer');
-        // FIX501.3.1.1: scroll the target into view (ancestors load asynchronously)
+        // FIX510.3.1.1: scroll the target into view (ancestors load asynchronously)
         let attempts = 0;
         const tryScroll = () => {
           const el = document.querySelector(`[data-tree-path="${CSS.escape(target)}"]`);

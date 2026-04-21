@@ -51,6 +51,11 @@ export default {
     call(`/api/projects/${projectId}/existing-images`),
   signUpload: (body) => call('/api/images/sign-upload', { method: 'POST', body }),
   confirmImage: (body) => call('/api/images/confirm', { method: 'POST', body }),
+  // FIX520.2.10 non-destructive save: update rotation and/or crop on the
+  // Image row. Partial payloads are accepted (omit keys to leave them
+  // unchanged). Returns { id, rotation, crop }.
+  updateImage: (imageId, patch) =>
+    call(`/api/images/${encodeURIComponent(imageId)}`, { method: 'PATCH', body: patch }),
   // Planned writes — backend routes will be added when FIX entries land.
   createFolder: notYet('createFolder'),
   renameFolder: notYet('renameFolder'),

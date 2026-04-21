@@ -18,8 +18,10 @@ function formatPropertyInput(p) {
   return p.label ?? '';
 }
 
-export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
-  const [tab, setTab] = useState('file_explorer');
+export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel, initialTab }) {
+  // FIX503.3.2: <button-columns> opens the panel with the Showcase tab
+  // preselected. The generic <button-setup> keeps the File Explorer default.
+  const [tab, setTab] = useState(initialTab === 'showcase' ? 'showcase' : 'file_explorer');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
   );
@@ -210,7 +212,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
         </div>
         <div className="setup-body">
           {tab === 'file_explorer' && (
-            <section className="setup-section">
+            <section className="setup-section" data-yagu-id="panel-file-explorer-view-setup">
               <h3>List of properties</h3>
               <table className="setup-items">
                 <thead>
@@ -297,7 +299,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
           )}
 
           {tab === 'showcase' && (
-            <section className="setup-section">
+            <section className="setup-section" data-yagu-id="panel-showcase-view-setup">
               <h3>Showcase columns</h3>
               <table className="setup-items">
                 <thead>

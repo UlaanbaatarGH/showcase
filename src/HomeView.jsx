@@ -5,7 +5,7 @@ import { listProjects } from './data/backend.js';
 
 // FIX400: Home page.
 // FIX400.2.1 list of projects with name and cover image
-// FIX400.2.2 Sign in button
+// FIX400.2.2 / FIX400.2.2.0 <button-sign-in>: Sign in button
 // FIX400.3.1 click a project opens it
 // FIX400.4   public-only when anonymous, public + accessible private when signed in
 export default function HomeView({ onOpenProject }) {
@@ -33,6 +33,7 @@ export default function HomeView({ onOpenProject }) {
         ) : (
           <button
             className="btn-primary"
+            data-yagu-id="button-sign-in"
             onClick={() => setSignInOpen(true)}
             disabled={!configured}
             title={configured ? '' : 'Sign-in not configured'}

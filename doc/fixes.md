@@ -88,6 +88,24 @@
 
 
 
+# Sign-in process
+
+- **FIX315** Sign-in process
+
+
+
+- **FIX315.1** Sign-in
+
+
+
+- **FIX315.2** Sign-out
+
+
+
+- **FIX315.2.1** Automatic after 15minutes of inactivity
+
+
+
 # Project
 
 - **FIX350** Project
@@ -249,6 +267,20 @@
 
 # Import
 
+## Import menu
+
+- **FIX369\[ex-370.3.1\]** An 'Import' menu is displayed on the app top bar
+
+
+
+- **FIX369.0** Id \<menu-import\>
+
+
+
+- **FIX369.1\[ex-370.3.1.1\]** Visible only for logged in users
+
+
+
 ## Properties import from Google Sheet
 
 - **FIX370** Google Sheet (gsheet) import
@@ -275,11 +307,35 @@
 
 
 
-- **FIX370.1.2.1(old)** List of (property-name, property-id) on 2 columns.
+- **FIX370.1.2.1** List of
 
 
 
-- **FIX370.1.2.1** List of (property-name, property-id, main) on 3 columns.
+- **FIX370.1.2.1.1** Property id
+
+
+
+- **FIX370.1.2.1.2** Property name
+
+
+
+- **FIX370.1.2.1.2.0** Id \<property-name\>
+
+
+
+- **FIX370.1.2.1.2.1** When it ends up with (\*) it is the main property which name is to be used in the import recap.
+
+
+
+- **FIX370.1.2.1.3** Optional property short name
+
+
+
+- **FIX370.1.2.1.3.0** Id \<property-short-name\>
+
+
+
+- **FIX370.1.2.1.3.1** If not defined, the \<property-short-name\> is the \<property-name\>.
 
 
 
@@ -359,19 +415,11 @@
 
 
 
-- **FIX370.3.1** An 'Import' menu is displayed on the app top bar
+- **FIX3703.1\[ex-370.3.1.2\](old)** Menu option 'Image Properties'.
 
 
 
-- **FIX370.3.1.1** Visible only for logged in users
-
-
-
-- **FIX370.3.1.2(old)** Menu option 'Properties (Google sheet)'.
-
-
-
-- **FIX370.3.1.2** Menu option 'Image Properties'.
+- **FIX3703.1\[ex-370.3.1.2\]** In menu \<menu-import\>, menu option 'Image Properties'.
 
 
 
@@ -407,19 +455,19 @@
 
 
 
-- **FIX370.3.2.2.2.3(old)** List of new folders: \# and Main property (if defined in setup)
-
-
-
 - **FIX370.3.2.2.2.3** List of new folders: \# and Main property (if defined in setup)
 
 
 
-- **FIX370.3.2.2.2.4(old)** List of updated folders: \# and Main property (if defined in setup)
-
-
-
 - **FIX370.3.2.2.2.4** List of updated folders: \# and Main property (if defined in setup)
+
+
+
+- **FIX370.3.2.2.2.5** List of folders tagged 'Deleted'
+
+
+
+- **FIX370.3.2.2.2.5.1** Based on whether a property \<setup-property-tagged-deleted\> is defined and a folder has this property value not blank.
 
 
 
@@ -493,15 +541,15 @@
 
 
 
-- **FIX371.2.1** Menu Import
+- **FIX371.2.1(removed)** Menu Import
 
 
 
-- **FIX371.2.2(old)** Menu option 'Images (hard disk)'
+- **FIX371.2.2(old)** Menu option 'Images'
 
 
 
-- **FIX371.2.2** Menu option 'Images
+- **FIX371.2.2** In menu \<menu-import\>, menu option 'Images'.
 
 
 
@@ -509,7 +557,15 @@
 
 
 
-- **FIX371.3** Opens a popup to select one or several folders (Item Folder)
+- **FIX371.3** Opens a popup to select one folder This folder can be:
+
+
+
+- **FIX371.3.1** An Item Folder with images.
+
+
+
+- **FIX371.3.2** A common folder with child folders which are Item Folders.
 
 
 
@@ -563,6 +619,10 @@
 
 
 - **FIX371.6.3** Refresh view.
+
+
+
+- **FIX371.6.4** Update Derived Item Property \<derived-property-img\>.
 
 
 
@@ -624,6 +684,10 @@
 
 
 
+- **FIX372.5.1.0** Id \<button-item-grouping\>
+
+
+
 - **FIX372.5.1.1** Opens a layer popup with
 
 
@@ -656,7 +720,11 @@
 
 
 
-- **FIX510.2.1.5.2** Also add the meta property 'Img' in the list, so items can be grouped by having/no having an image.
+- **FIX510.2.1.5.2** Also add the derived property 'Img' in the list, so items can be grouped by having/no having an image.
+
+
+
+- **FIX510.2.1.5.2.0** Id \<derived-property-img\>
 
 
 
@@ -665,10 +733,6 @@
 
 
 - **FIX372.6** Display on the Showcase view
-
-
-
-- **FIX372.6.1(old)** When at least one Item group is defined, a dropdown list is displayed at the top left of the item table, listing all the existing groups. A group is labelled after the property name it relates to.
 
 
 
@@ -684,24 +748,76 @@
 
 
 
-- **FIX372.6.2** When a Group is selected, either by default or by a user action, a side panel is opened on the left the Item table.
+- **FIX372.6.2** Item Grouping panel: When a Group is selected, either by default or by a user action, a side panel is opened on the left the Item table.
 
 
 
-- **FIX372.6.2.0** The group dropdown is displayed at the top left of the side panel, otherwise it is displayed at the top left of the item table.
+- **FIX372.6.2.0** id \<panel-item-grouping\>
 
 
 
-- **FIX372.6.2.1** The list of existing values for the group property, or the list of segments having at least one existing value for the group property.
+- **FIX372.6.2.1** The group dropdown is displayed at the top left of the side panel, otherwise it is displayed at the top left of the item table.
 
 
 
-- **FIX372.6.2.2** Each listed value is postfixed with the number of matching items between ( ).\
+- **FIX372.6.2.2** The list of existing values for the group property, or the list of segments having at least one existing value for the group property.
+
+
+
+- **FIX372.6.2.3** Each listed value is postfixed with the number of matching items between ( ).\
   For instance, 1900-1909 (25) when 25 items have a year in the range \[1900..1909\].
 
 
 
-- **FIX372.6.2.3** When items have no value for this grouping property, then they are added to a special 'No value ({n-of-items})' group placed at the end of the list of values.
+- **FIX372.6.2.4** When items have no value for this grouping property, then they are added to a special 'No value ({n-of-items})' group placed at the end of the list of values.
+
+
+
+- **FIX372.6.2.5** The Item Grouping panel's width always fits the list of listed values after the user has selected a new group or when the default group is applied.
+
+
+
+- **FIX372.6.2.6** Values are displayed in a rectangle with semi cercle ends.
+
+
+
+- **FIX372.6.2.6.1** They must all have the same width, automatically taking the biggest width based on the value to display (no hardcoded value).
+
+
+
+- **FIX372.6.2.6.2** They must all have the same height.
+
+
+
+- **FIX372.6.2.6.3** They are top aligned.
+
+
+
+- **FIX372.6.2.7** Dropdown height must be as thin as possible.
+
+
+
+- **FIX372.6.2.8** Vertical scrollbar covers all values, but does not scroll the dropdown.
+
+
+
+- **FIX372.6.2.9** When values are segment (and not separate values) use a gradient of background colours to show the segments.
+
+
+
+- **FIX372.6.2.10** Add to a special 'All ({n-of-items})' group placed at the beginning of the list of values.
+
+
+
+- **FIX372.6.2.11** The list of values is ordered by increasing values
+
+
+
+- **FIX372.6.2.11.1** If values are numbers, they are sorted by increasing number.
+
+
+
+- **FIX372.6.2.11.2** Otherwise values are ordered by alphabetical order
 
 
 
@@ -715,7 +831,11 @@
 
 # Setup
 
-- **FIX500.2** Photo Setup panel
+- **FIX500.2(old)** Photo Setup panel
+
+
+
+- **FIX500.2** Setup panel
 
 
 
@@ -809,7 +929,15 @@
 
 
 
-- **FIX500.2.2.2.1.1.2** Label: String.
+- **FIX500.2.2.2.1.1.2(old)** Label: String
+
+
+
+- **FIX500.2.2.2.1.1.2** Property name: \<property-name\>
+
+
+
+- **FIX500.2.2.2.1.1.3** Property short name: \<property-short-name\>
 
 
 
@@ -829,7 +957,23 @@
 
 
 
+- **FIX500.2.2.2.3** Field "Property indicating Item is deleted"
+
+
+
+- **FIX500.2.2.2.3.0** Id \<setup-property-tagged-deleted\>
+
+
+
+- **FIX500.2.2.2.3.1** Select an Item Id or none.
+
+
+
 - **FIX500.2.2.3** UI User Actions
+
+
+
+- **FIX500.2.2.3.1** Add a new property: Adds a new property row in the property list.
 
 
 
@@ -846,6 +990,37 @@
 
 
 - **FIX500.2.2.5.2** On save: Update the list of columns in the Showcase view setup: \<list-showcase-columns-setup\>.
+
+
+
+- **FIX500.2.2.5.3** A new property can be
+
+
+
+- **FIX500.2.2.5.3.1** A label
+
+
+
+- **FIX500.2.2.5.3.2** A label followed by '=' and a function applying to an existing property label:\
+  property_name2 = function-name (property_name1)
+
+
+
+- **FIX500.2.2.5.4** Possible functions are
+
+
+
+- **FIX500.2.2.5.4.1** numberOf(property-name): Counts the number of terms in the value of the property passed as parameter.
+
+
+
+- **FIX500.2.2.5.4.1.1** Comma separated terms\
+  For instance, '2, 3' or 'Premier, deuxième' gives 2.
+
+
+
+- **FIX500.2.2.5.4.1.2** Range: lower-value '..' upper value.\
+  For instance, '2..6' gives 5
 
 
 
@@ -907,32 +1082,32 @@
 
 
 
-- **FIX500.2.3.2.1.2.1.3.2(removed)** 'Img': Boolean value {'x', ' '}. 'x' is set when the item has an uploaded image file.
-
-
-
-- **FIX500.2.3.2.1.2.2(old)** Item picker: Aggregates\
-  - 'Folder name',\
-  - The list of properties: Property labels from \<list-photo-properties\>\
-  - 'Main image icon'
-
-
-
 - **FIX500.2.3.2.1.2.2** Item picker: Aggregates\
   - 'Folder name',\
   - The list of properties: Property labels from \<list-photo-properties\>\
   - 'Main image icon'\
-  - 'With image' (labelled 'Img' once column is added to the Item table).
+  - 'With image' (labelled 'Img' once column is added to the Item table) \<derived-property-img\>
 
 
 
-- **FIX500.2.3.2.1.2.3(old)** Field 'Folder column name'\
-  Optional input text field to replace 'Folder name' column name by another text.
-
-
-
-- **FIX500.2.3.2.1.2.3** Field '#'\
+- **FIX500.2.3.2.1.2.3(old)** Field 'Item column name'\
   Optional input text field to replace '#' column name by another text.
+
+
+
+- **FIX500.2.3.2.1.2.3** Field 'New name for column \'#\'
+
+
+
+- **FIX500.2.3.2.1.2.3.0** Id \<item-id-new-name\>
+
+
+
+- **FIX500.2.3.2.1.2.3.1** Optional input text field to replace '#' column name by another text.
+
+
+
+- **FIX500.2.3.2.1.2.3.2** Layout: New name for Property \'#\' \[\_\_\_\_\_\_\_\_\_\_\_\_\]
 
 
 
@@ -985,6 +1160,10 @@
 
 
 
+- **FIX400.2.2.0** Id \<button-sign-in\>
+
+
+
 - **FIX400.3** UI User Actions
 
 
@@ -1012,6 +1191,402 @@
 
 
 - **FIX401.1** It is the Showcase View
+
+
+
+# Showcase View
+
+- **FIX502** Showcase View
+
+
+
+- **FIX502.0** Id \<view-showcase\>
+
+
+
+- **FIX502.1** Purpose: Show in a table format the information of the folders having a property file.
+
+
+
+- **FIX502.2** UI page\
+  ┌────────────────────────────────────────────────────┐\
+  │ Showcase Header panel │\
+  ├──────────────────────────┬─────────────────────────┤\
+  │ Showcase List panel │ Showcase Image viewer │\
+  │ │ │\
+  │ │ │\
+  │ │ │\
+  └──────────────────────────┴─────────────────────────┘
+
+
+
+- **FIX502.2.1** Showcase Header panel: Refer to \<panel-showcase-header**\>**
+
+
+
+- **FIX502.2.2** Showcase List panel: Refer to \<panel-showcase-list**\>**
+
+
+
+- **FIX502.2.3** Showcase Image viewer: Refer to \<panel-showcase-img-viewer**\>**
+
+
+
+## Showcase Header panel
+
+- **FIX503** Showcase Header panel
+
+
+
+- **FIX503.0** Id \<panel-showcase-header**\>**
+
+
+
+- **FIX503.2** UI Layout
+
+
+
+- **FIX503.2.1** Left aligned
+
+
+
+- **FIX503.2.1.1** Button Home
+
+
+
+- **FIX503.2.1.1.1** Type: Icon
+
+
+
+- **FIX503.2.1.2** Label: Project's name label
+
+
+
+- **FIX503.2.2** Right aligned
+
+
+
+- **FIX503.2.2.1** Menu \<menu-import\>
+
+
+
+- **FIX503.2.2.2** Button 'grouping'
+
+
+
+- **FIX503.2.2.2.0** Id \<button-item-grouping\>
+
+
+
+- **FIX503.2.2.3** Button Setup
+
+
+
+- **FIX503.2.2.3.0** Id \<button-setup\>
+
+
+
+- **FIX503.2.2.3.1** Type: Icon
+
+
+
+- **FIX503.3** UI User Actions
+
+
+
+- **FIX503.5** Functional rules
+
+
+
+- **FIX503.5.1** UI items only visible when user is logged in:
+
+
+
+- **FIX503.5.1.1** \<menu-import\>
+
+
+
+- **FIX503.4.1.2** \<button-item-grouping\>
+
+
+
+- **FIX503.4.1.3** \<button-setup\>
+
+
+
+## Showcase List panel 
+
+- **FIX510** Showcase List panel
+
+
+
+- **FIX510.0** Id \<panel-showcase-list**\>**
+
+
+
+- **FIX510.1** Purpose: Display the information of the qualified folders (folder with a property file), enabling sorting and edition.
+
+
+
+- **FIX510.2** UI Layout
+
+
+
+- **FIX510.2.1** Field Item List: Table format.
+
+
+
+- **FIX510.2.1.1(old)** Columns are defined in the setup page for the Showcase view \<list-showcase-columns-setup\>.
+
+
+
+- **FIX510.2.1.1** List of columns
+
+
+
+- **FIX510.2.1.1.1** It is defined by \<list-showcase-columns-setup\> in the Showcase setup page.
+
+
+
+- **FIX510.2.1.1.2** Column names are \<property-short-name\>
+
+
+
+- **FIX510.2.1.2** Scrollable list with list header always visible
+
+
+
+- **FIX510.2.1.3** List can be sorted
+
+
+
+- **FIX510.2.1.3.1** By clicking a column header
+
+
+
+- **FIX510.2.1.3.2** By ctrl-clicking a 2^nd^ sorting key
+
+
+
+- **FIX510.2.1.3** List can be filtered
+
+
+
+- **FIX510.2.1.3.1** By entering a column value
+
+
+
+- **FIX510.2.1.4(on hold)** List values can be edited, except for fields Folder name and Main image icon.
+
+
+
+- **FIX510.2.1.5** Row selection colour is light orange.
+
+
+
+- **FIX510.3** Tagged-deleted Items: Items which are tagged 'deleted' via the property \<setup-property-tagged-deleted\> are not displayed, not considered in the sorting, filtering and grouping features.
+
+
+
+- **FIX510.3** UI User Actions
+
+
+
+- **FIX510.3.1** Ctrl-Space for a unique selected item switches to the File Explorer View with the corresponding Folder selected in the File Folder panel \<panel-file-explorer\>.
+
+
+
+- **FIX501.3.1.1** The File Explorer View must scroll to show immediately the selected item.
+
+
+
+- **FIX510.3.2** Up and Down Arrows navigate through the list.
+
+
+
+- **FIX510.3.3** Left and Right Arrows navigate through the list of images in the Showcase Image viewer.
+
+
+
+- **FIX510.4** UI Insertion in the App: Refer to \<view-showcase\>
+
+
+
+- **FIX510.5** Functional features
+
+
+
+## Showcase Item panel
+
+- **FIX515** Item Details panel
+
+
+
+- **FIX515.0** Id \<panel-item-details \>
+
+
+
+- **FIX515.1** Purpose: Provides all information about an item
+
+
+
+- **FIX515.2** UI Layout
+
+
+
+- **FIX515.2.1** Two tabs
+
+
+
+- **FIX515.2.1.1** Tab 'Images': Wraps the panel \<panel-showcase-img-viewer**\>**
+
+
+
+- **FIX515.2.1.2** Tab 'Details': Wraps the panel \<panel-item-details\>
+
+
+
+- **FIX515.3** UI User Action:
+
+
+
+- **FIX515.3.1** Click a Tab thumb
+
+
+
+- **FIX515.4** Functional Rules
+
+
+
+- **FIX515.4.1** Changing the Item to display does not change the tab currently displayed
+
+
+
+- **FIX515.4.2** By default, the tab 'Images' is open.
+
+
+
+## Showcase Item Details panel
+
+- **FIX518** Item panel
+
+
+
+- **FIX518.0** Id \<panel-item-details\>
+
+
+
+- **FIX518.1** Purpose: Lists the properties of an item
+
+
+
+- **FIX518.2** UI Layout
+
+
+
+- **FIX518.2.1** List of
+
+
+
+- **FIX518.2.1.1** Property name
+
+
+
+- **FIX518.2.1.2** Property value
+
+
+
+- **FIX518.2.2** Left align the 2 fields in the list
+
+
+
+- **FIX518.3** UI User Action: None
+
+
+
+- **FIX518.4** Functional Rules
+
+
+
+- **FIX518.4.1** Derived Properties are also listed after the Property they relate to.
+
+
+
+- **FIX518.4.2** The order of the properties is the one listed by \<panel-file-explorer-view-setup\>
+
+
+
+- **FIX518.4.3** Use the new name \<item-id-new-name\> if defined.
+
+
+
+- **FIX518.4.4** Do not display the property used to identify a deleted item: \<setup-property-tagged-deleted\>
+
+
+
+- **FIX518.4.5** Properties that have Boolean values are displayed with a checkbox.
+
+
+
+## Showcase Item Image viewer panel
+
+- **FIX520** Showcase Image viewer
+
+
+
+- **FIX520.0** Id \<panel-showcase-img-viewer**\>**
+
+
+
+- **FIX520.1** Purpose: Shows all the images of the folder
+
+
+
+- **FIX520.2** UI Layout\
+  ┌──────────────┐\
+  │ │\
+  │ Image │\
+  │ │\
+  │ │\
+  │ │\
+  └──────────────┘\
+  \[\<\] \[\>\]
+
+
+
+- **FIX520.2.1** Image
+
+
+
+- **FIX520.2.2** Button: Previous image '\<'
+
+
+
+- **FIX520.2.2.1** Greyed out when no previous image
+
+
+
+- **FIX520.2.3** Button: Next image '\>'
+
+
+
+- **FIX520.2.3.1** Greyed out when no next image
+
+
+
+- **FIX520.3** UI User Actions
+
+
+
+- **FIX520.4** UI Insertion in the App
+
+
+
+- **FIX520.5** Functional features
+
+
+
+- **FIX520.5.1** On item selection in the Showcase List panel, if the item has a Main Image Icon defined, then it is this image in full scale that is first displayed
 
 
 
@@ -1696,7 +2271,7 @@
 
 
 
-- **FIX501.4.4.1.1** Action: resets the cropping and rotation metadata of the image and refresh the image display.
+- **FIX501.4.4.1.1** Action: resets the cropping and rotation meta data of the image and refresh the image display.
 
 
 
@@ -1712,7 +2287,7 @@
 
 
 
-- **FIX501.4.4.2.1** Action: Crop the image by updating the metadata and refresh the image display.
+- **FIX501.4.4.2.1** Action: Crop the image by updating the meta data and refresh the image display.
 
 
 
@@ -1728,11 +2303,11 @@
 
 
 
-- **FIX501.4.4.3.2** Action: Rotate the image by updating the metadata and refresh the image display.
+- **FIX501.4.4.3.2** Action: Rotate the image by updating the meta data and refresh the image display.
 
 
 
-- **FIX501.4.4.10** Non-destructive Save: Only update the metadata of the image
+- **FIX501.4.4.10** Non-destructive Save: Only update the meta data of the image
 
 
 
@@ -2070,202 +2645,6 @@
 
 
 - **FIX501.50.2.11.1** No toolbox and no possible modification
-
-
-
-## Showcase View
-
-- **FIX502** Showcase View
-
-
-
-- **FIX502.0** Id \<view-showcase\>
-
-
-
-- **FIX502.1** Purpose: Show in a table format the information of the folders having a property file.
-
-
-
-- **FIX502.2** UI page\
-  ┌────────────────────────────────────────────────────┐\
-  │ Showcase Header panel │\
-  ├──────────────────────────┬─────────────────────────┤\
-  │ Showcase List panel │ Showcase Image viewer │\
-  │ │ │\
-  │ │ │\
-  │ │ │\
-  └──────────────────────────┴─────────────────────────┘
-
-
-
-- **FIX502.2.1** Showcase Header panel: Refer to \<panel-showcase-header**\>**
-
-
-
-- **FIX502.2.2** Showcase List panel: Refer to \<panel-showcase-list**\>**
-
-
-
-- **FIX502.2.3** Showcase Image viewer: Refer to \<panel-showcase-img-viewer**\>**
-
-
-
-## Showcase Header panel
-
-- **FIX503** Showcase Header panel
-
-
-
-- **FIX503.0** Id \<panel-showcase-header**\>**
-
-
-
-## Showcase List panel 
-
-- **FIX510** Showcase List panel
-
-
-
-- **FIX510.0** Id \<panel-showcase-list**\>**
-
-
-
-- **FIX510.1** Purpose: Display the information of the qualified folders (folder with a property file), enabling sorting and edition.
-
-
-
-- **FIX510.2** UI Layout
-
-
-
-- **FIX510.2.1** Field Item List: Table format.
-
-
-
-- **FIX510.2.1.1** Columns are defined in the setup page for the Showcase view \<list-showcase-columns-setup\>.
-
-
-
-- **FIX510.2.1.2** Scrollable list with list header always visible
-
-
-
-- **FIX510.2.1.3** List can be sorted
-
-
-
-- **FIX510.2.1.3.1** By clicking a column header
-
-
-
-- **FIX510.2.1.3.2** By ctrl-clicking a 2^nd^ sorting key
-
-
-
-- **FIX510.2.1.3** List can be filtered
-
-
-
-- **FIX510.2.1.3.1** By entering a column value
-
-
-
-- **FIX510.2.1.4(on hold)** List values can be edited, except for fields Folder name and Main image icon.
-
-
-
-- **FIX510.2.1.5** Row selection colour is light orange.
-
-
-
-- **FIX510.3** UI User Actions
-
-
-
-- **FIX510.3.1** Ctrl-Space for a unique selected item switches to the File Explorer View with the corresponding Folder selected in the File Folder panel \<panel-file-explorer\>.
-
-
-
-- **FIX501.3.1.1** The File Explorer View must scroll to show immediately the selected item.
-
-
-
-- **FIX510.3.2** Up and Down Arrows navigate through the list.
-
-
-
-- **FIX510.3.3** Left and Right Arrows navigate through the list of images in the Showcase Image viewer.
-
-
-
-- **FIX510.4** UI Insertion in the App: Refer to \<view-showcase\>
-
-
-
-- **FIX510.5** Functional features
-
-
-
-## Showcase Image viewer 
-
-- **FIX520** Showcase Image viewer
-
-
-
-- **FIX520.0** Id \<panel-showcase-img-viewer**\>**
-
-
-
-- **FIX520.1** Purpose: Shows all the images of the folder
-
-
-
-- **FIX520.2** UI Layout\
-  ┌──────────────┐\
-  │ │\
-  │ Image │\
-  │ │\
-  │ │\
-  │ │\
-  └──────────────┘\
-  \[\<\] \[\>\]
-
-
-
-- **FIX520.2.1** Image
-
-
-
-- **FIX520.2.2** Button: Previous image '\<'
-
-
-
-- **FIX520.2.2.1** Greyed out when no previous image
-
-
-
-- **FIX520.2.3** Button: Next image '\>'
-
-
-
-- **FIX520.2.3.1** Greyed out when no next image
-
-
-
-- **FIX520.3** UI User Actions
-
-
-
-- **FIX520.4** UI Insertion in the App
-
-
-
-- **FIX520.5** Functional features
-
-
-
-- **FIX520.5.1** On item selection in the Showcase List panel, if the item has a Main Image Icon defined, then it is this image in full scale that is first displayed
 
 
 

@@ -487,10 +487,24 @@ export default function ShowcaseView() {
 
   return (
     <div className="sc-layout">
-      <div className="sc-topbar">
+      {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel. */}
+      <div className="sc-topbar" data-yagu-id="panel-showcase-header">
+        {/* FIX503.2.1.1: Home button (icon), left-aligned. */}
+        <button
+          type="button"
+          className="sc-home-btn"
+          onClick={() => { window.location.hash = '#home'; }}
+          aria-label="Home"
+          title="Home"
+        >
+          ⌂
+        </button>
+        {/* FIX503.2.1.2: project's name label, left-aligned. */}
         <h1 className="sc-project-title">{data.project?.name ?? 'Showcase'}</h1>
+        {/* FIX503.2.2.1 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
+            Import menu, right-aligned, visible only when signed in (FIX369.1). */}
         {profile && (
-          <div className="sc-menu" ref={menuRef}>
+          <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
               type="button"
               className="sc-menu-trigger"
@@ -502,6 +516,7 @@ export default function ShowcaseView() {
             </button>
             {menuOpen && (
               <ul className="sc-menu-items" role="menu">
+                {/* FIX371.2.2 / FIX371.2.2.1: 'Images' placed first. */}
                 <li>
                   <button
                     type="button"
@@ -511,6 +526,7 @@ export default function ShowcaseView() {
                     Images
                   </button>
                 </li>
+                {/* FIX3703.1: 'Image Properties' menu option. */}
                 <li>
                   <button
                     type="button"
@@ -524,24 +540,32 @@ export default function ShowcaseView() {
             )}
           </div>
         )}
+        {/* FIX503.2.2.2 + FIX503.5.1 (.4.1.2) / FIX372.5.1.0 <button-item-grouping>:
+            Grouping button, right-aligned, signed-in only. */}
         {profile && (
           <button
             type="button"
             className="sc-menu-trigger"
+            data-yagu-id="button-item-grouping"
             onClick={() => setShowGrouping(true)}
           >
             Grouping
           </button>
         )}
-        <button
-          type="button"
-          className="sc-setup-btn"
-          onClick={() => setShowSetup(true)}
-          aria-label="Open setup"
-          title="Setup"
-        >
-          ⚙
-        </button>
+        {/* FIX503.2.2.3 + FIX503.5.1 (.4.1.3) <button-setup>: Setup icon
+            button, right-aligned, signed-in only. */}
+        {profile && (
+          <button
+            type="button"
+            className="sc-setup-btn"
+            data-yagu-id="button-setup"
+            onClick={() => setShowSetup(true)}
+            aria-label="Open setup"
+            title="Setup"
+          >
+            ⚙
+          </button>
+        )}
       </div>
       <div
         className="sc-main"

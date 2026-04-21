@@ -32,7 +32,11 @@ export default function ShowcaseImageCanvas({
   }, [cropMode, url]);
 
   useEffect(() => {
-    if (!url) { setImg(null); return undefined; }
+    // Clear the previous image synchronously so the draw effect doesn't
+    // paint the stale bitmap with the new url's rotation/crop for one
+    // frame — the symptom was "old image flashes while switching".
+    setImg(null);
+    if (!url) return undefined;
     const i = new Image();
     i.crossOrigin = 'anonymous';
     let alive = true;
@@ -44,7 +48,14 @@ export default function ShowcaseImageCanvas({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !img) return;
+    if (!canvas) return;
+    if (!img) {
+      // No image yet — wipe the canvas so the previous frame doesn't
+      // linger while the next one loads.
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     const rad = ((rotation % 360) * Math.PI) / 180;
     const iw = img.naturalWidth;
     const ih = img.naturalHeight;

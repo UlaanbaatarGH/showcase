@@ -83,6 +83,15 @@ export default function ShowcaseView() {
   // FIX515.4.1: tab persists when the selected item changes (state lives
   // here, not reset by selection). FIX515.4.2: 'Images' is the default.
   const [viewerTab, setViewerTab] = useState('images');
+  // FIX515.2.2 / FIX515.3.2 <button-edit>: toggle edition mode for the
+  // currently open tab. Reset when the user switches tabs or items so
+  // unsaved edits don't silently follow the selection.
+  const [editionMode, setEditionMode] = useState(false);
+  // FIX518.4.6: local buffer of property overrides applied in edit mode.
+  // Keyed by property id → string. Saved into the in-memory folder when
+  // the user clicks Save (no cloud persistence yet — see
+  // backendCloud.setFolderProperty TODO).
+  const [detailDraft, setDetailDraft] = useState({});
   const [images, setImages] = useState([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
@@ -163,6 +172,10 @@ export default function ShowcaseView() {
   useEffect(() => {
     if (selectedFolderId == null) return;
     setImages([]);
+    // Exit edition when moving to another item — pending edits don't persist
+    // across items since there's no cloud write path yet.
+    setEditionMode(false);
+    setDetailDraft({});
     getFolderImages(selectedFolderId)
       .then((imgs) => {
         setImages(imgs);
@@ -707,14 +720,20 @@ export default function ShowcaseView() {
           title="Drag to resize"
         />
         <section className="sc-viewer">
-          {/* FIX515.2.1: tab strip switches between Images and Details. */}
+          {/* FIX515.2.1: tab strip switches between Images and Details.
+              FIX515.2.2 + FIX515.2.2.0 + FIX515.3.2 + FIX515.4.3
+              <button-edit>: right-aligned on the tab row, signed-in only,
+              toggles edition of the current tab. */}
           <div className="sc-viewer-tabs" role="tablist">
             <button
               type="button"
               role="tab"
               aria-selected={viewerTab === 'images'}
               className={viewerTab === 'images' ? 'active' : ''}
-              onClick={() => setViewerTab('images')}
+              onClick={() => {
+                setViewerTab('images');
+                setEditionMode(false);
+              }}
             >
               Images
             </button>
@@ -723,62 +742,119 @@ export default function ShowcaseView() {
               role="tab"
               aria-selected={viewerTab === 'details'}
               className={viewerTab === 'details' ? 'active' : ''}
-              onClick={() => setViewerTab('details')}
+              onClick={() => {
+                setViewerTab('details');
+                setEditionMode(false);
+              }}
             >
               Details
             </button>
+            {profile && !editionMode && (
+              <button
+                type="button"
+                className="sc-viewer-edit-btn"
+                data-yagu-id="button-edit"
+                onClick={() => setEditionMode(true)}
+                title="Edit"
+              >
+                Edit
+              </button>
+            )}
           </div>
           {viewerTab === 'images' ? (
-            <div className="sc-viewer-body">
+            // FIX520.2: Showcase Image viewer. FIX520.2.1 view-mode layout
+            // (image + bottom nav), FIX520.2.2 edition-mode layout (toolbox
+            // on top + image + Cancel/Save footer).
+            <div className={`sc-viewer-body${editionMode ? ' editing' : ''}`}>
+              {editionMode && (
+                // FIX520.2.10: Toolbox (edition mode), left-aligned. The
+                // crop / rotate actions are not wired to persistence yet —
+                // backendCloud.setFolderProperty is still notYet. Buttons
+                // render as disabled placeholders so the UI matches the
+                // spec's layout while signalling there's no effect yet.
+                <div className="sc-viewer-toolbox">
+                  {/* FIX520.2.10.1 <button-crop> */}
+                  <button type="button" disabled title="Not yet implemented">Crop</button>
+                  {/* FIX520.2.10.2 <button-adjust-crop> */}
+                  <button type="button" disabled title="Not yet implemented">Adjust crop</button>
+                  {/* FIX520.2.10.3 <slider-rotate> */}
+                  <input type="range" min="-45" max="45" defaultValue="0" disabled />
+                  {/* FIX520.2.10.4 <button-rotate270> */}
+                  <button type="button" disabled title="Not yet implemented">⟲</button>
+                  {/* FIX520.2.10.5 <button-rotate90> */}
+                  <button type="button" disabled title="Not yet implemented">⟳</button>
+                </div>
+              )}
               {currentImage ? (
                 <>
-                  <img
-                    src={currentImage.url}
-                    alt={currentImage.caption ?? ''}
-                    className="sc-viewer-img"
-                    style={
-                      currentImage.rotation
-                        ? { transform: `rotate(${currentImage.rotation}deg)` }
-                        : undefined
-                    }
-                  />
-                  {currentImage.caption && (
-                    <div className="sc-viewer-caption">{currentImage.caption}</div>
-                  )}
-                  <div className="sc-viewer-nav">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                      disabled={currentImageIdx === 0}
-                      aria-label="Previous image"
-                    >
-                      ‹
-                    </button>
-                    <span className="sc-viewer-pos">
-                      {currentImageIdx + 1} / {images.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                  <div className="sc-viewer-img-wrap">
+                    <img
+                      src={currentImage.url}
+                      alt={currentImage.caption ?? ''}
+                      className="sc-viewer-img"
+                      style={
+                        currentImage.rotation
+                          ? { transform: `rotate(${currentImage.rotation}deg)` }
+                          : undefined
                       }
-                      disabled={currentImageIdx >= images.length - 1}
-                      aria-label="Next image"
-                    >
-                      ›
-                    </button>
+                    />
+                    {currentImage.caption && (
+                      <div className="sc-viewer-caption">{currentImage.caption}</div>
+                    )}
                   </div>
+                  {/* FIX520.2.2.2 + FIX520.2.3.2: previous/next nav always
+                      bottom-aligned — kept outside sc-viewer-img-wrap so it
+                      pins to the bottom of the panel regardless of image
+                      height (flex column + auto margin). */}
+                  {!editionMode && (
+                    <div className="sc-viewer-nav">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                        disabled={currentImageIdx === 0}
+                        aria-label="Previous image"
+                      >
+                        ‹
+                      </button>
+                      <span className="sc-viewer-pos">
+                        {currentImageIdx + 1} / {images.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                        }
+                        disabled={currentImageIdx >= images.length - 1}
+                        aria-label="Next image"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="sc-viewer-empty">No images in this item.</div>
               )}
+              {editionMode && (
+                <footer className="sc-viewer-edit-footer">
+                  <button type="button" onClick={() => setEditionMode(false)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled
+                    title="Backend write endpoint not implemented yet"
+                  >
+                    Save
+                  </button>
+                </footer>
+              )}
             </div>
           ) : (
-            // FIX518: Item Details panel — read-only list of all properties
-            // for the selected item, in the order configured in the File
-            // Explorer setup. Derived properties (e.g. Img) appear after the
-            // regular ones.
-            <div className="sc-details">
+            // FIX518: Item Details panel — FIX518.2.1 view-mode is a
+            // read-only property list; FIX518.2.2 edition-mode swaps values
+            // to inputs (except derived properties — FIX518.4.6) and adds a
+            // Cancel/Save footer.
+            <div className={`sc-details${editionMode ? ' editing' : ''}`}>
               {(() => {
                 const selectedFolder = (data?.folders || []).find(
                   (f) => f.id === selectedFolderId,
@@ -809,7 +885,39 @@ export default function ShowcaseView() {
                   }
                   return sawAny;
                 };
+                const storedValue = (p) => {
+                  const key = String(p.id);
+                  if (Object.prototype.hasOwnProperty.call(detailDraft, key)) {
+                    return detailDraft[key];
+                  }
+                  const raw = (selectedFolder.properties || {})[key];
+                  return raw == null ? '' : String(raw);
+                };
+                const setDraft = (p, v) => {
+                  setDetailDraft((d) => ({ ...d, [String(p.id)]: v }));
+                };
                 const renderValue = (p) => {
+                  // FIX518.4.6: derived properties are always auto-recalculated
+                  // and never editable.
+                  if (editionMode && !p.formula) {
+                    if (isBooleanProperty(p)) {
+                      const checked = String(storedValue(p)).trim().toLowerCase() === 'x';
+                      return (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setDraft(p, e.target.checked ? 'x' : '')}
+                        />
+                      );
+                    }
+                    return (
+                      <input
+                        type="text"
+                        value={storedValue(p)}
+                        onChange={(e) => setDraft(p, e.target.value)}
+                      />
+                    );
+                  }
                   const raw = computePropertyValue(selectedFolder, p, propertiesByLabel);
                   if (isBooleanProperty(p)) {
                     const checked = String(raw).trim().toLowerCase() === 'x';
@@ -827,35 +935,71 @@ export default function ShowcaseView() {
                 // FIX518.4.3 / <item-id-new-name>: the '#' row uses the custom
                 // label from view_setup.showcase.folder_column_name if set.
                 const idLabel = folderColumnName;
+                const saveLocal = () => {
+                  // No cloud backend for per-folder writes yet. Merge the
+                  // draft into the in-memory folder so the UI reflects the
+                  // change until a reload — wire to a real endpoint once
+                  // backendCloud.setFolderProperty lands.
+                  setData((prev) => ({
+                    ...prev,
+                    folders: prev.folders.map((f) =>
+                      f.id === selectedFolderId
+                        ? { ...f, properties: { ...(f.properties || {}), ...detailDraft } }
+                        : f,
+                    ),
+                  }));
+                  setDetailDraft({});
+                  setEditionMode(false);
+                };
                 return (
-                  <table className="sc-details-list">
-                    <tbody>
-                      <tr>
-                        <th>{idLabel}</th>
-                        <td>{selectedFolder.name ?? ''}</td>
-                      </tr>
-                      {ordered.map((p) => (
-                        <tr key={`prop_${p.id}`}>
-                          <th>{p.label}</th>
-                          <td>{renderValue(p)}</td>
+                  <>
+                    <table className="sc-details-list">
+                      <tbody>
+                        <tr>
+                          <th>{idLabel}</th>
+                          <td>{selectedFolder.name ?? ''}</td>
                         </tr>
-                      ))}
-                      {/* FIX518.4.1: derived properties listed after the
-                          regular ones. <derived-property-img> doesn't relate
-                          to a specific property, so it goes at the end. */}
-                      <tr>
-                        <th>Img</th>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={!!selectedFolder.has_image}
-                            readOnly
-                            tabIndex={-1}
-                          />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                        {ordered.map((p) => (
+                          <tr key={`prop_${p.id}`}>
+                            <th>{p.label}</th>
+                            <td>{renderValue(p)}</td>
+                          </tr>
+                        ))}
+                        {/* FIX518.4.1: derived properties listed after the
+                            regular ones. <derived-property-img> doesn't relate
+                            to a specific property, so it goes at the end. */}
+                        <tr>
+                          <th>Img</th>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={!!selectedFolder.has_image}
+                              readOnly
+                              tabIndex={-1}
+                            />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {editionMode && (
+                      <footer className="sc-viewer-edit-footer">
+                        <button
+                          type="button"
+                          onClick={() => { setDetailDraft({}); setEditionMode(false); }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={saveLocal}
+                          title="Saved locally only — backend write endpoint pending"
+                        >
+                          Save
+                        </button>
+                      </footer>
+                    )}
+                  </>
                 );
               })()}
             </div>

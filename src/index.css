@@ -475,21 +475,111 @@ body {
   border-bottom-color: var(--color-selected-border);
   color: #fff;
 }
+/* FIX515.2.2 <button-edit>: right-aligned pill on the tab row. */
+.sc-viewer-edit-btn {
+  margin-left: auto;
+  align-self: center;
+  padding: 0.25rem 0.75rem;
+  margin-right: 0.5rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.sc-viewer-edit-btn:hover { background: var(--color-bg-lighter); }
+/* FIX520.2.1 / FIX520.2.2.2 / FIX520.2.3.2: flex column, image area grows,
+   nav row pinned to the bottom regardless of image height. */
 .sc-viewer-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  gap: 1rem;
+  align-items: stretch;
+  padding: 1rem;
+  gap: 0.75rem;
   overflow: hidden;
 }
-/* FIX518: Item details list — left-aligned name + value pairs. */
+.sc-viewer-img-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+/* FIX520.2.10 Toolbox (edition mode). */
+.sc-viewer-toolbox {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+.sc-viewer-toolbox button,
+.sc-viewer-toolbox input[type="range"] {
+  font: inherit;
+  font-size: 0.85rem;
+}
+/* FIX515.2.2 / FIX518.2.2 / FIX520.2.2 edition footer. */
+.sc-viewer-edit-footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+.sc-viewer-edit-footer button {
+  padding: 0.3rem 0.9rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.sc-viewer-edit-footer button.primary {
+  background: var(--color-selected);
+  border-color: var(--color-selected-border);
+}
+.sc-viewer-edit-footer button:disabled { opacity: 0.5; cursor: not-allowed; }
+/* FIX518: Item details list — left-aligned name + value pairs.
+   FIX518.2.2: edition mode pins a Cancel/Save footer at the bottom; using
+   a flex column with the list scrolling keeps that footer visible while
+   the property list itself scrolls. */
 .sc-details {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.5rem;
+}
+.sc-details.editing {
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sc-details.editing .sc-details-list {
   flex: 1 1 auto;
   overflow: auto;
   padding: 1rem 1.5rem;
+}
+.sc-details.editing input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.2rem 0.4rem;
+  background: #fff;
+  color: #222;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font: inherit;
 }
 .sc-details-list {
   border-collapse: collapse;
@@ -518,8 +608,13 @@ body {
   opacity: 0.85;
 }
 .sc-viewer-nav {
+  flex: 0 0 auto;
+  /* FIX520.2.2.2 / FIX520.2.3.2: push to the bottom of the viewer column
+     so the prev/next buttons always sit at the panel's bottom edge. */
+  margin-top: auto;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1.5rem;
 }
 .sc-viewer-nav button {

@@ -425,7 +425,7 @@
   min-width: 400px;
 }
 
-/* FIX500.2.1.2.1 / FIX500.2.1.2.2: Setup tabs */
+/* FIX505.2.1 / FIX505.2.2: Setup tabs */
 .photo-setup-tabs {
   display: flex;
   gap: 2px;
@@ -464,7 +464,7 @@
   white-space: nowrap;
 }
 
-/* FIX500.2.2.2.2: Main Image Icon height field */
+/* FIX506.2.2: Main Image Icon height field */
 .photo-setup-field-row {
   display: flex;
   align-items: center;

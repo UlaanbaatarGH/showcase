@@ -112,7 +112,7 @@ function imageUrl(filePath) {
   return `${SERVER_URL}/agent/dir/image?path=${encodeURIComponent(filePath)}`;
 }
 
-// FIX500.2.2.2.1.1: line format = "id:label:value"
+// FIX506.2.1.1: line format = "id:label:value"
 function parseProperties(content) {
   if (!content) return [];
   return content.split('\n').filter(line => line.length > 0).map(line => {

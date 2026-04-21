@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { saveSetup } from './data/backend.js';
 
-// FIX500.2.2.5.3: a property's name field may be either a plain label
+// FIX506.5.3: a property's name field may be either a plain label
 // ("Year") or a definition with a formula ("pageCount = numberOf(pages)").
 // These helpers convert between the stored {label, formula} shape and the
 // single-line input the user sees.
@@ -25,7 +25,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   );
   const [fileExplorer, setFileExplorer] = useState({
     main_img_icon_height: initialViewSetup?.file_explorer?.main_img_icon_height ?? 100,
-    // FIX500.2.2.2.3 / <setup-property-tagged-deleted>: id of the property
+    // FIX506.2.3 / <setup-property-tagged-deleted>: id of the property
     // that marks an item as deleted when non-blank. null = no such property.
     deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
   });
@@ -216,9 +216,9 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                 <thead>
                   <tr>
                     <th style={{ width: '3rem' }}>Id</th>
-                    {/* FIX500.2.2.2.1.1.2 / <property-name> */}
+                    {/* FIX506.2.1.1.2 / <property-name> */}
                     <th>Property name</th>
-                    {/* FIX500.2.2.2.1.1.3 / <property-short-name>: optional
+                    {/* FIX506.2.1.1.3 / <property-short-name>: optional
                         short label used in the Showcase column headers. */}
                     <th style={{ width: '10rem' }}>Property short name</th>
                     <th style={{ width: '8rem' }} />
@@ -273,7 +273,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                 }}
               />
 
-              {/* FIX500.2.2.2.3: pick the property whose non-blank value marks
+              {/* FIX506.2.3: pick the property whose non-blank value marks
                   an item as deleted. Deleted items are hidden from the
                   Showcase list/sort/filter/grouping (FIX510.3). */}
               <h3>Property indicating Item is deleted</h3>

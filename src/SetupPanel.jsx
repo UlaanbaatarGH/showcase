@@ -18,8 +18,12 @@ function formatPropertyInput(p) {
   return p.label ?? '';
 }
 
+// FIX505 <panel-general-setup>: Setup general panel. The Showcase tab was
+// removed (FIX505.2.2(removed)) — the standalone ShowcaseViewSetupPanel
+// replaces it via <button-columns>. What's left is the admin-only
+// Properties tab (FIX505.2.1 + FIX505.2.1.0 <tab-properties-setup>), which
+// binds to <panel-file-explorer-view-setup>.
 export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
-  const [tab, setTab] = useState('file_explorer');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
   );
@@ -28,19 +32,6 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     // FIX506.2.3 / <setup-property-tagged-deleted>: id of the property
     // that marks an item as deleted when non-blank. null = no such property.
     deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
-  });
-  const [showcase, setShowcase] = useState(() => {
-    // FIX500.2.3.2.1.2.1.3.1: '#' is the one default item in the list —
-    // always present, never removable. Inject it if missing.
-    const saved = (initialViewSetup?.showcase?.columns ?? []).map((c) => ({ ...c }));
-    const columns = saved.some((c) => c.type === 'folder_name')
-      ? saved
-      : [{ type: 'folder_name' }, ...saved];
-    return {
-      folder_column_name: initialViewSetup?.showcase?.folder_column_name ?? null,
-      roman_year_converter: !!initialViewSetup?.showcase?.roman_year_converter,
-      columns,
-    };
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -68,10 +59,6 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
         view_setup: {
           ...(initialViewSetup || {}),
           file_explorer: fileExplorer,
-          showcase: {
-            ...(initialViewSetup?.showcase || {}),
-            ...showcase,
-          },
         },
       });
       onSave(data);
@@ -82,7 +69,6 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     }
   };
 
-  // --- Property list handlers (File Explorer tab) ---
   const addProperty = () => {
     setProperties([
       ...properties,
@@ -98,13 +84,6 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   };
   const removeProperty = (i) => {
     setProperties(properties.filter((_, idx) => idx !== i));
-    // Also strip from showcase columns
-    setShowcase((s) => ({
-      ...s,
-      columns: s.columns.filter(
-        (c) => c.type !== 'property' || c.property_id !== properties[i].id,
-      ),
-    }));
   };
   const updatePropertyLabel = (i, rawInput) => {
     const { label, formula } = parsePropertyInput(rawInput);
@@ -127,283 +106,115 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
     setProperties(updated);
   };
 
-  // --- Showcase columns handlers (Showcase tab) ---
-  const columnKey = (col) => {
-    if (col.type === 'property') return `prop_${col.property_id}`;
-    return col.type;
-  };
-  const displayedColumnName = (col) => {
-    if (col.type === 'folder_name') return '#';
-    if (col.type === 'img') return 'Img';
-    if (col.type === 'main_image_icon') return 'Main image icon';
-    if (col.type === 'property') {
-      const p = properties.find((pp) => pp.id === col.property_id);
-      return p?.label || '(missing property)';
-    }
-    return col.type;
-  };
-  const availableToAdd = () => {
-    const used = new Set(showcase.columns.map(columnKey));
-    const options = [];
-    if (!used.has('main_image_icon'))
-      options.push({ key: 'main_image_icon', label: 'Main image icon', create: () => ({ type: 'main_image_icon' }) });
-    if (!used.has('folder_name'))
-      options.push({ key: 'folder_name', label: '#', create: () => ({ type: 'folder_name' }) });
-    // FIX500.2.3.2.1.2.2: picker label is 'With image'; once added to the
-    // column list, the column is shown as 'Img'.
-    if (!used.has('img'))
-      options.push({ key: 'img', label: 'With image', create: () => ({ type: 'img' }) });
-    for (const p of properties) {
-      if ((p.label ?? '').trim() && !used.has(`prop_${p.id}`)) {
-        options.push({
-          key: `prop_${p.id}`,
-          label: p.label,
-          create: () => ({ type: 'property', property_id: p.id }),
-        });
-      }
-    }
-    return options;
-  };
-  const addColumn = (option) => {
-    setShowcase({ ...showcase, columns: [...showcase.columns, option.create()] });
-  };
-  const removeColumn = (i) => {
-    if (showcase.columns[i].type === 'folder_name') return;
-    setShowcase({ ...showcase, columns: showcase.columns.filter((_, idx) => idx !== i) });
-  };
-  const moveColumnBy = (i, dir) => {
-    const target = i + dir;
-    if (target < 0 || target >= showcase.columns.length) return;
-    const updated = [...showcase.columns];
-    [updated[i], updated[target]] = [updated[target], updated[i]];
-    setShowcase({ ...showcase, columns: updated });
-  };
-  const updateColumn = (i, patch) => {
-    const updated = [...showcase.columns];
-    updated[i] = { ...updated[i], ...patch };
-    setShowcase({ ...showcase, columns: updated });
-  };
-
-  const addOptions = availableToAdd();
-
   return (
     <div className="setup-overlay" onClick={onCancel}>
       <div className="setup-panel" onClick={(e) => e.stopPropagation()}>
+        {/* FIX505.2.5: title is 'Setup'. */}
         <header className="setup-header">
-          <h2>Photo Setup panel</h2>
+          <h2>Setup</h2>
         </header>
+        {/* FIX505.2.1 + FIX505.2.1.0 + FIX505.3.1 <tab-properties-setup>:
+            the sole remaining tab. Rendered as a static tab strip so the
+            layout matches future growth; clicking is a no-op since there
+            is nothing else to switch to. */}
         <div className="setup-tabs">
           <button
             type="button"
-            className={tab === 'file_explorer' ? 'active' : ''}
-            onClick={() => setTab('file_explorer')}
+            className="active"
+            data-yagu-id="tab-properties-setup"
           >
-            File Explorer
-          </button>
-          <button
-            type="button"
-            className={tab === 'showcase' ? 'active' : ''}
-            onClick={() => setTab('showcase')}
-          >
-            Showcase
+            Properties
           </button>
         </div>
         <div className="setup-body">
-          {tab === 'file_explorer' && (
-            <section className="setup-section" data-yagu-id="panel-file-explorer-view-setup">
-              <h3>List of properties</h3>
-              <table className="setup-items">
-                <thead>
+          {/* FIX505.2.3 / FIX506 <panel-file-explorer-view-setup>. */}
+          <section className="setup-section" data-yagu-id="panel-file-explorer-view-setup">
+            <h3>List of properties</h3>
+            <table className="setup-items">
+              <thead>
+                <tr>
+                  <th style={{ width: '3rem' }}>Id</th>
+                  {/* FIX506.2.1.1.2 / <property-name> */}
+                  <th>Property name</th>
+                  {/* FIX506.2.1.1.3 / <property-short-name>: optional
+                      short label used in the Showcase column headers. */}
+                  <th style={{ width: '10rem' }}>Property short name</th>
+                  <th style={{ width: '8rem' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {properties.length === 0 && (
                   <tr>
-                    <th style={{ width: '3rem' }}>Id</th>
-                    {/* FIX506.2.1.1.2 / <property-name> */}
-                    <th>Property name</th>
-                    {/* FIX506.2.1.1.3 / <property-short-name>: optional
-                        short label used in the Showcase column headers. */}
-                    <th style={{ width: '10rem' }}>Property short name</th>
-                    <th style={{ width: '8rem' }} />
+                    <td colSpan={4} className="setup-empty">No properties defined.</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {properties.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="setup-empty">No properties defined.</td>
-                    </tr>
-                  )}
-                  {properties.map((p, i) => (
-                    <tr key={p.id}>
-                      <td>{p.id > 0 ? p.id : <span className="setup-new">new</span>}</td>
-                      <td>
-                        <input
-                          type="text"
-                          value={p._raw !== undefined ? p._raw : formatPropertyInput(p)}
-                          onChange={(e) => updatePropertyLabel(i, e.target.value)}
-                          placeholder="e.g. Year  —  or  pageCount = numberOf(pages)"
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          value={p.short_label ?? ''}
-                          onChange={(e) => updatePropertyShortLabel(i, e.target.value)}
-                          placeholder="(optional)"
-                        />
-                      </td>
-                      <td className="setup-row-actions">
-                        <button type="button" onClick={() => movePropertyBy(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-                        <button type="button" onClick={() => movePropertyBy(i, 1)} disabled={i === properties.length - 1} aria-label="Move down">↓</button>
-                        <button type="button" onClick={() => removeProperty(i)} aria-label="Remove">✕</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <button type="button" className="setup-add-btn" onClick={addProperty}>
-                + Add property
-              </button>
-
-              <h3>Main Image Icon height (px)</h3>
-              <input
-                type="number"
-                min="1"
-                value={fileExplorer.main_img_icon_height}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setFileExplorer({ ...fileExplorer, main_img_icon_height: Number.isFinite(n) && n > 0 ? n : 100 });
-                }}
-              />
-
-              {/* FIX506.2.3: pick the property whose non-blank value marks
-                  an item as deleted. Deleted items are hidden from the
-                  Showcase list/sort/filter/grouping (FIX510.3). */}
-              <h3>Property indicating Item is deleted</h3>
-              <select
-                value={fileExplorer.deleted_property_id ?? ''}
-                onChange={(e) =>
-                  setFileExplorer({
-                    ...fileExplorer,
-                    deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
-                  })
-                }
-              >
-                <option value="">— none —</option>
-                {properties
-                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-              </select>
-            </section>
-          )}
-
-          {tab === 'showcase' && (
-            <section className="setup-section" data-yagu-id="panel-showcase-view-setup">
-              <h3>Showcase columns</h3>
-              <table className="setup-items">
-                <thead>
-                  <tr>
-                    <th>Column</th>
-                    <th style={{ width: '8rem' }}>Width hint</th>
-                    <th style={{ width: '4rem' }}>Wrap</th>
-                    <th style={{ width: '8rem' }} />
+                )}
+                {properties.map((p, i) => (
+                  <tr key={p.id}>
+                    <td>{p.id > 0 ? p.id : <span className="setup-new">new</span>}</td>
+                    <td>
+                      <input
+                        type="text"
+                        value={p._raw !== undefined ? p._raw : formatPropertyInput(p)}
+                        onChange={(e) => updatePropertyLabel(i, e.target.value)}
+                        placeholder="e.g. Year  —  or  pageCount = numberOf(pages)"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={p.short_label ?? ''}
+                        onChange={(e) => updatePropertyShortLabel(i, e.target.value)}
+                        placeholder="(optional)"
+                      />
+                    </td>
+                    <td className="setup-row-actions">
+                      <button type="button" onClick={() => movePropertyBy(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                      <button type="button" onClick={() => movePropertyBy(i, 1)} disabled={i === properties.length - 1} aria-label="Move down">↓</button>
+                      <button type="button" onClick={() => removeProperty(i)} aria-label="Remove">✕</button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {showcase.columns.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="setup-empty">No columns.</td>
-                    </tr>
-                  )}
-                  {showcase.columns.map((col, i) => (
-                    <tr key={`${columnKey(col)}_${i}`}>
-                      <td>{displayedColumnName(col)}</td>
-                      <td>
-                        <input
-                          type="text"
-                          value={col.width ?? ''}
-                          placeholder="auto"
-                          onChange={(e) => updateColumn(i, { width: e.target.value || null })}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={!!col.wrap}
-                          onChange={(e) => updateColumn(i, { wrap: e.target.checked })}
-                        />
-                      </td>
-                      <td className="setup-row-actions">
-                        <button type="button" onClick={() => moveColumnBy(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-                        <button type="button" onClick={() => moveColumnBy(i, 1)} disabled={i === showcase.columns.length - 1} aria-label="Move down">↓</button>
-                        <button
-                          type="button"
-                          onClick={() => removeColumn(i)}
-                          disabled={col.type === 'folder_name'}
-                          title={col.type === 'folder_name' ? "'#' cannot be removed" : 'Remove'}
-                          aria-label="Remove"
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {addOptions.length > 0 && (
-                <div className="setup-add-col">
-                  <label>
-                    Add column:&nbsp;
-                    <select
-                      onChange={(e) => {
-                        if (!e.target.value) return;
-                        const opt = addOptions.find((o) => o.key === e.target.value);
-                        if (opt) addColumn(opt);
-                        e.target.value = '';
-                      }}
-                      value=""
-                    >
-                      <option value="">— pick one —</option>
-                      {addOptions.map((o) => (
-                        <option key={o.key} value={o.key}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
+                ))}
+              </tbody>
+            </table>
+            <button type="button" className="setup-add-btn" onClick={addProperty}>
+              + Add property
+            </button>
 
-              {/* FIX500.2.3.2.1.2.3 / <item-id-new-name>: optional replacement
-                  label for the '#' column (item id). Stored at
-                  view_setup.showcase.folder_column_name. */}
-              <h3>New name for Property &apos;#&apos;</h3>
-              <input
-                type="text"
-                value={showcase.folder_column_name ?? ''}
-                placeholder="#"
-                onChange={(e) =>
-                  setShowcase({
-                    ...showcase,
-                    folder_column_name: e.target.value.trim() ? e.target.value : null,
-                  })
-                }
-              />
+            <h3>Main Image Icon height (px)</h3>
+            <input
+              type="number"
+              min="1"
+              value={fileExplorer.main_img_icon_height}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setFileExplorer({ ...fileExplorer, main_img_icon_height: Number.isFinite(n) && n > 0 ? n : 100 });
+              }}
+            />
 
-              <label className="setup-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={showcase.roman_year_converter}
-                  onChange={(e) =>
-                    setShowcase({ ...showcase, roman_year_converter: e.target.checked })
-                  }
-                />
-                Roman year converter — append Arabic year to values of any 'Year' property
-                written in Roman numerals (e.g. MDCXIII).
-              </label>
-            </section>
-          )}
+            {/* FIX506.2.3: pick the property whose non-blank value marks
+                an item as deleted. Deleted items are hidden from the
+                Showcase list/sort/filter/grouping (FIX510.3). */}
+            <h3>Property indicating Item is deleted</h3>
+            <select
+              value={fileExplorer.deleted_property_id ?? ''}
+              onChange={(e) =>
+                setFileExplorer({
+                  ...fileExplorer,
+                  deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
+            >
+              <option value="">— none —</option>
+              {properties
+                .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+            </select>
+          </section>
         </div>
         {error && <div className="setup-error">{error}</div>}
+        {/* FIX505.2.10 + FIX505.2.11 + FIX505.3.10 footer. */}
         <footer className="setup-footer">
           <button type="button" onClick={onCancel} disabled={saving}>
             Cancel

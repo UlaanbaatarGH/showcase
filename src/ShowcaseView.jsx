@@ -124,6 +124,7 @@ export default function ShowcaseView() {
   });
   const menuRef = useRef(null);
   const mainRef = useRef(null);
+  const selectedRowRef = useRef(null);
 
   // Draggable vertical splitter between the item table and the image viewer.
   const onSplitterDown = (e) => {
@@ -364,6 +365,51 @@ export default function ShowcaseView() {
     }));
     setShowGrouping(false);
   };
+
+  // FIX510.3.2 / FIX510.3.3: keyboard navigation.
+  //   ↑/↓ — previous/next item in the Showcase list.
+  //   ←/→ — previous/next image in the Image viewer.
+  // Skipped when a modal is open, when focus is in an editable field (so
+  // filter / dialog inputs still behave natively), and mid-crop (the user
+  // is selecting corners and shouldn't lose the image under them).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (showSetup || showColumns || showGrouping || importOpen || importImagesOpen) return;
+      if (cropMode) return;
+      const ae = document.activeElement;
+      const tag = ae?.tagName;
+      const editable =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
+      if (editable) return;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (!displayedFolders.length) return;
+        e.preventDefault();
+        const idx = displayedFolders.findIndex((f) => f.id === selectedFolderId);
+        const next = e.key === 'ArrowDown'
+          ? Math.min(displayedFolders.length - 1, idx < 0 ? 0 : idx + 1)
+          : Math.max(0, idx < 0 ? 0 : idx - 1);
+        setSelectedFolderId(displayedFolders[next].id);
+      } else if (e.key === 'ArrowLeft') {
+        if (!images.length) return;
+        e.preventDefault();
+        setCurrentImageIdx((i) => Math.max(0, i - 1));
+      } else if (e.key === 'ArrowRight') {
+        if (!images.length) return;
+        e.preventDefault();
+        setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1));
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [
+    showSetup, showColumns, showGrouping, importOpen, importImagesOpen,
+    cropMode, displayedFolders, selectedFolderId, images.length,
+  ]);
+
+  // Keep the selected row in view when ↑/↓ walks past the panel edge.
+  useEffect(() => {
+    selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selectedFolderId]);
 
   if (error) return <div className="sc-error">Error: {error}</div>;
   if (!data) return <div className="sc-loading">Loading…</div>;
@@ -709,6 +755,7 @@ export default function ShowcaseView() {
               {displayedFolders.map((f) => (
                 <tr
                   key={f.id}
+                  ref={f.id === selectedFolderId ? selectedRowRef : null}
                   className={f.id === selectedFolderId ? 'selected' : ''}
                   onClick={() => setSelectedFolderId(f.id)}
                 >

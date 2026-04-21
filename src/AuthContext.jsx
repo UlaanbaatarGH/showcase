@@ -26,10 +26,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!supabaseConfigured) return;
     supabase.auth.getSession().then(({ data }) => {
+      // Set the module-scope auth token synchronously with the session state
+      // update so child effects that depend on `token` never see a window
+      // where the token is stale relative to the React state.
+      setAuthToken(data.session?.access_token ?? null);
       setSession(data.session ?? null);
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
+      setAuthToken(s?.access_token ?? null);
       setSession(s ?? null);
     });
     return () => sub.subscription.unsubscribe();
@@ -38,7 +43,6 @@ export function AuthProvider({ children }) {
   // Whenever we have a fresh session, ensure the app_user row exists
   // (self-heals if it was never created) and cache the profile for the UI.
   useEffect(() => {
-    setAuthToken(session?.access_token ?? null);
     if (!session) { setProfile(null); return; }
     const { access_token, user } = session;
     const loginName =
@@ -83,6 +87,9 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     if (!supabaseConfigured) return;
+    // Clear the backend auth token eagerly so any in-flight effect refiring
+    // on the session change doesn't replay a request with a now-invalid JWT.
+    setAuthToken(null);
     await supabase.auth.signOut();
   }, []);
 

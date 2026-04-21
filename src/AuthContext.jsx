@@ -86,6 +86,26 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   }, []);
 
+  // FIX315.2 / FIX315.2.1: automatic sign-out after 15 minutes of inactivity.
+  // Only armed while a session exists. Any mouse/keyboard/touch/scroll event
+  // counts as activity and resets the timer.
+  useEffect(() => {
+    if (!session) return undefined;
+    const IDLE_MS = 15 * 60 * 1000;
+    let timer = null;
+    const reset = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { signOut(); }, IDLE_MS);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      if (timer) clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [session, signOut]);
+
   const value = {
     session,
     profile,

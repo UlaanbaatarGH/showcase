@@ -18,10 +18,8 @@ function formatPropertyInput(p) {
   return p.label ?? '';
 }
 
-export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel, initialTab }) {
-  // FIX503.3.2: <button-columns> opens the panel with the Showcase tab
-  // preselected. The generic <button-setup> keeps the File Explorer default.
-  const [tab, setTab] = useState(initialTab === 'showcase' ? 'showcase' : 'file_explorer');
+export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
+  const [tab, setTab] = useState('file_explorer');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
   );

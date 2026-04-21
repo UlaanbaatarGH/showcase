@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import SetupPanel from './SetupPanel.jsx';
+import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
@@ -87,10 +88,11 @@ export default function ShowcaseView() {
   const [error, setError] = useState(null);
   const [sortKeys, setSortKeys] = useState([]);
   const [filters, setFilters] = useState({});
-  // FIX503.3.2 `<button-columns>` opens SetupPanel on the Showcase tab,
-  // FIX500.2 `<button-setup>` opens it on the File Explorer tab. A single
-  // string tracks both: null = closed, 'showcase' or 'file_explorer' = open.
-  const [setupTab, setSetupTab] = useState(null);
+  // FIX503.3.2 <button-columns> opens a standalone <panel-showcase-view-setup>
+  // (anyone can tweak columns). FIX500.2 <button-setup> opens the tabbed
+  // general Setup (admin territory: property list + file-explorer settings).
+  const [showColumns, setShowColumns] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
@@ -324,7 +326,8 @@ export default function ShowcaseView() {
     }));
     setSortKeys([]);
     setFilters({});
-    setSetupTab(null);
+    setShowSetup(false);
+    setShowColumns(false);
   };
 
   const handleSaveGrouping = (result) => {
@@ -512,13 +515,14 @@ export default function ShowcaseView() {
           {data.project?.name ?? 'Showcase'}
         </h1>
         {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 <button-columns>: opens
-            <panel-showcase-view-setup> in a layer popup. Not listed under
-            FIX503.5.1, so visible to anonymous visitors too. */}
+            the standalone <panel-showcase-view-setup> popup. Not listed
+            under FIX503.5.1, so visible to anonymous visitors too: setting
+            columns is a viewer affordance, not admin work. */}
         <button
           type="button"
           className="sc-menu-trigger"
           data-yagu-id="button-columns"
-          onClick={() => setSetupTab('showcase')}
+          onClick={() => setShowColumns(true)}
         >
           Columns
         </button>
@@ -576,13 +580,14 @@ export default function ShowcaseView() {
         )}
         {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
             <button-setup>: Setup icon button, signed-in only. Opens the
-            tabbed general panel defaulting to File Explorer. */}
+            tabbed general panel (admin: property list + file-explorer
+            settings, plus the Showcase tab as a convenience). */}
         {profile && (
           <button
             type="button"
             className="sc-setup-btn"
             data-yagu-id="button-setup"
-            onClick={() => setSetupTab('file_explorer')}
+            onClick={() => setShowSetup(true)}
             aria-label="Open setup"
             title="Setup"
           >
@@ -857,12 +862,19 @@ export default function ShowcaseView() {
           )}
         </section>
       </div>
-      {setupTab && (
+      {showSetup && (
         <SetupPanel
           properties={properties}
           viewSetup={viewSetup}
-          initialTab={setupTab}
-          onCancel={() => setSetupTab(null)}
+          onCancel={() => setShowSetup(false)}
+          onSave={handleSaveSetup}
+        />
+      )}
+      {showColumns && (
+        <ShowcaseViewSetupPanel
+          properties={properties}
+          viewSetup={viewSetup}
+          onCancel={() => setShowColumns(false)}
           onSave={handleSaveSetup}
         />
       )}

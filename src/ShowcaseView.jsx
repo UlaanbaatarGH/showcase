@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
+import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { useAuth } from './AuthContext.jsx';
-import { getShowcase, getFolderImages } from './data/backend.js';
+import { getShowcase, getFolderImages, updateImage } from './data/backend.js';
 import { computePropertyValue } from './properties/formulas.js';
 
 function romanToInt(s) {
@@ -92,6 +93,15 @@ export default function ShowcaseView() {
   // the user clicks Save (no cloud persistence yet — see
   // backendCloud.setFolderProperty TODO).
   const [detailDraft, setDetailDraft] = useState({});
+  // FIX520.2.10: staged rotation/crop while the Images tab is in edition
+  // mode. null until the user enters edit — Save PATCHes the current image
+  // and exits; Cancel discards and exits. imageDraftId pins the draft to
+  // the image it was staged against, so navigating images mid-edit doesn't
+  // silently repurpose the draft for the next image.
+  const [imageDraft, setImageDraft] = useState(null);
+  const [imageDraftId, setImageDraftId] = useState(null);
+  const [cropMode, setCropMode] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
   const [images, setImages] = useState([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
@@ -176,6 +186,9 @@ export default function ShowcaseView() {
     // across items since there's no cloud write path yet.
     setEditionMode(false);
     setDetailDraft({});
+    setImageDraft(null);
+    setImageDraftId(null);
+    setCropMode(false);
     getFolderImages(selectedFolderId)
       .then((imgs) => {
         setImages(imgs);
@@ -761,95 +774,223 @@ export default function ShowcaseView() {
               </button>
             )}
           </div>
-          {viewerTab === 'images' ? (
+          {viewerTab === 'images' ? (() => {
             // FIX520.2: Showcase Image viewer. FIX520.2.1 view-mode layout
             // (image + bottom nav), FIX520.2.2 edition-mode layout (toolbox
             // on top + image + Cancel/Save footer).
-            <div className={`sc-viewer-body${editionMode ? ' editing' : ''}`}>
-              {editionMode && (
-                // FIX520.2.10: Toolbox (edition mode), left-aligned. The
-                // crop / rotate actions are not wired to persistence yet —
-                // backendCloud.setFolderProperty is still notYet. Buttons
-                // render as disabled placeholders so the UI matches the
-                // spec's layout while signalling there's no effect yet.
-                <div className="sc-viewer-toolbox">
-                  {/* FIX520.2.10.1 <button-crop> */}
-                  <button type="button" disabled title="Not yet implemented">Crop</button>
-                  {/* FIX520.2.10.2 <button-adjust-crop> */}
-                  <button type="button" disabled title="Not yet implemented">Adjust crop</button>
-                  {/* FIX520.2.10.3 <slider-rotate> */}
-                  <input type="range" min="-45" max="45" defaultValue="0" disabled />
-                  {/* FIX520.2.10.4 <button-rotate270> */}
-                  <button type="button" disabled title="Not yet implemented">⟲</button>
-                  {/* FIX520.2.10.5 <button-rotate90> */}
-                  <button type="button" disabled title="Not yet implemented">⟳</button>
-                </div>
-              )}
-              {currentImage ? (
-                <>
-                  <div className="sc-viewer-img-wrap">
-                    <img
-                      src={currentImage.url}
-                      alt={currentImage.caption ?? ''}
-                      className="sc-viewer-img"
-                      style={
-                        currentImage.rotation
-                          ? { transform: `rotate(${currentImage.rotation}deg)` }
-                          : undefined
-                      }
+            const draftForCurrent =
+              editionMode &&
+              imageDraft &&
+              imageDraftId === currentImage?.image_id
+                ? imageDraft
+                : null;
+            const effectiveRotation = draftForCurrent
+              ? draftForCurrent.rotation
+              : currentImage?.rotation ?? 0;
+            const effectiveCrop = draftForCurrent
+              ? draftForCurrent.crop
+              : currentImage?.crop ?? null;
+
+            const ensureDraft = () => {
+              if (draftForCurrent) return draftForCurrent;
+              const fresh = {
+                rotation: currentImage?.rotation ?? 0,
+                crop: currentImage?.crop ?? null,
+              };
+              setImageDraft(fresh);
+              setImageDraftId(currentImage?.image_id ?? null);
+              return fresh;
+            };
+            const rotateBy = (delta) => {
+              const base = ensureDraft();
+              const next = (((base.rotation ?? 0) + delta) % 360 + 360) % 360;
+              // Rotating invalidates the previous crop rect (coord space
+              // changes). Drop it so the user reselects if desired.
+              setImageDraft({ rotation: next, crop: null });
+              setCropMode(false);
+            };
+            const resetImage = () => {
+              setImageDraft({ rotation: 0, crop: null });
+              setImageDraftId(currentImage?.image_id ?? null);
+              setCropMode(false);
+            };
+            const onCropComplete = (rect) => {
+              const base = ensureDraft();
+              setImageDraft({ ...base, crop: rect });
+              setCropMode(false);
+            };
+            const cancelImageEdit = () => {
+              setImageDraft(null);
+              setImageDraftId(null);
+              setCropMode(false);
+              setEditionMode(false);
+            };
+            const saveImageEdit = async () => {
+              if (!draftForCurrent || !currentImage?.image_id) {
+                setEditionMode(false);
+                return;
+              }
+              setSavingImage(true);
+              try {
+                const updated = await updateImage(currentImage.image_id, {
+                  rotation: draftForCurrent.rotation,
+                  crop: draftForCurrent.crop,
+                });
+                // Merge the backend's authoritative {rotation, crop} back
+                // into the images list so the viewer reflects the saved
+                // state immediately.
+                setImages((prev) =>
+                  prev.map((im) =>
+                    im.image_id === currentImage.image_id
+                      ? { ...im, rotation: updated.rotation, crop: updated.crop }
+                      : im,
+                  ),
+                );
+                setImageDraft(null);
+                setImageDraftId(null);
+                setCropMode(false);
+                setEditionMode(false);
+              } catch (e) {
+                setError(e.message || String(e));
+              } finally {
+                setSavingImage(false);
+              }
+            };
+
+            return (
+              <div className={`sc-viewer-body${editionMode ? ' editing' : ''}`}>
+                {editionMode && (
+                  // FIX520.2.10: Toolbox (edition mode), left-aligned.
+                  <div className="sc-viewer-toolbox">
+                    {/* FIX520.2.10.1 <button-crop>: toggle click-click crop
+                        mode. The canvas captures the two clicks. */}
+                    <button
+                      type="button"
+                      data-yagu-id="button-crop"
+                      className={cropMode ? 'active' : ''}
+                      disabled={!currentImage}
+                      onClick={() => setCropMode((v) => !v)}
+                    >
+                      {cropMode ? 'Cropping…' : 'Crop'}
+                    </button>
+                    {/* FIX520.2.10.2 <button-adjust-crop>: drag-handles mode
+                        not yet implemented; hidden behind a disabled toggle. */}
+                    <button
+                      type="button"
+                      data-yagu-id="button-adjust-crop"
+                      disabled
+                      title="Adjust-crop drag handles not yet implemented"
+                    >
+                      Adjust crop
+                    </button>
+                    {/* FIX520.2.10.3 <slider-rotate>: free rotation slider —
+                        not yet wired; rely on ±90° buttons for now. */}
+                    <input
+                      type="range"
+                      min="-45"
+                      max="45"
+                      defaultValue="0"
+                      disabled
+                      data-yagu-id="slider-rotate"
+                      title="Slider rotation not yet implemented"
                     />
-                    {currentImage.caption && (
-                      <div className="sc-viewer-caption">{currentImage.caption}</div>
-                    )}
+                    {/* FIX520.2.10.4 <button-rotate270>: rotate −90°. */}
+                    <button
+                      type="button"
+                      data-yagu-id="button-rotate270"
+                      disabled={!currentImage}
+                      onClick={() => rotateBy(-90)}
+                      title="Rotate −90°"
+                    >
+                      ⟲
+                    </button>
+                    {/* FIX520.2.10.5 <button-rotate90>: rotate +90°. */}
+                    <button
+                      type="button"
+                      data-yagu-id="button-rotate90"
+                      disabled={!currentImage}
+                      onClick={() => rotateBy(90)}
+                      title="Rotate +90°"
+                    >
+                      ⟳
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!currentImage || !draftForCurrent}
+                      onClick={resetImage}
+                      title="Reset rotation & crop"
+                    >
+                      Reset
+                    </button>
                   </div>
-                  {/* FIX520.2.2.2 + FIX520.2.3.2: previous/next nav always
-                      bottom-aligned — kept outside sc-viewer-img-wrap so it
-                      pins to the bottom of the panel regardless of image
-                      height (flex column + auto margin). */}
-                  {!editionMode && (
-                    <div className="sc-viewer-nav">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                        disabled={currentImageIdx === 0}
-                        aria-label="Previous image"
-                      >
-                        ‹
-                      </button>
-                      <span className="sc-viewer-pos">
-                        {currentImageIdx + 1} / {images.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-                        }
-                        disabled={currentImageIdx >= images.length - 1}
-                        aria-label="Next image"
-                      >
-                        ›
-                      </button>
+                )}
+                {currentImage ? (
+                  <>
+                    <div className="sc-viewer-img-wrap">
+                      <ShowcaseImageCanvas
+                        url={currentImage.url}
+                        rotation={effectiveRotation}
+                        crop={effectiveCrop}
+                        cropMode={editionMode && cropMode}
+                        onCropComplete={onCropComplete}
+                        className="sc-viewer-img"
+                      />
+                      {currentImage.caption && (
+                        <div className="sc-viewer-caption">{currentImage.caption}</div>
+                      )}
                     </div>
-                  )}
-                </>
-              ) : (
-                <div className="sc-viewer-empty">No images in this item.</div>
-              )}
-              {editionMode && (
-                <footer className="sc-viewer-edit-footer">
-                  <button type="button" onClick={() => setEditionMode(false)}>Cancel</button>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled
-                    title="Backend write endpoint not implemented yet"
-                  >
-                    Save
-                  </button>
-                </footer>
-              )}
-            </div>
-          ) : (
+                    {/* FIX520.2.2.2 + FIX520.2.3.2: previous/next nav always
+                        bottom-aligned — kept outside sc-viewer-img-wrap so it
+                        pins to the bottom of the panel regardless of image
+                        height (flex column + auto margin). */}
+                    {!editionMode && (
+                      <div className="sc-viewer-nav">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                          disabled={currentImageIdx === 0}
+                          aria-label="Previous image"
+                        >
+                          ‹
+                        </button>
+                        <span className="sc-viewer-pos">
+                          {currentImageIdx + 1} / {images.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                          }
+                          disabled={currentImageIdx >= images.length - 1}
+                          aria-label="Next image"
+                        >
+                          ›
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="sc-viewer-empty">No images in this item.</div>
+                )}
+                {editionMode && (
+                  <footer className="sc-viewer-edit-footer">
+                    <button type="button" onClick={cancelImageEdit} disabled={savingImage}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={saveImageEdit}
+                      disabled={savingImage || !draftForCurrent}
+                      title={draftForCurrent ? 'Save changes' : 'No changes to save'}
+                    >
+                      {savingImage ? 'Saving…' : 'Save'}
+                    </button>
+                  </footer>
+                )}
+              </div>
+            );
+          })() : (
             // FIX518: Item Details panel — FIX518.2.1 view-mode is a
             // read-only property list; FIX518.2.2 edition-mode swaps values
             // to inputs (except derived properties — FIX518.4.6) and adds a

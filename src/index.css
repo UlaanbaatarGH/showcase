@@ -761,9 +761,8 @@ body {
 }
 .sc-viewer-nav {
   flex: 0 0 auto;
-  /* FIX520.2.2.2 / FIX520.2.3.2: push to the bottom of the viewer column
-     so the prev/next buttons always sit at the panel's bottom edge. */
-  margin-top: auto;
+  /* FIX520.2 (updated): prev/next + i/n sit at the top of the image
+     column; the image wrap below takes the remaining height. */
   display: flex;
   align-items: center;
   justify-content: center;

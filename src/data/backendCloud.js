@@ -60,6 +60,15 @@ export default {
   // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
   updateFolderImage: (folderImageId, patch) =>
     call(`/api/folder-images/${encodeURIComponent(folderImageId)}`, { method: 'PATCH', body: patch }),
+  // FIX400.3.3: rename a project and/or update its cover_image_key.
+  updateProject: (projectId, patch) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: patch }),
+  // FIX400.3.2.1.2: get a signed upload URL for a new project cover image.
+  signProjectCoverUpload: (projectId, filename) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}/sign-cover-upload`, {
+      method: 'POST',
+      body: { filename },
+    }),
   // Planned writes — backend routes will be added when FIX entries land.
   createFolder: notYet('createFolder'),
   renameFolder: notYet('renameFolder'),

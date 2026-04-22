@@ -873,6 +873,55 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+/* FIX400.3.2: edition mode on the Home page. Card is no longer clickable;
+   cover accepts drag-and-drop (FIX400.3.2.1.2); name becomes an input
+   (FIX400.3.2.1.1). Cards the user can't edit stay read-only. */
+.home-project-card.editing {
+  cursor: default;
+}
+.home-project-card.editing:hover {
+  border-color: var(--color-border);
+  transform: none;
+}
+.home-project-cover.editable {
+  cursor: pointer;
+  position: relative;
+}
+.home-project-cover.editable::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px dashed transparent;
+  pointer-events: none;
+  transition: border-color 0.15s;
+}
+.home-project-cover.editable:hover::after,
+.home-project-cover.drop-hover::after {
+  border-color: var(--color-accent);
+}
+.home-project-cover-hint {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.home-project-name-input {
+  margin: 0.75rem 1rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-family: inherit;
+}
 
 /* Shared dark-theme buttons */
 .btn-primary {

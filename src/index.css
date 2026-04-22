@@ -792,6 +792,26 @@ body {
   font-size: 1rem;
   opacity: 0.6;
 }
+/* FIX520.3.2: click-to-full-screen affordance on the viewer image. */
+.sc-viewer-img-clickable {
+  cursor: zoom-in;
+}
+.sc-fullscreen {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  cursor: zoom-out;
+  padding: 1rem;
+}
+.sc-fullscreen-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 
 /* FIX521 <panel-showcase-img-list-editor>: two-pane layout — table of
    images on the left, image editor on the right. Fills the viewer panel. */

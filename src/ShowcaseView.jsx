@@ -118,6 +118,9 @@ export default function ShowcaseView() {
     const saved = Number(localStorage.getItem('sc-list-width'));
     return Number.isFinite(saved) && saved > 200 ? saved : 640;
   });
+  // FIX520.3.2: clicking the viewer image opens it in a full-screen
+  // overlay; ESC (or clicking the backdrop) exits.
+  const [fullScreen, setFullScreen] = useState(false);
   const menuRef = useRef(null);
   const mainRef = useRef(null);
   const selectedRowRef = useRef(null);
@@ -370,9 +373,22 @@ export default function ShowcaseView() {
   // Skipped when a modal is open, when focus is in an editable field (so
   // filter / dialog inputs still behave natively), and mid-crop (the user
   // is selecting corners and shouldn't lose the image under them).
+  // FIX520.3.2: ESC exits full-screen image view. Runs before the main
+  // keyboard handler below so it's active even when the viewer is in
+  // edition mode.
+  useEffect(() => {
+    if (!fullScreen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setFullScreen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fullScreen]);
+
   useEffect(() => {
     const onKey = (e) => {
       if (showSetup || showColumns || showGrouping || importOpen || importImagesOpen) return;
+      if (fullScreen) return;
       // FIX521: the Image List editor owns its own arrow-key handling while
       // in edition mode (table row selection, not global item/image nav).
       if (editionMode) return;
@@ -911,7 +927,11 @@ export default function ShowcaseView() {
                             ›
                           </button>
                         </div>
-                        <div className="sc-viewer-img-wrap">
+                        <div
+                          className="sc-viewer-img-wrap sc-viewer-img-clickable"
+                          onClick={() => setFullScreen(true)}
+                          title="Click to view full screen"
+                        >
                           <ShowcaseImageCanvas
                             url={currentImage.url}
                             rotation={currentImage.rotation ?? 0}
@@ -1130,6 +1150,19 @@ export default function ShowcaseView() {
           onClose={() => setImportImagesOpen(false)}
           onDone={reloadShowcase}
         />
+      )}
+      {/* FIX520.3.2: full-screen image overlay. Click-to-open from the
+          viewer; click backdrop or press ESC to close. Uses the same
+          canvas as the viewer so rotation + crop are honored. */}
+      {fullScreen && currentImage && (
+        <div className="sc-fullscreen" onClick={() => setFullScreen(false)}>
+          <ShowcaseImageCanvas
+            url={currentImage.url}
+            rotation={currentImage.rotation ?? 0}
+            crop={currentImage.crop ?? null}
+            className="sc-fullscreen-img"
+          />
+        </div>
       )}
     </div>
   );

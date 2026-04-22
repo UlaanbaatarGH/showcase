@@ -218,6 +218,41 @@ body {
   outline: none;
   border-color: #667;
 }
+.setup-items select {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+  font-size: 0.875rem;
+  background: #232338;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+}
+.setup-items tr.selected td {
+  background: rgba(255, 165, 0, 0.18);
+}
+.setup-items tr:not(.selected):hover td {
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+/* FIX373.2.2/.2.3 Add / Remove grouping buttons. */
+.grouping-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.grouping-toolbar button {
+  padding: 0.3rem 0.75rem;
+  background: #232338;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+}
+.grouping-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.grouping-toolbar button:not(:disabled):hover { background: #2a2a42; }
 .setup-new {
   font-size: 0.75rem;
   opacity: 0.6;

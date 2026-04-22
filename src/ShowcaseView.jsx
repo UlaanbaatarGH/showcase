@@ -7,6 +7,7 @@ import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
+import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages } from './data/backend.js';
 import { computePropertyValue } from './properties/formulas.js';
@@ -111,7 +112,7 @@ export default function ShowcaseView() {
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeGroupPropId, setActiveGroupPropId] = useState(null);
+  const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
   const [listWidth, setListWidth] = useState(() => {
     const saved = Number(localStorage.getItem('sc-list-width'));
@@ -208,26 +209,31 @@ export default function ShowcaseView() {
   const configuredColumns = showcaseCfg.columns ?? [];
   const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
-  const groups = showcaseCfg.groups ?? [];
+  // FIX373 (updated): groups carry their own id + name. normalizeGroups
+  // also upgrades legacy entries that only had property_id.
+  const groups = useMemo(
+    () => normalizeGroups(showcaseCfg.groups, properties),
+    [showcaseCfg.groups, properties],
+  );
 
   // FIX374.1.1 [ex-FIX372.6.1.1]: apply default group on load / whenever view_setup changes,
   // but only if the current selection is no longer valid.
   useEffect(() => {
     if (!groups.length) {
-      if (activeGroupPropId != null) setActiveGroupPropId(null);
+      if (activeGroupId != null) setActiveGroupId(null);
       if (activeBucketKey != null) setActiveBucketKey(null);
       return;
     }
-    const stillValid = groups.some((g) => g.property_id === activeGroupPropId);
+    const stillValid = groups.some((g) => g.id === activeGroupId);
     if (!stillValid) {
       const dflt = groups.find((g) => g.default);
-      setActiveGroupPropId(dflt ? dflt.property_id : null);
+      setActiveGroupId(dflt ? dflt.id : null);
       setActiveBucketKey(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  const activeGroup = groups.find((g) => g.property_id === activeGroupPropId) || null;
+  const activeGroup = groups.find((g) => g.id === activeGroupId) || null;
   const activeParsed = activeGroup ? parseSegment(activeGroup.segment) : null;
 
   // FIX510.3 / <setup-property-tagged-deleted>: items whose value for the
@@ -410,30 +416,32 @@ export default function ShowcaseView() {
 
   const currentImage = images[currentImageIdx];
 
+  // FIX374.1: dropdown of all defined Groupings. Labelled by the
+  // Grouping Name (FIX373.2.1.1); falls back to the property label
+  // for legacy entries that were migrated from the pre-FIX373-update
+  // shape and never got a user-entered name.
   const groupSelector =
     groups.length > 0 ? (
       <div className="sc-group-selector">
         <label>
           Group by:&nbsp;
           <select
-            value={activeGroupPropId ?? ''}
+            value={activeGroupId ?? ''}
             onChange={(e) => {
-              const v = e.target.value;
-              const next =
-                v === '' ? null : v === 'img' ? 'img' : Number(v);
-              setActiveGroupPropId(next);
+              setActiveGroupId(e.target.value || null);
               setActiveBucketKey(null);
             }}
           >
             <option value="">(none)</option>
             {groups.map((g) => {
-              const label =
+              const fallback =
                 g.property_id === 'img'
                   ? 'Img'
                   : properties.find((pp) => pp.id === g.property_id)?.label
                     ?? `Property ${g.property_id}`;
+              const label = (g.name && g.name.trim()) || fallback;
               return (
-                <option key={String(g.property_id)} value={g.property_id}>
+                <option key={g.id} value={g.id}>
                   {label}
                 </option>
               );

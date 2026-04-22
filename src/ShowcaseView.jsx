@@ -826,54 +826,101 @@ export default function ShowcaseView() {
                 setImages={setImages}
                 onExitEdit={() => setEditionMode(false)}
               />
-            ) : (
-              // FIX520.2: Showcase Image viewer (read-only) — image +
-              // previous/next navigation. Edition has moved to FIX521.
-              <div className="sc-viewer-body">
-                {currentImage ? (
-                  <>
-                    <div className="sc-viewer-img-wrap">
-                      <ShowcaseImageCanvas
-                        url={currentImage.url}
-                        rotation={currentImage.rotation ?? 0}
-                        crop={currentImage.crop ?? null}
-                        className="sc-viewer-img"
-                      />
-                      {currentImage.caption && (
-                        <div className="sc-viewer-caption">{currentImage.caption}</div>
-                      )}
+            ) : (() => {
+              // FIX520.2: Showcase Image viewer (read-only). New layout:
+              //   Sections panel (left, optional) | Image + nav (right).
+              // FIX520.5.2: the sections panel is rendered only when the
+              // item has at least one image with a section defined.
+              const sections = [];
+              const seen = new Set();
+              for (const im of images) {
+                const s = (im.section ?? '').trim();
+                if (!s || seen.has(s)) continue;
+                seen.add(s);
+                sections.push(s);
+              }
+              const activeSection = (currentImage?.section ?? '').trim() || null;
+              const jumpToSection = (s) => {
+                const idx = images.findIndex(
+                  (im) => (im.section ?? '').trim() === s,
+                );
+                if (idx >= 0) setCurrentImageIdx(idx);
+              };
+              return (
+                <div className="sc-viewer-body">
+                  {/* FIX520.2.5 <panel-img-sections>. FIX520.5.2: only
+                      visible when at least one image has a section. */}
+                  {sections.length > 0 && (
+                    <div
+                      className="sc-viewer-sections"
+                      data-yagu-id="panel-img-sections"
+                    >
+                      <ul>
+                        {sections.map((s) => (
+                          <li key={s}>
+                            <button
+                              type="button"
+                              className={s === activeSection ? 'active' : ''}
+                              onClick={() => jumpToSection(s)}
+                              title={`Jump to first image in "${s}"`}
+                            >
+                              {s}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    {/* FIX520.2.2 / FIX520.2.3: previous/next buttons,
-                        greyed out at list ends, bottom-aligned. */}
-                    <div className="sc-viewer-nav">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                        disabled={currentImageIdx === 0}
-                        aria-label="Previous image"
-                      >
-                        ‹
-                      </button>
-                      <span className="sc-viewer-pos">
-                        {currentImageIdx + 1} / {images.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-                        }
-                        disabled={currentImageIdx >= images.length - 1}
-                        aria-label="Next image"
-                      >
-                        ›
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="sc-viewer-empty">No images in this item.</div>
-                )}
-              </div>
-            )
+                  )}
+                  <div className="sc-viewer-main">
+                    {currentImage ? (
+                      <>
+                        <div className="sc-viewer-img-wrap">
+                          <ShowcaseImageCanvas
+                            url={currentImage.url}
+                            rotation={currentImage.rotation ?? 0}
+                            crop={currentImage.crop ?? null}
+                            className="sc-viewer-img"
+                          />
+                          {currentImage.caption && (
+                            <div className="sc-viewer-caption">{currentImage.caption}</div>
+                          )}
+                        </div>
+                        {/* FIX520.2.2 / .2.3 prev/next; FIX520.2.4
+                            <label-image-index> i/n between them. */}
+                        <div className="sc-viewer-nav">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                            disabled={currentImageIdx === 0}
+                            aria-label="Previous image"
+                          >
+                            ‹
+                          </button>
+                          <span
+                            className="sc-viewer-pos"
+                            data-yagu-id="label-image-index"
+                          >
+                            {currentImageIdx + 1} / {images.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                            }
+                            disabled={currentImageIdx >= images.length - 1}
+                            aria-label="Next image"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="sc-viewer-empty">No images in this item.</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
           ) : (
             // FIX518: Item Details panel — FIX518.2.1 view-mode is a
             // read-only property list; FIX518.2.2 edition-mode swaps values

@@ -495,11 +495,60 @@ body {
 .sc-viewer-body {
   flex: 1 1 auto;
   display: flex;
+  /* FIX520.2: row layout — optional sections panel on the left, image +
+     nav on the right. */
+  flex-direction: row;
+  align-items: stretch;
+  overflow: hidden;
+  min-height: 0;
+}
+/* FIX520.2.5 <panel-img-sections>. FIX520.5.2: only rendered when at
+   least one image in the item has a section defined. */
+.sc-viewer-sections {
+  flex: 0 0 auto;
+  max-width: 12rem;
+  overflow-y: auto;
+  padding: 0.75rem 0.5rem;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg-light);
+}
+.sc-viewer-sections ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sc-viewer-sections button {
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.sc-viewer-sections button:hover {
+  background: var(--color-bg-lighter);
+  border-color: var(--color-border);
+}
+.sc-viewer-sections button.active {
+  background: var(--color-accent);
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+.sc-viewer-main {
+  flex: 1 1 auto;
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   padding: 1rem;
   gap: 0.75rem;
   overflow: hidden;
+  min-width: 0;
 }
 .sc-viewer-img-wrap {
   flex: 1 1 auto;

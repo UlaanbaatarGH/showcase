@@ -1,8 +1,5 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
-  ],
   "functions": {
-    "api/projects/[project_id]/import-gsheet.js": { "maxDuration": 60 }
+    "api/[...path].js": { "maxDuration": 60 }
   }
 }

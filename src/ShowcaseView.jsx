@@ -882,19 +882,9 @@ export default function ShowcaseView() {
                   <div className="sc-viewer-main">
                     {currentImage ? (
                       <>
-                        <div className="sc-viewer-img-wrap">
-                          <ShowcaseImageCanvas
-                            url={currentImage.url}
-                            rotation={currentImage.rotation ?? 0}
-                            crop={currentImage.crop ?? null}
-                            className="sc-viewer-img"
-                          />
-                          {currentImage.caption && (
-                            <div className="sc-viewer-caption">{currentImage.caption}</div>
-                          )}
-                        </div>
-                        {/* FIX520.2.2 / .2.3 prev/next; FIX520.2.4
-                            <label-image-index> i/n between them. */}
+                        {/* FIX520.2 (updated): prev/next + i/n now sit at
+                            the top of the image column; the image fills
+                            the space below. FIX520.2.2 / .2.3 / .2.4. */}
                         <div className="sc-viewer-nav">
                           <button
                             type="button"
@@ -920,6 +910,17 @@ export default function ShowcaseView() {
                           >
                             ›
                           </button>
+                        </div>
+                        <div className="sc-viewer-img-wrap">
+                          <ShowcaseImageCanvas
+                            url={currentImage.url}
+                            rotation={currentImage.rotation ?? 0}
+                            crop={currentImage.crop ?? null}
+                            className="sc-viewer-img"
+                          />
+                          {currentImage.caption && (
+                            <div className="sc-viewer-caption">{currentImage.caption}</div>
+                          )}
                         </div>
                       </>
                     ) : (

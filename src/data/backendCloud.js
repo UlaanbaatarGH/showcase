@@ -56,6 +56,10 @@ export default {
   // unchanged). Returns { id, rotation, crop }.
   updateImage: (imageId, patch) =>
     call(`/api/images/${encodeURIComponent(imageId)}`, { method: 'PATCH', body: patch }),
+  // FIX521: update caption / section / sort_order on the folder_image row.
+  // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
+  updateFolderImage: (folderImageId, patch) =>
+    call(`/api/folder-images/${encodeURIComponent(folderImageId)}`, { method: 'PATCH', body: patch }),
   // Planned writes — backend routes will be added when FIX entries land.
   createFolder: notYet('createFolder'),
   renameFolder: notYet('renameFolder'),

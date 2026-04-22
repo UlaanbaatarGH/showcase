@@ -20,6 +20,7 @@ export const getExistingImages = impl.getExistingImages;
 export const signUpload = impl.signUpload;
 export const confirmImage = impl.confirmImage;
 export const updateImage = impl.updateImage;
+export const updateFolderImage = impl.updateFolderImage;
 export const createFolder = impl.createFolder;
 export const renameFolder = impl.renameFolder;
 export const setFolderProperty = impl.setFolderProperty;

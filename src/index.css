@@ -372,6 +372,58 @@ body {
   min-height: 0;
 }
 
+/* Mobile: the desktop two-column grid becomes a vertical stack so both
+   the list and the viewer are reachable on a phone. `!important` is
+   required because ShowcaseView sets `gridTemplateColumns` inline to
+   honor the draggable splitter width. */
+@media (max-width: 768px) {
+  .sc-main {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+  }
+  .sc-splitter {
+    display: none;
+  }
+  .sc-list-panel {
+    flex: 0 0 auto;
+    max-height: 45vh;
+  }
+  .sc-viewer {
+    flex: 1 1 auto;
+    min-height: 50vh;
+    border-top: 1px solid var(--color-border);
+  }
+  /* On mobile the sections panel would eat most of the viewer width;
+     demote it to a horizontal scroller on top of the image. */
+  .sc-viewer-body {
+    flex-direction: column;
+  }
+  .sc-viewer-sections {
+    max-width: none;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.35rem 0.5rem;
+  }
+  .sc-viewer-sections ul {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .sc-viewer-sections button {
+    width: auto;
+  }
+  /* Image-list editor: stack table on top, editor below. */
+  .sc-img-list-editor {
+    flex-direction: column;
+  }
+  .sc-img-list-pane {
+    flex: 0 0 auto;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
 /* Folders list — table format (FIX510.2.1) */
 .sc-list-panel {
   overflow: auto;

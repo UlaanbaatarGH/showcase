@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
 import { updateImage, updateFolderImage } from '../data/backend.js';
 
+// FIX521.2.1.1.2 File Size column. Size isn't stored in the DB — fetch
+// it via HEAD request to the public Supabase URL. Cached in-memory by
+// URL so we only ask once per image per session.
+function formatBytes(n) {
+  if (n == null || !Number.isFinite(n)) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
 // FIX521 <panel-showcase-img-list-editor>: replaces the image viewer when
 // the user clicks <button-edit> on the Images tab (FIX515.3.2.1).
 //
@@ -33,6 +44,35 @@ export default function ShowcaseImgListEditor({
   const [cropMode, setCropMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [error, setError] = useState(null);
+
+  // FIX521.2.1.1.2 file sizes: HEAD-fetched from the public Supabase URL.
+  // Keyed by URL so the map is stable across re-renders / selection
+  // changes. Value is a number (bytes) or null (unknown / fetch failed).
+  const [sizesByUrl, setSizesByUrl] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    const pending = images
+      .map((im) => im.url)
+      .filter((u) => u && !(u in sizesByUrl));
+    if (pending.length === 0) return undefined;
+    (async () => {
+      for (const url of pending) {
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          const len = r.headers.get('content-length');
+          const n = len != null ? Number(len) : null;
+          if (cancelled) return;
+          setSizesByUrl((prev) =>
+            url in prev ? prev : { ...prev, [url]: Number.isFinite(n) ? n : null },
+          );
+        } catch {
+          if (cancelled) return;
+          setSizesByUrl((prev) => (url in prev ? prev : { ...prev, [url]: null }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [images, sizesByUrl]);
 
   const draftForCurrent =
     imageDraft && draftForId === currentImage?.id ? imageDraft : null;
@@ -217,7 +257,7 @@ export default function ShowcaseImgListEditor({
                   <td className="filename" title={im.filename}>
                     {im.filename ?? ''}
                   </td>
-                  <td className="filesize">—</td>
+                  <td className="filesize">{formatBytes(sizesByUrl[im.url])}</td>
                   <td>
                     <input
                       type="text"

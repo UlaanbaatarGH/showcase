@@ -626,20 +626,32 @@ export default function PhotoModule({ onClose }) {
     setLastSelectedPath(path);
   };
 
-  // Register visible paths for shift-click range selection.
-  // Each TreeNode calls registerPath(fullPath) during render (top-down order).
+  // Register visible paths for shift-click range selection and for
+  // FIX501.4.4.10.1 / FIX501.4.4.11.2 "move to next" after save.
+  //
+  // Each TreeNode calls registerPath(fullPath) during render (top-down).
   // We reset the array at the start of each render via a ref counter.
-  // Each parent render bumps renderTokenRef. The FIRST child to call registerPath
-  // in a new token cycle resets visiblePaths, then itself + all subsequent children push.
-  // This is robust to strict-mode double rendering AND to children that don't re-render.
+  // Each parent render bumps renderTokenRef. The FIRST child to call
+  // registerPath in a new token cycle resets visiblePaths.
+  //
+  // React strict mode (and any extra re-invocation of a TreeNode body
+  // within one cycle) can cause registerPath to fire twice for the same
+  // path, which inflated visiblePaths with adjacent duplicates and made
+  // "move to next" land on the duplicate of the same file → no visible
+  // selection change. Dedup with a per-cycle Set so each visible row
+  // appears exactly once.
   const renderTokenRef = useRef(0);
   const seenTokenRef = useRef(-1);
+  const seenPathsRef = useRef(null);
   renderTokenRef.current++;
   const registerPath = useCallback((path) => {
     if (seenTokenRef.current !== renderTokenRef.current) {
       seenTokenRef.current = renderTokenRef.current;
       visiblePathsRef.current = [];
+      seenPathsRef.current = new Set();
     }
+    if (seenPathsRef.current.has(path)) return;
+    seenPathsRef.current.add(path);
     visiblePathsRef.current.push(path);
   }, []);
 
@@ -1249,23 +1261,13 @@ export default function PhotoModule({ onClose }) {
                   moveToNext={moveToNext}
                   onMoveToNextChange={setMoveToNext}
                   onAfterSave={() => {
-                    // FIX501.4.4.10.1 / FIX501.4.4.11.1: advance selection after save when checkbox is ON
-                    const paths = visiblePathsRef.current || [];
+                    // FIX501.4.4.10.1 / FIX501.4.4.11.2: advance selection after save when checkbox is ON
+                    if (!moveToNext) return;
+                    const paths = visiblePathsRef.current;
+                    if (!paths || paths.length === 0) return;
                     const idx = lastSelectedPath ? paths.indexOf(lastSelectedPath) : -1;
-                    console.log('[move-to-next] moveToNext=' + moveToNext);
-                    console.log('[move-to-next] lastSelectedPath=' + lastSelectedPath);
-                    console.log('[move-to-next] visiblePaths.length=' + paths.length);
-                    console.log('[move-to-next] idx=' + idx + ' atEnd=' + (idx >= paths.length - 1));
-                    if (paths.length > 0) {
-                      console.log('[move-to-next] first 3 paths: ' + paths.slice(0, 3).join(' | '));
-                      console.log('[move-to-next] last 3 paths: ' + paths.slice(-3).join(' | '));
-                    }
-                    if (!moveToNext) { console.log('[move-to-next] BAIL: checkbox off'); return; }
-                    if (paths.length === 0) { console.log('[move-to-next] BAIL: no visible paths'); return; }
-                    if (idx < 0) { console.log('[move-to-next] BAIL: lastSelectedPath not found in visiblePaths'); return; }
-                    if (idx >= paths.length - 1) { console.log('[move-to-next] BAIL: already at end'); return; }
+                    if (idx < 0 || idx >= paths.length - 1) return;
                     const next = paths[idx + 1];
-                    console.log('[move-to-next] OK -> ' + next);
                     setSelectedPaths(new Set([next]));
                     setLastSelectedPath(next);
                     requestAnimationFrame(() => {

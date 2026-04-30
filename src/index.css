@@ -321,6 +321,25 @@ body {
   outline: none;
   border-color: #667;
 }
+/* FIX500.2.3.2.1.2.3.2 (updated): label and input on the same line. */
+.setup-inline-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  align-items: center;
+}
+.setup-inline-row > span { white-space: nowrap; }
+.setup-inline-row > input {
+  flex: 1 1 auto;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+  font-size: 0.875rem;
+  background: #fff;
+  color: #222;
+  border: 1px solid #444;
+  border-radius: 3px;
+}
 .setup-checkbox-row {
   display: flex;
   gap: 0.5rem;

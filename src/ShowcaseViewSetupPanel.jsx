@@ -89,6 +89,18 @@ export default function ShowcaseViewSetupPanel({
     updated[i] = { ...updated[i], ...patch };
     setShowcase({ ...showcase, columns: updated });
   };
+  // FIX500.2.3.2.1.2.1.3 + .3.1 / <input-row-order>: only positive
+  // integers are accepted; blank clears the value (= "don't consider for
+  // sorting", per FIX500.2.3.5.1). Reject anything else by ignoring the
+  // keystroke.
+  const updateRowOrder = (i, raw) => {
+    const s = String(raw ?? '').trim();
+    if (s === '') return updateColumn(i, { row_order: null });
+    if (!/^\d+$/.test(s)) return;
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < 1) return;
+    updateColumn(i, { row_order: n });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -166,13 +178,16 @@ export default function ShowcaseViewSetupPanel({
                   <th>Column</th>
                   <th style={{ width: '8rem' }}>Width hint</th>
                   <th style={{ width: '4rem' }}>Wrap</th>
+                  {/* FIX500.2.3.2.1.2.1.3 / <input-row-order>: per-column
+                      sort priority used by FIX500.2.3.5.1. */}
+                  <th style={{ width: '5rem' }}>Sort order</th>
                   <th style={{ width: '4rem' }} />
                 </tr>
               </thead>
               <tbody>
                 {showcase.columns.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="setup-empty">No columns.</td>
+                    <td colSpan={5} className="setup-empty">No columns.</td>
                   </tr>
                 )}
                 {showcase.columns.map((col, i) => {
@@ -199,6 +214,17 @@ export default function ShowcaseViewSetupPanel({
                           checked={!!col.wrap}
                           onFocus={() => setSelectedKey(key)}
                           onChange={(e) => updateColumn(i, { wrap: e.target.checked })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          data-yagu-id="input-row-order"
+                          type="text"
+                          inputMode="numeric"
+                          value={col.row_order ?? ''}
+                          placeholder="—"
+                          onFocus={() => setSelectedKey(key)}
+                          onChange={(e) => updateRowOrder(i, e.target.value)}
                         />
                       </td>
                       <td className="setup-row-actions">
@@ -243,21 +269,25 @@ export default function ShowcaseViewSetupPanel({
               </div>
             )}
 
-            {/* FIX500.2.3.2.1.2.3 / <item-id-new-name>: optional replacement
-                label for the '#' column (item id). Stored at
-                view_setup.showcase.folder_column_name. */}
-            <h3>New name for Property &apos;#&apos;</h3>
-            <input
-              type="text"
-              value={showcase.folder_column_name ?? ''}
-              placeholder="#"
-              onChange={(e) =>
-                setShowcase({
-                  ...showcase,
-                  folder_column_name: e.target.value.trim() ? e.target.value : null,
-                })
-              }
-            />
+            {/* FIX500.2.3.2.1.2.3 / <item-id-new-name>: optional
+                replacement label for the '#' column (item id). Stored at
+                view_setup.showcase.folder_column_name.
+                FIX500.2.3.2.1.2.3.2 (updated): label and input on the same
+                line. */}
+            <label className="setup-inline-row">
+              <span>New name for column &apos;#&apos;</span>
+              <input
+                type="text"
+                value={showcase.folder_column_name ?? ''}
+                placeholder="#"
+                onChange={(e) =>
+                  setShowcase({
+                    ...showcase,
+                    folder_column_name: e.target.value.trim() ? e.target.value : null,
+                  })
+                }
+              />
+            </label>
 
             <label className="setup-checkbox-row">
               <input

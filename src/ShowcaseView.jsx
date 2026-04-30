@@ -302,7 +302,16 @@ export default function ShowcaseView() {
         }),
       );
     }
-    if (sortKeys.length > 0) {
+    // FIX500.2.3.5.1 / <input-row-order>: columns with a positive
+    // row_order define a default sort chain — lowest number sorts first.
+    // Gaps don't matter; blank means "skip this column for sorting".
+    // User-clicked sortKeys take priority and the row_order chain acts as
+    // the tiebreaker, with folder.sort_order as the final tiebreaker.
+    const orderedCols = configuredColumns
+      .filter((c) => Number.isFinite(c.row_order) && c.row_order > 0)
+      .slice()
+      .sort((a, b) => a.row_order - b.row_order);
+    if (sortKeys.length > 0 || orderedCols.length > 0) {
       const colByKey = new Map(configuredColumns.map((c) => [columnKey(c), c]));
       rows = [...rows].sort((a, b) => {
         for (const { key, dir } of sortKeys) {
@@ -313,6 +322,13 @@ export default function ShowcaseView() {
             getColumnValue(b, col, propertiesById, propertiesByLabel),
           );
           if (cmp !== 0) return dir === 'desc' ? -cmp : cmp;
+        }
+        for (const col of orderedCols) {
+          const cmp = compareValues(
+            getColumnValue(a, col, propertiesById, propertiesByLabel),
+            getColumnValue(b, col, propertiesById, propertiesByLabel),
+          );
+          if (cmp !== 0) return cmp;
         }
         return (a.sort_order ?? 0) - (b.sort_order ?? 0);
       });

@@ -124,6 +124,47 @@ export default function ShowcaseView() {
   const menuRef = useRef(null);
   const mainRef = useRef(null);
   const selectedRowRef = useRef(null);
+  // Swipe-to-navigate on the viewer image (FIX520 mobile UX). Refs so we
+  // don't re-render on every touchmove, and so the click handler can
+  // detect "this was actually a swipe, don't open fullscreen".
+  const touchStartXRef = useRef(null);
+  const touchStartYRef = useRef(null);
+  const wasSwipeRef = useRef(false);
+  const onImageTouchStart = (e) => {
+    const t = e.touches[0];
+    if (!t) return;
+    touchStartXRef.current = t.clientX;
+    touchStartYRef.current = t.clientY;
+    wasSwipeRef.current = false;
+  };
+  const onImageTouchEnd = (e) => {
+    const sx = touchStartXRef.current;
+    const sy = touchStartYRef.current;
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    if (sx == null) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - sx;
+    const dy = t.clientY - sy;
+    // Treat as a swipe only when motion is mostly horizontal and over a
+    // sensible threshold; otherwise let it fall through as a click
+    // (fullscreen) or vertical scroll.
+    if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;
+    wasSwipeRef.current = true;
+    setCurrentImageIdx((i) =>
+      dx > 0 ? Math.max(0, i - 1) : Math.min(images.length - 1, i + 1),
+    );
+  };
+  const onImageClick = () => {
+    // FIX520.3.2: click opens fullscreen, but a horizontal swipe must
+    // not also fire fullscreen (the touch sequence ends with a click).
+    if (wasSwipeRef.current) {
+      wasSwipeRef.current = false;
+      return;
+    }
+    setFullScreen(true);
+  };
 
   // Draggable vertical splitter between the item table and the image viewer.
   const onSplitterDown = (e) => {
@@ -979,8 +1020,10 @@ export default function ShowcaseView() {
                         </div>
                         <div
                           className="sc-viewer-img-wrap sc-viewer-img-clickable"
-                          onClick={() => setFullScreen(true)}
-                          title="Click to view full screen"
+                          onClick={onImageClick}
+                          onTouchStart={onImageTouchStart}
+                          onTouchEnd={onImageTouchEnd}
+                          title="Click to view full screen — swipe left/right to navigate"
                         >
                           <ShowcaseImageCanvas
                             url={currentImage.url}

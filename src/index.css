@@ -441,6 +441,21 @@ body {
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
+  /* On mobile, drop table-layout:fixed + width:100% so each column
+     auto-sizes to its content and the table can overflow the panel.
+     The panel already has overflow:auto, which gives real horizontal
+     scrolling instead of the column-squeeze behaviour of fixed layout.
+     The inline width hint on each th/td needs !important to win. */
+  .sc-table {
+    table-layout: auto;
+    width: auto;
+    min-width: 100%;
+  }
+  .sc-table th,
+  .sc-table td {
+    width: auto !important;
+    white-space: nowrap;
+  }
 }
 
 /* Folders list — table format (FIX510.2.1) */

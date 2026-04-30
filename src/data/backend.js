@@ -23,6 +23,7 @@ export const confirmImage = impl.confirmImage;
 export const deleteOrphanImage = impl.deleteOrphanImage;
 export const updateImage = impl.updateImage;
 export const updateFolderImage = impl.updateFolderImage;
+export const deleteFolderImage = impl.deleteFolderImage;
 export const updateProject = impl.updateProject;
 export const signProjectCoverUpload = impl.signProjectCoverUpload;
 export const createFolder = impl.createFolder;

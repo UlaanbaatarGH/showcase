@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
-import { updateImage, updateFolderImage } from '../data/backend.js';
+import { updateImage, updateFolderImage, deleteFolderImage } from '../data/backend.js';
 
 // FIX521.2.1.1.2 File Size column. Size isn't stored in the DB — fetch
 // it via HEAD request to the public Supabase URL. Cached in-memory by
@@ -228,6 +228,34 @@ export default function ShowcaseImgListEditor({
     );
   };
 
+  // FIX521.2.1.4: Remove the selected image after a confirmation prompt.
+  // Locked while a pending image edit exists (same lock pattern as
+  // selection / reorder).
+  const removeSelected = async () => {
+    if (hasPendingImageEdit) return;
+    const im = images[selectedIdx];
+    if (!im) return;
+    const ok = window.confirm(
+      `Remove "${im.filename ?? 'this image'}" from this item?\n\n` +
+      `If no other item references the underlying file, the file will also be deleted from storage.`,
+    );
+    if (!ok) return;
+    try {
+      await deleteFolderImage(im.id);
+      // Drop the row locally and adjust selection so a row stays selected
+      // (FIX521.2.1.1.10).
+      const next = images.filter((_, idx) => idx !== selectedIdx);
+      setImages(next);
+      if (next.length === 0) {
+        setSelectedIdx(0);
+      } else if (selectedIdx >= next.length) {
+        setSelectedIdx(next.length - 1);
+      }
+    } catch (e) {
+      setError(e.message || String(e));
+    }
+  };
+
   return (
     <div className="sc-img-list-editor">
       <div
@@ -236,6 +264,46 @@ export default function ShowcaseImgListEditor({
         tabIndex={0}
         onKeyDown={onTableKeyDown}
       >
+        {/* FIX521.2.1.10 (updated): toolbar sits above the table header. */}
+        <div className="sc-img-list-reorder">
+          <button
+            type="button"
+            data-yagu-id="button-arrow-up"
+            onClick={() => moveSelected(-1)}
+            disabled={hasPendingImageEdit || selectedIdx <= 0}
+            title="Move selected image up"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            data-yagu-id="button-arrow-down"
+            onClick={() => moveSelected(1)}
+            disabled={hasPendingImageEdit || selectedIdx >= images.length - 1}
+            title="Move selected image down"
+          >
+            ↓
+          </button>
+          {/* FIX521.2.1.4: Remove button — confirms with the user. */}
+          <button
+            type="button"
+            data-yagu-id="button-remove-image"
+            onClick={removeSelected}
+            disabled={hasPendingImageEdit || images.length === 0}
+            title="Remove selected image"
+          >
+            Remove
+          </button>
+          <button
+            type="button"
+            className="sc-img-list-done"
+            onClick={onExitEdit}
+            disabled={hasPendingImageEdit}
+            title="Done editing"
+          >
+            Done
+          </button>
+        </div>
         <table className="sc-img-list-table" data-yagu-id="table-item-img-info">
           <thead>
             <tr>
@@ -290,35 +358,6 @@ export default function ShowcaseImgListEditor({
             )}
           </tbody>
         </table>
-        <div className="sc-img-list-reorder">
-          <button
-            type="button"
-            data-yagu-id="button-arrow-up"
-            onClick={() => moveSelected(-1)}
-            disabled={hasPendingImageEdit || selectedIdx <= 0}
-            title="Move selected image up"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            data-yagu-id="button-arrow-down"
-            onClick={() => moveSelected(1)}
-            disabled={hasPendingImageEdit || selectedIdx >= images.length - 1}
-            title="Move selected image down"
-          >
-            ↓
-          </button>
-          <button
-            type="button"
-            className="sc-img-list-done"
-            onClick={onExitEdit}
-            disabled={hasPendingImageEdit}
-            title="Done editing"
-          >
-            Done
-          </button>
-        </div>
       </div>
 
       <div className="sc-img-list-editor-pane">

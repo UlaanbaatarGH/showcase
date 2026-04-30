@@ -66,6 +66,10 @@ export default {
   // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
   updateFolderImage: (folderImageId, patch) =>
     call(`/api/folder-images/${encodeURIComponent(folderImageId)}`, { method: 'PATCH', body: patch }),
+  // FIX521.2.1.4: remove an image from an item. Cascades to image + bucket
+  // when no other folder_image references the same image_id.
+  deleteFolderImage: (folderImageId) =>
+    call(`/api/folder-images/${encodeURIComponent(folderImageId)}`, { method: 'DELETE' }),
   // FIX400.3.3: rename a project and/or update its cover_image_key.
   updateProject: (projectId, patch) =>
     call(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: patch }),

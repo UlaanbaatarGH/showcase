@@ -1265,6 +1265,18 @@ export default function ShowcaseView() {
           canvas as the viewer so rotation + crop are honored. */}
       {fullScreen && currentImage && (
         <div className="sc-fullscreen" onClick={() => setFullScreen(false)}>
+          {/* FIX520.3.2.1: tap the Back button to leave fullscreen
+              (mobile has no ESC key). Click on the backdrop also still
+              closes (FIX520.3.2). stopPropagation so the button itself
+              doesn't double-fire the backdrop handler. */}
+          <button
+            type="button"
+            className="sc-fullscreen-back"
+            onClick={(e) => { e.stopPropagation(); setFullScreen(false); }}
+            aria-label="Back"
+          >
+            ‹ Back
+          </button>
           <ShowcaseImageCanvas
             url={currentImage.url}
             rotation={currentImage.rotation ?? 0}

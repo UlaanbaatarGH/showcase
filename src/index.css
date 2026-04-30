@@ -442,6 +442,9 @@ body {
      that width; the remaining panel width is distributed proportionally
      among columns without a hint. */
   table-layout: fixed;
+  /* FIX510.2.1.3: shared height of the (sticky) header row, reused by
+     the filter row's `top` so they sit flush — no gap, no overlap. */
+  --sc-header-h: 26px;
 }
 .sc-table td {
   overflow: hidden;
@@ -459,9 +462,16 @@ body {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  /* FIX510.2.1.3: lock the header row to a known height so the filter
+     row can stick flush against it. */
+  height: var(--sc-header-h);
+  box-sizing: border-box;
+  padding: 0 6px;
+  line-height: 1.2;
 }
 .sc-table thead tr.sc-filter-row th {
-  top: 29px;               /* stick just below the header row */
+  top: var(--sc-header-h);   /* stick flush below the header row */
+  height: auto;
   padding: 2px 4px;
   cursor: default;
   background: var(--color-bg-lighter);

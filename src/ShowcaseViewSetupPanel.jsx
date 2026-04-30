@@ -12,18 +12,20 @@ export default function ShowcaseViewSetupPanel({
   onSave,
 }) {
   const [showcase, setShowcase] = useState(() => {
-    // FIX500.2.3.2.1.2.1.3.1: '#' is the one default item in the list —
-    // always present, never removable. Inject it if missing.
-    const saved = (viewSetup?.showcase?.columns ?? []).map((c) => ({ ...c }));
-    const columns = saved.some((c) => c.type === 'folder_name')
-      ? saved
-      : [{ type: 'folder_name' }, ...saved];
+    // FIX500.2.3.2.1.2.1.3: no default items in the list — start from
+    // whatever was saved, even if empty.
+    const columns = (viewSetup?.showcase?.columns ?? []).map((c) => ({ ...c }));
     return {
       folder_column_name: viewSetup?.showcase?.folder_column_name ?? null,
       roman_year_converter: !!viewSetup?.showcase?.roman_year_converter,
       columns,
     };
   });
+  // FIX500.2.3.2.1.3.3 (updated): move up/down by selecting a row first,
+  // then pressing the toolbar Move buttons. The selected row stays selected
+  // after a move. Track by stable column key (each key is unique per row —
+  // availableToAdd dedups by key).
+  const [selectedKey, setSelectedKey] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -67,15 +69,20 @@ export default function ShowcaseViewSetupPanel({
     setShowcase({ ...showcase, columns: [...showcase.columns, option.create()] });
   };
   const removeColumn = (i) => {
-    if (showcase.columns[i].type === 'folder_name') return;
+    const removed = showcase.columns[i];
     setShowcase({ ...showcase, columns: showcase.columns.filter((_, idx) => idx !== i) });
+    if (removed && columnKey(removed) === selectedKey) setSelectedKey(null);
   };
-  const moveColumnBy = (i, dir) => {
+  const moveSelectedBy = (dir) => {
+    if (!selectedKey) return;
+    const i = showcase.columns.findIndex((c) => columnKey(c) === selectedKey);
+    if (i < 0) return;
     const target = i + dir;
     if (target < 0 || target >= showcase.columns.length) return;
     const updated = [...showcase.columns];
     [updated[i], updated[target]] = [updated[target], updated[i]];
     setShowcase({ ...showcase, columns: updated });
+    // selectedKey is unchanged — selection follows the moved row.
   };
   const updateColumn = (i, patch) => {
     const updated = [...showcase.columns];
@@ -114,6 +121,11 @@ export default function ShowcaseViewSetupPanel({
   };
 
   const addOptions = availableToAdd();
+  const selectedIndex = selectedKey
+    ? showcase.columns.findIndex((c) => columnKey(c) === selectedKey)
+    : -1;
+  const canMoveUp = selectedIndex > 0;
+  const canMoveDown = selectedIndex >= 0 && selectedIndex < showcase.columns.length - 1;
 
   return (
     <div className="setup-overlay" onClick={onCancel}>
@@ -127,13 +139,34 @@ export default function ShowcaseViewSetupPanel({
         </header>
         <div className="setup-body">
           <section className="setup-section">
+            {/* FIX500.2.3.2.1.3.3 (updated): Move buttons act on the
+                currently selected row. Disabled when no row is selected
+                or the selected row is already at the edge. */}
+            <div className="grouping-toolbar">
+              <button
+                type="button"
+                onClick={() => moveSelectedBy(-1)}
+                disabled={!canMoveUp}
+                aria-label="Move up"
+              >
+                ↑ Move up
+              </button>
+              <button
+                type="button"
+                onClick={() => moveSelectedBy(1)}
+                disabled={!canMoveDown}
+                aria-label="Move down"
+              >
+                ↓ Move down
+              </button>
+            </div>
             <table className="setup-items">
               <thead>
                 <tr>
                   <th>Column</th>
                   <th style={{ width: '8rem' }}>Width hint</th>
                   <th style={{ width: '4rem' }}>Wrap</th>
-                  <th style={{ width: '8rem' }} />
+                  <th style={{ width: '4rem' }} />
                 </tr>
               </thead>
               <tbody>
@@ -142,39 +175,48 @@ export default function ShowcaseViewSetupPanel({
                     <td colSpan={4} className="setup-empty">No columns.</td>
                   </tr>
                 )}
-                {showcase.columns.map((col, i) => (
-                  <tr key={`${columnKey(col)}_${i}`}>
-                    <td>{displayedColumnName(col)}</td>
-                    <td>
-                      <input
-                        type="text"
-                        value={col.width ?? ''}
-                        placeholder="auto"
-                        onChange={(e) => updateColumn(i, { width: e.target.value || null })}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!col.wrap}
-                        onChange={(e) => updateColumn(i, { wrap: e.target.checked })}
-                      />
-                    </td>
-                    <td className="setup-row-actions">
-                      <button type="button" onClick={() => moveColumnBy(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-                      <button type="button" onClick={() => moveColumnBy(i, 1)} disabled={i === showcase.columns.length - 1} aria-label="Move down">↓</button>
-                      <button
-                        type="button"
-                        onClick={() => removeColumn(i)}
-                        disabled={col.type === 'folder_name'}
-                        title={col.type === 'folder_name' ? "'#' cannot be removed" : 'Remove'}
-                        aria-label="Remove"
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {showcase.columns.map((col, i) => {
+                  const key = columnKey(col);
+                  return (
+                    <tr
+                      key={key}
+                      className={key === selectedKey ? 'selected' : ''}
+                      onClick={() => setSelectedKey(key)}
+                    >
+                      <td>{displayedColumnName(col)}</td>
+                      <td>
+                        <input
+                          type="text"
+                          value={col.width ?? ''}
+                          placeholder="auto"
+                          onFocus={() => setSelectedKey(key)}
+                          onChange={(e) => updateColumn(i, { width: e.target.value || null })}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={!!col.wrap}
+                          onFocus={() => setSelectedKey(key)}
+                          onChange={(e) => updateColumn(i, { wrap: e.target.checked })}
+                        />
+                      </td>
+                      <td className="setup-row-actions">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeColumn(i);
+                          }}
+                          title="Remove"
+                          aria-label="Remove"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {addOptions.length > 0 && (

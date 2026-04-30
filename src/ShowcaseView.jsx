@@ -288,10 +288,25 @@ export default function ShowcaseView() {
   // image are hidden from the Showcase list (FIX510.5.1) and grouping
   // (FIX374.2.15). Default true (FIX508.2.1.1).
   const showItemsWithNoImg = viewSetup.show_items_with_no_img !== false;
+  // FIX506.2.4 / <setup-date-property> + FIX508.2.2 / <show-items-with-no-date>:
+  // when the toggle is off AND a date property is configured, items
+  // whose date value is blank/missing are hidden from the Showcase
+  // list (FIX510.5.2) and grouping (FIX374.2.16). Default toggle is
+  // on (FIX508.2.2.1) — filter only kicks in when the user explicitly
+  // unchecks it.
+  const datePropertyId = viewSetup.file_explorer?.date_property_id ?? null;
+  const showItemsWithNoDate = viewSetup.show_items_with_no_date !== false;
   const liveFolders = useMemo(() => {
     let all = data?.folders ?? [];
     if (!showItemsWithNoImg) {
       all = all.filter((f) => f.has_image);
+    }
+    if (!showItemsWithNoDate && datePropertyId != null) {
+      const dKey = String(datePropertyId);
+      all = all.filter((f) => {
+        const v = (f.properties || {})[dKey];
+        return v != null && String(v).trim() !== '';
+      });
     }
     if (deletedPropertyId == null) return all;
     const key = String(deletedPropertyId);
@@ -299,7 +314,7 @@ export default function ShowcaseView() {
       const v = (f.properties || {})[key];
       return v == null || String(v).trim() === '';
     });
-  }, [data, deletedPropertyId, showItemsWithNoImg]);
+  }, [data, deletedPropertyId, showItemsWithNoImg, showItemsWithNoDate, datePropertyId]);
 
   // FIX510.2.1.5.2 / <derived-property-img>: the special 'img' derived
   // property groups items by whether they have any attached image. Other

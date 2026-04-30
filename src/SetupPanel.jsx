@@ -45,12 +45,17 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
     // FIX506.2.3 / <setup-property-tagged-deleted>: id of the property
     // that marks an item as deleted when non-blank. null = no such property.
     deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
+    // FIX506.2.4 / <setup-date-property>: id of the property that holds
+    // the item's date. Used by FIX510.5.2 / FIX374.2.16 to optionally
+    // hide items missing a date. null = no such property.
+    date_property_id: initialViewSetup?.file_explorer?.date_property_id ?? null,
   });
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
   // view_setup directly (not under file_explorer) since they affect the
-  // Showcase too. Default true (FIX508.2.1.1).
+  // Showcase too. Default true (FIX508.2.1.1 / .2.2.1).
   const [generalSetup, setGeneralSetup] = useState({
     show_items_with_no_img: initialViewSetup?.show_items_with_no_img !== false,
+    show_items_with_no_date: initialViewSetup?.show_items_with_no_date !== false,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -87,6 +92,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           // file_explorer but applies to all views (Showcase included —
           // FIX510.5.1 / FIX374.2.15).
           show_items_with_no_img: generalSetup.show_items_with_no_img,
+          // FIX508.2.2 / <show-items-with-no-date>: same shape; drives
+          // FIX510.5.2 / FIX374.2.16. The date property itself is
+          // <setup-date-property> on file_explorer above.
+          show_items_with_no_date: generalSetup.show_items_with_no_date,
         },
       });
       onSave(data);
@@ -197,6 +206,24 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                 />
                 Show items with no image
               </label>
+              {/* FIX508.2.2 / <show-items-with-no-date>: drives
+                  FIX510.5.2 / FIX374.2.16. The date property itself is
+                  picked on the Properties tab (FIX506.2.4 /
+                  <setup-date-property>). Default on (FIX508.2.2.1). */}
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="show-items-with-no-date"
+                  type="checkbox"
+                  checked={generalSetup.show_items_with_no_date}
+                  onChange={(e) =>
+                    setGeneralSetup({
+                      ...generalSetup,
+                      show_items_with_no_date: e.target.checked,
+                    })
+                  }
+                />
+                Show items with no date
+              </label>
             </section>
           )}
           {activeTab === 'sizes' && (
@@ -301,6 +328,30 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                 setFileExplorer({
                   ...fileExplorer,
                   deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
+            >
+              <option value="">— none —</option>
+              {properties
+                .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+            </select>
+
+            {/* FIX506.2.4 / <setup-date-property>: pick the property
+                that holds the item's date. Used by FIX510.5.2 /
+                FIX374.2.16 (combined with <show-items-with-no-date>
+                on the General tab) to optionally hide items that
+                don't have a date. */}
+            <h3>Property providing item date</h3>
+            <select
+              data-yagu-id="setup-date-property"
+              value={fileExplorer.date_property_id ?? ''}
+              onChange={(e) =>
+                setFileExplorer({
+                  ...fileExplorer,
+                  date_property_id: e.target.value === '' ? null : Number(e.target.value),
                 })
               }
             >

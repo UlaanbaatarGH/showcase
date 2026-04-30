@@ -8,8 +8,11 @@ import { saveSetup } from './data/backend.js';
 export default function ShowcaseViewSetupPanel({
   properties,
   viewSetup,
+  isAnonymous = false,
   onCancel,
   onSave,
+  onLocalSave,
+  onLocalReset,
 }) {
   const [showcase, setShowcase] = useState(() => {
     // FIX500.2.3.2.1.2.1.3: no default items in the list — start from
@@ -105,6 +108,16 @@ export default function ShowcaseViewSetupPanel({
   };
 
   const handleSave = async () => {
+    // FIX500.2.3.2.1.3.5: anonymous users persist locally (no DB call);
+    // logged-in users hit /api/setup as before.
+    if (isAnonymous) {
+      onLocalSave?.({
+        columns: showcase.columns,
+        folder_column_name: showcase.folder_column_name,
+        roman_year_converter: showcase.roman_year_converter,
+      });
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -134,6 +147,13 @@ export default function ShowcaseViewSetupPanel({
     } finally {
       setSaving(false);
     }
+  };
+
+  // FIX500.2.3.2.1.3.4 + FIX500.2.3.2.1.2.10: drop the local override
+  // and revert to the DB column setup. Anonymous-only.
+  const handleReset = () => {
+    if (!isAnonymous) return;
+    onLocalReset?.();
   };
 
   const addOptions = availableToAdd();
@@ -308,6 +328,20 @@ export default function ShowcaseViewSetupPanel({
         </div>
         {error && <div className="setup-error">{error}</div>}
         <footer className="setup-footer">
+          {/* FIX500.2.3.2.1.2.10 / .2.10.1: Reset button — only visible
+              to anonymous users. Drops the local override so the panel
+              and the Showcase fall back to the DB column setup
+              (FIX500.2.3.2.1.3.4). */}
+          {isAnonymous && (
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={saving}
+              title="Discard local column changes and revert to the project defaults"
+            >
+              Reset
+            </button>
+          )}
           <button type="button" onClick={onCancel} disabled={saving}>
             Cancel
           </button>

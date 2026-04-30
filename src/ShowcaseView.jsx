@@ -248,8 +248,38 @@ export default function ShowcaseView() {
     () => new Map(properties.map((p) => [p.label, p])),
     [properties],
   );
-  const viewSetup = data?.view_setup ?? {};
-  const showcaseCfg = viewSetup.showcase ?? {};
+  // FIX500.2.3.5.2 / FIX500.2.3.2.1.3.5: anonymous users persist their
+  // Showcase Columns tweaks in localStorage; logged-in users hit the DB.
+  // The override (when present) wins over the DB config for rendering,
+  // but the DB config is preserved as the source of truth — the Reset
+  // button clears the override (FIX500.2.3.2.1.3.4).
+  const isAnonymous = !profile;
+  const projectId = data?.project?.id ?? null;
+  const localStorageKey = projectId != null ? `sc-columns-${projectId}` : null;
+  const [localShowcaseOverride, setLocalShowcaseOverride] = useState(null);
+  useEffect(() => {
+    if (!isAnonymous || !localStorageKey) {
+      setLocalShowcaseOverride(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(localStorageKey);
+      setLocalShowcaseOverride(raw ? JSON.parse(raw) : null);
+    } catch {
+      setLocalShowcaseOverride(null);
+    }
+  }, [isAnonymous, localStorageKey]);
+  const dbShowcaseCfg = data?.view_setup?.showcase ?? {};
+  const effectiveShowcaseCfg = useMemo(() => {
+    if (!localShowcaseOverride) return dbShowcaseCfg;
+    return { ...dbShowcaseCfg, ...localShowcaseOverride };
+  }, [dbShowcaseCfg, localShowcaseOverride]);
+  const viewSetup = useMemo(() => {
+    const base = data?.view_setup ?? {};
+    if (!localShowcaseOverride) return base;
+    return { ...base, showcase: effectiveShowcaseCfg };
+  }, [data, effectiveShowcaseCfg, localShowcaseOverride]);
+  const showcaseCfg = effectiveShowcaseCfg;
   const configuredColumns = showcaseCfg.columns ?? [];
   const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
@@ -1248,8 +1278,28 @@ export default function ShowcaseView() {
         <ShowcaseViewSetupPanel
           properties={properties}
           viewSetup={viewSetup}
+          isAnonymous={isAnonymous}
           onCancel={() => setShowColumns(false)}
           onSave={handleSaveSetup}
+          onLocalSave={(showcaseCfgLocal) => {
+            // FIX500.2.3.2.1.3.5 — anonymous Save persists locally.
+            if (localStorageKey) {
+              try {
+                localStorage.setItem(localStorageKey, JSON.stringify(showcaseCfgLocal));
+              } catch { /* quota / disabled storage — ignore */ }
+            }
+            setLocalShowcaseOverride(showcaseCfgLocal);
+            setShowColumns(false);
+          }}
+          onLocalReset={() => {
+            // FIX500.2.3.2.1.3.4 — anonymous Reset drops the local
+            // override and reverts to the DB config.
+            if (localStorageKey) {
+              try { localStorage.removeItem(localStorageKey); } catch { /* */ }
+            }
+            setLocalShowcaseOverride(null);
+            setShowColumns(false);
+          }}
         />
       )}
       {importOpen && data.project && (

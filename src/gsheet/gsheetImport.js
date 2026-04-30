@@ -374,10 +374,29 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const v = (row[mainColIdx] ?? '').trim();
       if (v) display = `${name} — ${v}`;
     }
+    // FIX370.3.2.2.2.5.1 (updated): an item is recapped as 'Deleted' only
+    // when the deletion property is non-blank in the sheet AND blank or
+    // missing in the DB — i.e. the import is the act of tagging it.
+    // Items already tagged in the DB don't reappear in this list, and
+    // newly-tagged items are not also shown under 'Updated'.
+    let newlyDeleted = false;
+    if (deletedColIdx != null) {
+      const sheetVal = (row[deletedColIdx] ?? '').trim();
+      if (sheetVal) {
+        const folder = folderByName.get(name);
+        const currentDeleted = folder
+          ? normalizeForCompare(folder.properties?.[String(deletedPropertyId)])
+          : '';
+        if (!currentDeleted) {
+          newlyDeleted = true;
+          deletedFolderDisplays.push(display);
+        }
+      }
+    }
     if (isNew) {
       newFolderNames.push(name);
       newFolderDisplays.push(display);
-    } else {
+    } else if (!newlyDeleted) {
       // Existing folder is reported as 'updated' only when at least one
       // property value in the row actually differs from what the project
       // currently stores. Values are normalized before comparison so
@@ -398,10 +417,6 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         }
       }
       if (changed) updatedFolderDisplays.push(display);
-    }
-    if (deletedColIdx != null) {
-      const v = (row[deletedColIdx] ?? '').trim();
-      if (v) deletedFolderDisplays.push(display);
     }
     for (const col of importedPropHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;

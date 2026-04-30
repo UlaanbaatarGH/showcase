@@ -1250,10 +1250,18 @@ export default function PhotoModule({ onClose }) {
                   onMoveToNextChange={setMoveToNext}
                   onAfterSave={() => {
                     // FIX501.4.4.10.1 / FIX501.4.4.11.1: advance selection after save when checkbox is ON
-                    if (!moveToNext) return;
-                    const paths = visiblePathsRef.current;
-                    if (!paths || paths.length === 0) return;
+                    const paths = visiblePathsRef.current || [];
                     const idx = lastSelectedPath ? paths.indexOf(lastSelectedPath) : -1;
+                    console.log('[move-to-next] onAfterSave', {
+                      moveToNext,
+                      lastSelectedPath,
+                      pathsLen: paths.length,
+                      idx,
+                      atEnd: idx >= paths.length - 1,
+                      nearby: paths.slice(Math.max(0, idx - 1), idx + 3),
+                    });
+                    if (!moveToNext) return;
+                    if (paths.length === 0) return;
                     if (idx < 0 || idx >= paths.length - 1) return;
                     const next = paths[idx + 1];
                     setSelectedPaths(new Set([next]));

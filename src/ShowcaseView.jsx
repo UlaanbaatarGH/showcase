@@ -10,7 +10,7 @@ import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grou
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages } from './data/backend.js';
-import { computePropertyValue } from './properties/formulas.js';
+import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 
 function romanToInt(s) {
   const m = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
@@ -307,27 +307,54 @@ export default function ShowcaseView() {
     // Gaps don't matter; blank means "skip this column for sorting".
     // User-clicked sortKeys take priority and the row_order chain acts as
     // the tiebreaker, with folder.sort_order as the final tiebreaker.
+    // FIX510.2.1.4 also points here.
     const orderedCols = configuredColumns
       .filter((c) => Number.isFinite(c.row_order) && c.row_order > 0)
       .slice()
       .sort((a, b) => a.row_order - b.row_order);
+    // FIX506.2.1.1.4 / FIX510.2.1.5: precompute the trailing-value Set
+    // per property so we don't re-parse on every comparison.
+    const trailingByPropId = new Map();
+    for (const p of properties ?? []) {
+      if (p.trailing_values) trailingByPropId.set(p.id, parseTrailingValues(p.trailing_values));
+    }
+    // FIX510.2.1.5: compare two folders on a single column, respecting:
+    //  - trailing values: always sorted last regardless of direction
+    //  - accepted value sets: pick lo (asc) or hi (desc) edge
+    // Returns the final ordering value — caller must NOT flip it.
+    const compareOnColumn = (a, b, col, dir) => {
+      const prop = col.type === 'property' ? propertiesById.get(col.property_id) : null;
+      const va = getColumnValue(a, col, propertiesById, propertiesByLabel);
+      const vb = getColumnValue(b, col, propertiesById, propertiesByLabel);
+      if (prop) {
+        const trailing = trailingByPropId.get(prop.id);
+        if (trailing && trailing.size) {
+          const aT = trailing.has(String(va).trim());
+          const bT = trailing.has(String(vb).trim());
+          if (aT !== bT) return aT ? 1 : -1;
+        }
+      }
+      let aVal = va;
+      let bVal = vb;
+      if (prop?.accepted_value_set) {
+        const side = dir === 'desc' ? 'hi' : 'lo';
+        aVal = valueSetEdge(va, side);
+        bVal = valueSetEdge(vb, side);
+      }
+      const cmp = compareValues(aVal, bVal);
+      return dir === 'desc' ? -cmp : cmp;
+    };
     if (sortKeys.length > 0 || orderedCols.length > 0) {
       const colByKey = new Map(configuredColumns.map((c) => [columnKey(c), c]));
       rows = [...rows].sort((a, b) => {
         for (const { key, dir } of sortKeys) {
           const col = colByKey.get(key);
           if (!col) continue;
-          const cmp = compareValues(
-            getColumnValue(a, col, propertiesById, propertiesByLabel),
-            getColumnValue(b, col, propertiesById, propertiesByLabel),
-          );
-          if (cmp !== 0) return dir === 'desc' ? -cmp : cmp;
+          const cmp = compareOnColumn(a, b, col, dir);
+          if (cmp !== 0) return cmp;
         }
         for (const col of orderedCols) {
-          const cmp = compareValues(
-            getColumnValue(a, col, propertiesById, propertiesByLabel),
-            getColumnValue(b, col, propertiesById, propertiesByLabel),
-          );
+          const cmp = compareOnColumn(a, b, col, 'asc');
           if (cmp !== 0) return cmp;
         }
         return (a.sort_order ?? 0) - (b.sort_order ?? 0);

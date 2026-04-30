@@ -54,6 +54,11 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
             label: p.label.trim(),
             short_label: (p.short_label ?? '').trim() || null,
             formula: p.formula || null,
+            // FIX506.2.1.1.4 / <input-property-trailing-values>: raw
+            // user string ("'-', '?'"); parsing happens at sort time.
+            trailing_values: (p.trailing_values ?? '').trim() || null,
+            // FIX506.2.1.1.5 / <input-property-accepted-value-set>.
+            accepted_value_set: !!p.accepted_value_set,
             sort_order: i,
           })),
         view_setup: {
@@ -77,6 +82,8 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
         label: '',
         short_label: '',
         formula: null,
+        trailing_values: '',
+        accepted_value_set: false,
         sort_order: properties.length,
       },
     ]);
@@ -96,6 +103,11 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
   const updatePropertyShortLabel = (i, short_label) => {
     const updated = [...properties];
     updated[i] = { ...updated[i], short_label };
+    setProperties(updated);
+  };
+  const updatePropertyField = (i, patch) => {
+    const updated = [...properties];
+    updated[i] = { ...updated[i], ...patch };
     setProperties(updated);
   };
   const movePropertyBy = (i, dir) => {
@@ -138,14 +150,20 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                   <th>Property name</th>
                   {/* FIX506.2.1.1.3 / <property-short-name>: optional
                       short label used in the Showcase column headers. */}
-                  <th style={{ width: '10rem' }}>Property short name</th>
+                  <th style={{ width: '9rem' }}>Property short name</th>
+                  {/* FIX506.2.1.1.4 / <input-property-trailing-values>:
+                      tokens always sorted to the end (FIX510.2.1.5). */}
+                  <th style={{ width: '9rem' }}>Trailing values</th>
+                  {/* FIX506.2.1.1.5 / <input-property-accepted-value-set>:
+                      enables the FIX506.5.5 / FIX510.2.1.5 semantics. */}
+                  <th style={{ width: '5rem', textAlign: 'center' }}>Value set</th>
                   <th style={{ width: '8rem' }} />
                 </tr>
               </thead>
               <tbody>
                 {properties.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="setup-empty">No properties defined.</td>
+                    <td colSpan={6} className="setup-empty">No properties defined.</td>
                   </tr>
                 )}
                 {properties.map((p, i) => (
@@ -165,6 +183,23 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                         value={p.short_label ?? ''}
                         onChange={(e) => updatePropertyShortLabel(i, e.target.value)}
                         placeholder="(optional)"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        data-yagu-id="input-property-trailing-values"
+                        type="text"
+                        value={p.trailing_values ?? ''}
+                        onChange={(e) => updatePropertyField(i, { trailing_values: e.target.value })}
+                        placeholder="'-', '?'"
+                      />
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        data-yagu-id="input-property-accepted-value-set"
+                        type="checkbox"
+                        checked={!!p.accepted_value_set}
+                        onChange={(e) => updatePropertyField(i, { accepted_value_set: e.target.checked })}
                       />
                     </td>
                     <td className="setup-row-actions">

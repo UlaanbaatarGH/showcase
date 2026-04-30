@@ -114,6 +114,8 @@ export default function ShowcaseViewSetupPanel({
           label: p.label,
           short_label: p.short_label ?? null,
           formula: p.formula ?? null,
+          trailing_values: p.trailing_values ?? null,
+          accepted_value_set: !!p.accepted_value_set,
           sort_order: p.sort_order ?? i,
         })),
         view_setup: {

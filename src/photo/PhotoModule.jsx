@@ -1252,18 +1252,20 @@ export default function PhotoModule({ onClose }) {
                     // FIX501.4.4.10.1 / FIX501.4.4.11.1: advance selection after save when checkbox is ON
                     const paths = visiblePathsRef.current || [];
                     const idx = lastSelectedPath ? paths.indexOf(lastSelectedPath) : -1;
-                    console.log('[move-to-next] onAfterSave', {
-                      moveToNext,
-                      lastSelectedPath,
-                      pathsLen: paths.length,
-                      idx,
-                      atEnd: idx >= paths.length - 1,
-                      nearby: paths.slice(Math.max(0, idx - 1), idx + 3),
-                    });
-                    if (!moveToNext) return;
-                    if (paths.length === 0) return;
-                    if (idx < 0 || idx >= paths.length - 1) return;
+                    console.log('[move-to-next] moveToNext=' + moveToNext);
+                    console.log('[move-to-next] lastSelectedPath=' + lastSelectedPath);
+                    console.log('[move-to-next] visiblePaths.length=' + paths.length);
+                    console.log('[move-to-next] idx=' + idx + ' atEnd=' + (idx >= paths.length - 1));
+                    if (paths.length > 0) {
+                      console.log('[move-to-next] first 3 paths: ' + paths.slice(0, 3).join(' | '));
+                      console.log('[move-to-next] last 3 paths: ' + paths.slice(-3).join(' | '));
+                    }
+                    if (!moveToNext) { console.log('[move-to-next] BAIL: checkbox off'); return; }
+                    if (paths.length === 0) { console.log('[move-to-next] BAIL: no visible paths'); return; }
+                    if (idx < 0) { console.log('[move-to-next] BAIL: lastSelectedPath not found in visiblePaths'); return; }
+                    if (idx >= paths.length - 1) { console.log('[move-to-next] BAIL: already at end'); return; }
                     const next = paths[idx + 1];
+                    console.log('[move-to-next] OK -> ' + next);
                     setSelectedPaths(new Set([next]));
                     setLastSelectedPath(next);
                     requestAnimationFrame(() => {

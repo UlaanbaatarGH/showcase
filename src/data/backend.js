@@ -20,6 +20,7 @@ export const importGsheet = impl.importGsheet;
 export const getExistingImages = impl.getExistingImages;
 export const signUpload = impl.signUpload;
 export const confirmImage = impl.confirmImage;
+export const deleteOrphanImage = impl.deleteOrphanImage;
 export const updateImage = impl.updateImage;
 export const updateFolderImage = impl.updateFolderImage;
 export const updateProject = impl.updateProject;

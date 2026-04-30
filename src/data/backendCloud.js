@@ -54,6 +54,9 @@ export default {
     call(`/api/projects/${encodeURIComponent(projectId)}/storage-size`),
   signUpload: (body) => call('/api/images/sign-upload', { method: 'POST', body }),
   confirmImage: (body) => call('/api/images/confirm', { method: 'POST', body }),
+  // FIX371 orphan cleanup: drop a bucket object that has no image DB row.
+  deleteOrphanImage: (body) =>
+    call('/api/images/delete-orphan', { method: 'POST', body }),
   // FIX520.2.10 non-destructive save: update rotation and/or crop on the
   // Image row. Partial payloads are accepted (omit keys to leave them
   // unchanged). Returns { id, rotation, crop }.

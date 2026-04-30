@@ -3,6 +3,7 @@ import {
   getExistingImages,
   signUpload,
   confirmImage,
+  deleteOrphanImage,
 } from '../data/backend.js';
 import { scanFiles, buildImportPlan } from './importImages.js';
 
@@ -45,16 +46,21 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
     setProgress({ done: 0, total: toUpload.length });
     setStage('uploading');
     setFatal(null);
-    const errors = [];
     let done = 0;
     let sort_order = 0;
+    let stopReason = null;
     for (const u of toUpload) {
+      // Track per-file progress so we know whether we need to clean up
+      // an orphan in the bucket (PUT succeeded but confirm didn't).
+      let storageKey = null;
+      let bucketUploaded = false;
       try {
         const sign = await signUpload({
           project_id: project.id,
           item_name: u.itemName,
           filename: u.filename,
         });
+        storageKey = sign.storage_key;
         const putRes = await fetch(sign.signed_url, {
           method: 'PUT',
           headers: { 'Content-Type': u.file.type || 'application/octet-stream' },
@@ -63,23 +69,44 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
         if (!putRes.ok) {
           throw new Error(`Supabase upload ${putRes.status}: ${await putRes.text().catch(() => '')}`.slice(0, 200));
         }
+        bucketUploaded = true;
         await confirmImage({
           project_id: project.id,
           item_name: u.itemName,
-          storage_key: sign.storage_key,
+          storage_key: storageKey,
           sort_order: sort_order++,
           replaces_image_id: u.replaces_image_id ?? null,
         });
+        done += 1;
+        setProgress({ done, total: toUpload.length });
       } catch (ex) {
-        errors.push(`${u.itemName}/${u.filename}: ${ex.message || ex}`);
+        // FIX371: stop on the first failure and clean up the bucket
+        // orphan if PUT succeeded but confirm didn't, so that resuming
+        // the import in a new session starts from a clean state (no
+        // dangling files, no half-registered items).
+        if (bucketUploaded && storageKey) {
+          try {
+            await deleteOrphanImage({
+              project_id: project.id,
+              storage_key: storageKey,
+            });
+          } catch (cleanupErr) {
+            // Cleanup failed — the orphan stays in the bucket. Surface
+            // it so the user knows manual cleanup may be needed.
+            console.warn('Orphan cleanup failed:', cleanupErr);
+            stopReason = `${u.itemName}/${u.filename}: ${ex.message || ex} ` +
+              `(orphan cleanup also failed: ${cleanupErr.message || cleanupErr})`;
+            break;
+          }
+        }
+        stopReason = `${u.itemName}/${u.filename}: ${ex.message || ex}`;
+        break;
       }
-      done += 1;
-      setProgress({ done, total: toUpload.length });
     }
     setResult({
-      uploaded: toUpload.length - errors.length,
+      uploaded: done,
       total: toUpload.length,
-      errors,
+      stopReason,
     });
     // FIX371.6.3: refresh current view so new images show up.
     onDone?.();
@@ -203,17 +230,14 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
 
         {stage === 'done' && result && (
           <div className="gsheet-stage">
-            <h2>Import done</h2>
+            <h2>{result.stopReason ? 'Import stopped' : 'Import done'}</h2>
             <ul className="gsheet-result">
               <li>Uploaded: {result.uploaded} / {result.total}</li>
-              {result.errors.length > 0 && <li>Errors: {result.errors.length}</li>}
+              {result.stopReason && <li>Stopped on first error.</li>}
             </ul>
-            {result.errors.length > 0 && (
+            {result.stopReason && (
               <ul className="gsheet-errors">
-                {result.errors.slice(0, 50).map((e, i) => <li key={i}>{e}</li>)}
-                {result.errors.length > 50 && (
-                  <li>…and {result.errors.length - 50} more</li>
-                )}
+                <li>{result.stopReason}</li>
               </ul>
             )}
             <div className="gsheet-actions">

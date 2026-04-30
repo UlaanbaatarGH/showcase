@@ -491,6 +491,26 @@ export default function ShowcaseView() {
     return () => document.removeEventListener('keydown', onKey);
   }, [fullScreen]);
 
+  // FIX520.3.2.1: also wire the system "back" navigation (smartphone
+  // back gesture / browser back button) to leave fullscreen, instead of
+  // letting it pop the page off the project entirely. Push a history
+  // entry on open so the next "back" lands on our popstate handler;
+  // when fullscreen closes for any other reason (Back button in the
+  // overlay, ESC, or backdrop click), pop our entry so history stays
+  // consistent.
+  useEffect(() => {
+    if (!fullScreen) return undefined;
+    window.history.pushState({ scFullScreen: true }, '');
+    const onPopState = () => setFullScreen(false);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      if (window.history.state && window.history.state.scFullScreen) {
+        window.history.back();
+      }
+    };
+  }, [fullScreen]);
+
   useEffect(() => {
     const onKey = (e) => {
       if (showSetup || showColumns || showGrouping || importOpen || importImagesOpen) return;

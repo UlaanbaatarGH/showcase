@@ -243,15 +243,22 @@ export default function ShowcaseView() {
   // configured deletion property is non-blank are hidden from the Showcase
   // view — they don't participate in sorting, filtering or grouping.
   const deletedPropertyId = viewSetup.file_explorer?.deleted_property_id ?? null;
+  // FIX508.2.1 / <show-items-with-no-img>: when off, items without any
+  // image are hidden from the Showcase list (FIX510.5.1) and grouping
+  // (FIX374.2.15). Default true (FIX508.2.1.1).
+  const showItemsWithNoImg = viewSetup.show_items_with_no_img !== false;
   const liveFolders = useMemo(() => {
-    const all = data?.folders ?? [];
+    let all = data?.folders ?? [];
+    if (!showItemsWithNoImg) {
+      all = all.filter((f) => f.has_image);
+    }
     if (deletedPropertyId == null) return all;
     const key = String(deletedPropertyId);
     return all.filter((f) => {
       const v = (f.properties || {})[key];
       return v == null || String(v).trim() === '';
     });
-  }, [data, deletedPropertyId]);
+  }, [data, deletedPropertyId, showItemsWithNoImg]);
 
   // FIX510.2.1.5.2 / <derived-property-img>: the special 'img' derived
   // property groups items by whether they have any attached image. Other

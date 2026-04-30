@@ -32,10 +32,11 @@ function formatPropertyInput(p) {
 // Properties tab (FIX505.2.1 + FIX505.2.1.0 <tab-properties-setup>), which
 // binds to <panel-file-explorer-view-setup>.
 export default function SetupPanel({ projectId, properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
-  // FIX505.2 (updated): the Setup popup hosts multiple tabs.
-  //   - 'Properties' (FIX505.2.1) → <panel-file-explorer-view-setup> (FIX506)
-  //   - 'Sizes'                    → <panel-image-sizes>             (FIX507)
-  const [activeTab, setActiveTab] = useState('properties');
+  // FIX505.2 (updated): the Setup popup hosts three tabs.
+  //   - 'General'    → <panel-general-info-setup>         (FIX508)
+  //   - 'Properties' → <panel-file-explorer-view-setup>   (FIX506, .2.1)
+  //   - 'Sizes'      → <panel-image-sizes>                (FIX507)
+  const [activeTab, setActiveTab] = useState('general');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
   );
@@ -44,6 +45,12 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
     // FIX506.2.3 / <setup-property-tagged-deleted>: id of the property
     // that marks an item as deleted when non-blank. null = no such property.
     deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
+  });
+  // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
+  // view_setup directly (not under file_explorer) since they affect the
+  // Showcase too. Default true (FIX508.2.1.1).
+  const [generalSetup, setGeneralSetup] = useState({
+    show_items_with_no_img: initialViewSetup?.show_items_with_no_img !== false,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -76,6 +83,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
         view_setup: {
           ...(initialViewSetup || {}),
           file_explorer: fileExplorer,
+          // FIX508.2.1 / <show-items-with-no-img>: persists alongside
+          // file_explorer but applies to all views (Showcase included —
+          // FIX510.5.1 / FIX374.2.15).
+          show_items_with_no_img: generalSetup.show_items_with_no_img,
         },
       });
       onSave(data);
@@ -137,8 +148,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
         <header className="setup-header">
           <h2>Setup</h2>
         </header>
-        {/* FIX505.2 (updated): tab strip — Properties + Sizes. */}
+        {/* FIX505.2 (updated): tab strip — General + Properties + Sizes. */}
         <div className="setup-tabs">
+          <button
+            type="button"
+            className={activeTab === 'general' ? 'active' : ''}
+            data-yagu-id="tab-general-setup"
+            onClick={() => setActiveTab('general')}
+          >
+            General
+          </button>
           <button
             type="button"
             className={activeTab === 'properties' ? 'active' : ''}
@@ -157,6 +176,29 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           </button>
         </div>
         <div className="setup-body">
+          {activeTab === 'general' && (
+            /* FIX508 <panel-general-info-setup>. */
+            <section className="setup-section" data-yagu-id="panel-general-info-setup">
+              <h3>General</h3>
+              {/* FIX508.2.1 / <show-items-with-no-img>: drives FIX510.5.1
+                  (Showcase list) and FIX374.2.15 (item grouping). Default
+                  on (FIX508.2.1.1). */}
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="show-items-with-no-img"
+                  type="checkbox"
+                  checked={generalSetup.show_items_with_no_img}
+                  onChange={(e) =>
+                    setGeneralSetup({
+                      ...generalSetup,
+                      show_items_with_no_img: e.target.checked,
+                    })
+                  }
+                />
+                Show items with no image
+              </label>
+            </section>
+          )}
           {activeTab === 'sizes' && (
             <SizesTab projectId={projectId} />
           )}

@@ -228,6 +228,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const renames = [];
   const headerToFinalLabel = new Map();
 
+  // Map from a main-sheet header (full or short name) to its setup entry.
+  // Built only when a setup sheet is provided. Unmatched main-sheet
+  // columns are silently skipped (FIX370.2.2.1 updated).
+  const setupByMainHeader = new Map();
   if (setupCsv != null) {
     // 2.2.2 — all ids in setup must exist in the project.
     for (const e of setupEntries) {
@@ -255,26 +259,32 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         );
       }
     }
-    // 2.2.1 — each main-sheet property header must appear exactly once in setup.
-    const setupLabels = setupEntries.map((e) => e.label);
-    const countBy = (arr) => {
-      const m = new Map();
-      for (const x of arr) m.set(x, (m.get(x) || 0) + 1);
-      return m;
-    };
-    const setupCount = countBy(setupLabels);
+    // FIX370.2.2.1 (updated): the setup sheet lists only the properties
+    // to be uploaded — main-sheet columns missing from setup are skipped,
+    // not flagged. A main-sheet header may match a setup entry by full
+    // name OR short name. Two setup entries matching the same main
+    // header is still wrong (ambiguous mapping).
     for (const col of propHeaders) {
-      const c = setupCount.get(col.label) || 0;
-      if (c === 0) {
-        errors.push(`FIX370.2.2.1: property "${col.label}" missing from the setup sheet.`);
-      } else if (c > 1) {
-        errors.push(`FIX370.2.2.1: property "${col.label}" listed ${c} times in the setup sheet.`);
+      const matches = setupEntries.filter(
+        (e) => e.label === col.label || (e.shortLabel && e.shortLabel === col.label),
+      );
+      if (matches.length === 0) continue; // unlisted → skip silently
+      if (matches.length > 1) {
+        errors.push(
+          `FIX370.2.2.1: main-sheet column "${col.label}" matches ${matches.length} setup rows.`,
+        );
+        continue;
       }
+      setupByMainHeader.set(col.label, matches[0]);
     }
     // Build resolution from setup: new entries (no id) → create; entries with
     // id + label differing from current → rename. The optional short label
     // from the setup row is carried into the payload for new properties.
+    // Only setup entries that are actually used by the main sheet are
+    // applied — listing an unused entry has no effect.
+    const usedEntries = new Set(setupByMainHeader.values());
     for (const e of setupEntries) {
+      if (!usedEntries.has(e)) continue;
       if (e.id == null) {
         if (!propByLabel.has(e.label)) {
           newProperties.push({ label: e.label, short_label: e.shortLabel ?? null });
@@ -285,7 +295,12 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
           renames.push({ id: e.id, label: e.label });
         }
       }
-      headerToFinalLabel.set(e.label, e.label);
+    }
+    // headerToFinalLabel maps each main-sheet header to the property
+    // label as it will be stored after import (rename-aware). Unlisted
+    // headers don't appear → the updates loop will skip them.
+    for (const [mainLabel, e] of setupByMainHeader) {
+      headerToFinalLabel.set(mainLabel, e.label);
     }
   } else {
     // 2.1.6.1 — no setup sheet → every main-sheet property header must exist.
@@ -302,22 +317,31 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
 
   // FIX370.3.2.2.2.3/4: find the "Main" property in the setup sheet (if any)
   // so the recap can postfix each folder with its value under that property.
+  // The main entry is matched against any main-sheet header by full or
+  // short name (FIX370.2.2.1 updated).
   const mainEntry = setupEntries?.find((e) => e.main) ?? null;
-  const mainLabel = mainEntry?.label ?? null;
-  const mainColIdx = mainLabel
-    ? (propHeaders.find((c) => c.label === mainLabel)?.idx ?? null)
+  const mainColIdx = mainEntry
+    ? (propHeaders.find((c) => {
+        const matched = setupByMainHeader.get(c.label);
+        return matched === mainEntry;
+      })?.idx ?? null)
     : null;
 
   // Build new folders + updates.
   const projectFolderNames = new Set((project.folders || []).map((f) => f.name));
   const folderByName = new Map((project.folders || []).map((f) => [f.name, f]));
-  // Resolve each header column to the property id it will carry after import.
-  // null means the header is a brand-new property (no current value yet on
-  // any existing folder, so any non-blank value counts as a change).
+  // FIX370.2.2.1 (updated): only the property columns that are actually
+  // listed in the setup sheet (matched by full or short name) participate
+  // in the import. The rest are silently dropped.
+  const importedPropHeaders = setupCsv != null
+    ? propHeaders.filter((c) => setupByMainHeader.has(c.label))
+    : propHeaders;
+  // Resolve each imported header to the property id it will carry after
+  // import. null = brand-new property.
   const labelToFinalId = new Map();
-  for (const col of propHeaders) {
+  for (const col of importedPropHeaders) {
     if (setupCsv != null) {
-      const e = setupEntries.find((x) => x.label === col.label);
+      const e = setupByMainHeader.get(col.label);
       labelToFinalId.set(col.label, e?.id ?? null);
     } else {
       labelToFinalId.set(col.label, propByLabel.get(col.label)?.id ?? null);
@@ -362,7 +386,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const folder = folderByName.get(name);
       const currentProps = folder?.properties || {};
       let changed = false;
-      for (const col of propHeaders) {
+      for (const col of importedPropHeaders) {
         const finalId = labelToFinalId.get(col.label);
         const newValue = normalizeForCompare(row[col.idx]);
         const curValue = finalId != null
@@ -379,7 +403,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const v = (row[deletedColIdx] ?? '').trim();
       if (v) deletedFolderDisplays.push(display);
     }
-    for (const col of propHeaders) {
+    for (const col of importedPropHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;
       const value = (row[col.idx] ?? '').trim();
       updates.push({ folder_name: name, property_label: finalLabel, value });

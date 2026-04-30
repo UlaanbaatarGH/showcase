@@ -228,6 +228,23 @@ export default function ShowcaseImgListEditor({
     );
   };
 
+  // FIX521.2.1.1.5 / <item-main-img> + FIX521.5.6: at most one image per
+  // item is the Main one. Toggling on a row sets is_main here and clears
+  // it on every sibling — both locally (snappy UI) and on the server in
+  // a single PATCH (the backend re-applies the same atomic clear).
+  const setMain = async (fiId, value) => {
+    setImages((prev) =>
+      prev.map((im) =>
+        im.id === fiId ? { ...im, is_main: value } : { ...im, is_main: value ? false : im.is_main },
+      ),
+    );
+    try {
+      await updateFolderImage(fiId, { is_main: value });
+    } catch (e) {
+      setError(e.message || String(e));
+    }
+  };
+
   // FIX521.2.1.4: Remove the selected image after a confirmation prompt.
   // Locked while a pending image edit exists (same lock pattern as
   // selection / reorder).
@@ -311,6 +328,9 @@ export default function ShowcaseImgListEditor({
               <th>File Size</th>
               <th>Caption</th>
               <th>Section</th>
+              {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
+                  At most one is set per item (FIX521.5.6). */}
+              <th title="Main image of the item">Main</th>
             </tr>
           </thead>
           <tbody>
@@ -348,12 +368,22 @@ export default function ShowcaseImgListEditor({
                       onFocus={() => trySelect(idx)}
                     />
                   </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      data-yagu-id="item-main-img"
+                      type="checkbox"
+                      checked={!!im.is_main}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setMain(im.id, e.target.checked)}
+                      title="Use as the item's main image"
+                    />
+                  </td>
                 </tr>
               );
             })}
             {images.length === 0 && (
               <tr>
-                <td colSpan={4} className="empty">No images in this item.</td>
+                <td colSpan={5} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

@@ -230,6 +230,10 @@ export default function ShowcaseView() {
     getFolderImages(selectedFolderId)
       .then((imgs) => {
         setImages(imgs);
+        // FIX510.3.4: on item selection, show the Main image first;
+        // when no image is flagged main, show the first image of the
+        // list. The Main flag is set per row in the Image List editor
+        // (FIX521.2.1.1.5 / <item-main-img>, FIX521.5.6).
         const mainIdx = imgs.findIndex((i) => i.is_main);
         setCurrentImageIdx(mainIdx >= 0 ? mainIdx : 0);
       })

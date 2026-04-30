@@ -1,5 +1,13 @@
-import { useState } from 'react';
-import { saveSetup } from './data/backend.js';
+import { useEffect, useState } from 'react';
+import { saveSetup, getStorageSize } from './data/backend.js';
+
+function formatBytes(n) {
+  if (n == null || !Number.isFinite(n)) return '?';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
 // FIX506.5.3: a property's name field may be either a plain label
 // ("Year") or a definition with a formula ("pageCount = numberOf(pages)").
@@ -23,7 +31,11 @@ function formatPropertyInput(p) {
 // replaces it via <button-columns>. What's left is the admin-only
 // Properties tab (FIX505.2.1 + FIX505.2.1.0 <tab-properties-setup>), which
 // binds to <panel-file-explorer-view-setup>.
-export default function SetupPanel({ properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
+export default function SetupPanel({ projectId, properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
+  // FIX505.2 (updated): the Setup popup hosts multiple tabs.
+  //   - 'Properties' (FIX505.2.1) → <panel-file-explorer-view-setup> (FIX506)
+  //   - 'Sizes'                    → <panel-image-sizes>             (FIX507)
+  const [activeTab, setActiveTab] = useState('properties');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
   );
@@ -125,24 +137,35 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
         <header className="setup-header">
           <h2>Setup</h2>
         </header>
-        {/* FIX505.2.1 + FIX505.2.1.0 + FIX505.3.1 <tab-properties-setup>:
-            the sole remaining tab. Rendered as a static tab strip so the
-            layout matches future growth; clicking is a no-op since there
-            is nothing else to switch to. */}
+        {/* FIX505.2 (updated): tab strip — Properties + Sizes. */}
         <div className="setup-tabs">
           <button
             type="button"
-            className="active"
+            className={activeTab === 'properties' ? 'active' : ''}
             data-yagu-id="tab-properties-setup"
+            onClick={() => setActiveTab('properties')}
           >
             Properties
           </button>
+          <button
+            type="button"
+            className={activeTab === 'sizes' ? 'active' : ''}
+            data-yagu-id="tab-sizes-setup"
+            onClick={() => setActiveTab('sizes')}
+          >
+            Sizes
+          </button>
         </div>
         <div className="setup-body">
-          {/* FIX505.2.3 / FIX506 <panel-file-explorer-view-setup>. */}
+          {activeTab === 'sizes' && (
+            <SizesTab projectId={projectId} />
+          )}
+          {activeTab === 'properties' && (
+          /* FIX505.2.3 / FIX506 <panel-file-explorer-view-setup>. */
           <section className="setup-section" data-yagu-id="panel-file-explorer-view-setup">
             <h3>List of properties</h3>
-            <table className="setup-items">
+            {/* FIX506.2.1.0 / <list-properties> */}
+            <table className="setup-items" data-yagu-id="list-properties">
               <thead>
                 <tr>
                   <th style={{ width: '3rem' }}>Id</th>
@@ -247,6 +270,7 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
                 ))}
             </select>
           </section>
+          )}
         </div>
         {error && <div className="setup-error">{error}</div>}
         {/* FIX505.2.10 + FIX505.2.11 + FIX505.3.10 footer. */}
@@ -260,5 +284,46 @@ export default function SetupPanel({ properties: initialProperties, viewSetup: i
         </footer>
       </div>
     </div>
+  );
+}
+
+// FIX507 <panel-image-sizes>: Image sizes panel — currently exposes one
+// read-only field, the total bytes used in Supabase Storage by all images
+// linked to the current project (FIX507.2.1 / .2.1.1).
+function SizesTab({ projectId }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (projectId == null) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getStorageSize(projectId)
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch((e) => { if (!cancelled) setError(String(e.message || e)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+  return (
+    <section className="setup-section" data-yagu-id="panel-image-sizes">
+      <h3>Image sizes</h3>
+      {/* FIX507.2.1 / .2.1.1: total bytes for the project's images,
+          read-only. Reads storage.objects.metadata so old uploads are
+          included without any per-image bytes column on our side. */}
+      <label className="setup-inline-row">
+        <span>Size of Project images</span>
+        <input
+          type="text"
+          readOnly
+          value={
+            loading ? 'Loading…'
+            : error ? `Error: ${error}`
+            : data ? `${formatBytes(data.bytes)}  (${data.image_count} image${data.image_count === 1 ? '' : 's'}${data.missing_count ? `, ${data.missing_count} missing` : ''})`
+            : '—'
+          }
+        />
+      </label>
+    </section>
   );
 }

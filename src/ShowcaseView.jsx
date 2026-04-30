@@ -1152,6 +1152,7 @@ export default function ShowcaseView() {
       </div>
       {showSetup && (
         <SetupPanel
+          projectId={data?.project?.id ?? null}
           properties={properties}
           viewSetup={viewSetup}
           onCancel={() => setShowSetup(false)}

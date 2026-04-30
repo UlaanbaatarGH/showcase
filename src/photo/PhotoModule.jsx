@@ -1433,7 +1433,7 @@ export default function PhotoModule({ onClose }) {
                 <div data-yagu-id="panel-file-explorer-view-setup">
                   {/* FIX506.2.1: Field 'List of properties' */}
                   <label className="photo-dialog-label">List of properties:</label>
-                  <div className="photo-setup-list" data-yagu-id="list-photo-properties">
+                  <div className="photo-setup-list" data-yagu-id="list-properties">
                     {setupDraft.length === 0 && (
                       <div className="photo-setup-empty">No properties defined.</div>
                     )}

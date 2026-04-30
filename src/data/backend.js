@@ -12,6 +12,7 @@ export const setAuthToken = impl.setAuthToken;
 export const listProjects = impl.listProjects;
 export const getShowcase = impl.getShowcase;
 export const getFolderImages = impl.getFolderImages;
+export const getStorageSize = impl.getStorageSize;
 
 // Writes
 export const saveSetup = impl.saveSetup;

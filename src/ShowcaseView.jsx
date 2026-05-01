@@ -1415,64 +1415,20 @@ export default function ShowcaseView({ onNavigateHome }) {
           onDone={reloadShowcase}
         />
       )}
-      {/* FIX520.3.2: full-screen image overlay. Click-to-open from the
-          viewer; click backdrop or press ESC to close. Uses the same
-          canvas as the viewer so rotation + crop are honored. */}
+      {/* FIX520.3.2 + FIX521 <panel-showcase-img-viewer-fullscreen>:
+          full-screen image overlay. FIX521.2: same layout as the
+          in-page viewer with no sections panel — image fills the
+          column, then a bottom strip carries the caption (centred)
+          and the nav pill (bottom-right). FIX521.3.1 ESC + FIX521.3.2
+          system back close the overlay (no in-overlay Back button —
+          rely on the navigator). FIX521.3.4 swipe handlers wired on
+          the image wrap. */}
       {fullScreen && currentImage && (
-        <div className="sc-fullscreen" onClick={() => setFullScreen(false)}>
-          {/* FIX520.3.2.1: tap the Back button to leave fullscreen
-              (mobile has no ESC key). Click on the backdrop also still
-              closes (FIX520.3.2). stopPropagation so the button itself
-              doesn't double-fire the backdrop handler. */}
-          <button
-            type="button"
-            className="sc-fullscreen-back"
-            onClick={(e) => { e.stopPropagation(); setFullScreen(false); }}
-            aria-label="Back"
-          >
-            ‹ Back
-          </button>
-          {/* FIX520.3.2.2 + FIX520.3.2.2.1: Prev/Next + i/n with the
-              same appearance as the in-page <panel-showcase-img-viewer>
-              nav (.sc-viewer-nav class) and positioned at the same
-              corner in the visible area (bottom-right). */}
-          <div
-            className="sc-viewer-nav sc-fullscreen-nav"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              data-yagu-id="button-prev"
-              onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-              disabled={currentImageIdx === 0}
-              aria-label="Previous image"
-            >
-              ‹
-            </button>
-            <span
-              className="sc-viewer-pos"
-              data-yagu-id="label-image-index"
-            >
-              {currentImageIdx + 1} / {images.length}
-            </span>
-            <button
-              type="button"
-              data-yagu-id="button-next"
-              onClick={() =>
-                setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-              }
-              disabled={currentImageIdx >= images.length - 1}
-              aria-label="Next image"
-            >
-              ›
-            </button>
-          </div>
-          {/* FIX520.3.2.3: swipe left/right to navigate. Reuses the same
-              touch refs as the in-page viewer (only one image surface is
-              ever live, so no clash). The wrapper also catches the click
-              that follows a swipe so the backdrop doesn't dismiss the
-              overlay — a normal tap on the image still bubbles up and
-              closes (FIX520.3.2 backdrop dismiss). */}
+        <div
+          className="sc-fullscreen"
+          data-yagu-id="panel-showcase-img-viewer-fullscreen"
+          onClick={() => setFullScreen(false)}
+        >
           <div
             className="sc-fullscreen-img-wrap"
             onTouchStart={onImageTouchStart}
@@ -1490,6 +1446,53 @@ export default function ShowcaseView({ onNavigateHome }) {
               crop={currentImage.crop ?? null}
               className="sc-fullscreen-img"
             />
+          </div>
+          {/* FIX521.2: bottom strip mirrors the in-page no-sections
+              layout via the shared .sc-viewer-bottom. Click here is
+              swallowed so the backdrop dismiss only fires on a real
+              outside tap. */}
+          <div
+            className={`sc-viewer-bottom${currentImage.caption ? ' has-caption' : ''}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {currentImage.caption && (
+              <div
+                className="sc-viewer-caption"
+                data-yagu-id="label-img-caption"
+              >
+                {currentImage.caption}
+              </div>
+            )}
+            {/* FIX521.3.3 / FIX520.3.2.2: prev / i-n / next pill,
+                identical to the in-page nav. */}
+            <div className="sc-viewer-nav">
+              <button
+                type="button"
+                data-yagu-id="button-prev"
+                onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                disabled={currentImageIdx === 0}
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+              <span
+                className="sc-viewer-pos"
+                data-yagu-id="label-image-index"
+              >
+                {currentImageIdx + 1} / {images.length}
+              </span>
+              <button
+                type="button"
+                data-yagu-id="button-next"
+                onClick={() =>
+                  setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                }
+                disabled={currentImageIdx >= images.length - 1}
+                aria-label="Next image"
+              >
+                ›
+              </button>
+            </div>
           </div>
         </div>
       )}

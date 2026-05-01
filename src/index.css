@@ -922,23 +922,28 @@ body {
 .sc-viewer-img-clickable {
   cursor: zoom-in;
 }
+/* FIX521 <panel-showcase-img-viewer-fullscreen>: flex column — the
+   image area takes all available height; the bottom strip (caption +
+   nav, sharing .sc-viewer-bottom with the in-page viewer) sits at
+   the bottom. */
 .sc-fullscreen {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.92);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   z-index: 1000;
   cursor: zoom-out;
-  padding: 1rem;
+  padding: 0.75rem;
+  gap: 0.5rem;
 }
 .sc-fullscreen-img-wrap {
-  /* FIX520.3.2.3: dedicated touch surface for swipe-to-navigate. Sized
-     to fill the overlay so a swipe anywhere over the image area is
-     captured, regardless of the image's actual rendered size. */
-  width: 100%;
-  height: 100%;
+  /* FIX521.3.4 / FIX520.3.2.3: dedicated touch surface for swipe-to-
+     navigate. Fills the available height so a swipe anywhere over
+     the image area is captured, regardless of the image's actual
+     rendered size. */
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -951,34 +956,11 @@ body {
   max-height: 100%;
   object-fit: contain;
 }
-/* FIX520.3.2.1: visible Back button so fullscreen can be left without
-   a keyboard (smartphones have no ESC). */
-.sc-fullscreen-back {
-  position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 1001;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  padding: 0.45rem 0.85rem;
-  border-radius: 6px;
-  font: inherit;
-  font-size: 0.95rem;
-  cursor: pointer;
-}
-.sc-fullscreen-back:hover { background: rgba(0, 0, 0, 0.75); }
-
-/* FIX520.3.2.2 + FIX520.3.2.2.1: in fullscreen, the nav reuses the
-   .sc-viewer-nav styling so its appearance matches the in-page nav.
-   Only positioning is fullscreen-specific — pinned to the same
-   bottom-right corner as the in-page (no-sections) layout. */
-.sc-fullscreen-nav {
-  position: fixed;
-  bottom: 0.75rem;
-  right: 0.75rem;
-  z-index: 1001;
-}
+/* FIX521.3.2: closing fullscreen relies on the navigator's back
+   button + ESC + backdrop tap. No in-overlay Back button is rendered.
+   FIX520.3.2.2 + FIX521.3.3: nav reuses the in-page .sc-viewer-nav
+   styling and now lives inside the shared .sc-viewer-bottom strip,
+   so no fullscreen-specific positioning rule is needed. */
 
 /* FIX521 <panel-showcase-img-list-editor>: two-pane layout — table of
    images on the left, image editor on the right. Fills the viewer panel. */

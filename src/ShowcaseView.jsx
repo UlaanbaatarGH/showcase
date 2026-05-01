@@ -929,10 +929,16 @@ export default function ShowcaseView({ onNavigateHome }) {
                   const selected = isAll
                     ? activeBucketKey == null
                     : b.key === activeBucketKey;
+                  // FIX374.2.4: 'No value' pill rendered in italic so
+                  // it reads as a meta-bucket, distinct from real values.
+                  const cls = [
+                    selected ? 'selected' : '',
+                    isNoValue ? 'novalue' : '',
+                  ].filter(Boolean).join(' ');
                   return (
                     <li
                       key={b.key}
-                      className={selected ? 'selected' : ''}
+                      className={cls}
                       style={style}
                       onClick={() => {
                         if (isAll) setActiveBucketKey(null);

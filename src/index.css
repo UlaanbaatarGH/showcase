@@ -1657,12 +1657,20 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   white-space: nowrap;
-  text-align: center;
+  /* FIX374.2.6.4: pill labels are left aligned within the (max-content)
+     column. Pills themselves all share the widest pill's width, so
+     shorter labels read flush-left rather than floating in the middle. */
+  text-align: left;
 }
 .sc-buckets li:hover { background: var(--color-bg); }
 .sc-buckets li.selected {
   background: var(--color-selected);
   border-color: var(--color-selected-border);
+}
+/* FIX374.2.4: 'No value (n)' pill is italicised to mark it as the
+   catch-all bucket, distinct from real grouping values. */
+.sc-buckets li.novalue {
+  font-style: italic;
 }
 .sc-buckets-empty {
   color: var(--color-text-muted);

@@ -79,7 +79,7 @@ function compareValues(a, b) {
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
 }
 
-export default function ShowcaseView({ onNavigateHome }) {
+export default function ShowcaseView({ slug, onNavigateHome }) {
   const { profile } = useAuth();
   const [data, setData] = useState(null);
   const [selectedFolderId, setSelectedFolderId] = useState(null);

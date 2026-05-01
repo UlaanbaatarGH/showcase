@@ -640,7 +640,7 @@ body {
   overflow: hidden;
   min-height: 0;
 }
-/* FIX520.2.5 <panel-img-sections>. FIX520.5.2: only rendered when at
+/* FIX520.2.5 / FIX520.2.5.0 <panel-img-sections>. FIX520.5.2: only rendered when at
    least one image in the item has a section defined. */
 .sc-viewer-sections {
   flex: 0 0 auto;

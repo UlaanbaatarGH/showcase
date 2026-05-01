@@ -1045,40 +1045,54 @@ export default function ShowcaseView({ onNavigateHome }) {
               //   Sections panel (left, optional) | Image + nav (right).
               // FIX520.5.2: the sections panel is rendered only when the
               // item has at least one image with a section defined.
-              const sections = [];
-              const seen = new Set();
-              for (const im of images) {
-                const s = (im.section ?? '').trim();
-                if (!s || seen.has(s)) continue;
-                seen.add(s);
-                sections.push(s);
+              // FIX520.5.3: a section name appears once per *run* — if
+              // S1 reappears after a different S2, it's listed twice
+              // (each entry navigates to the start of its own run, not
+              // a global "first occurrence").
+              // FIX520.5.4: when a run spans several consecutive images
+              // the count is appended as " (n)"; n=1 stays unadorned.
+              const sectionRuns = [];
+              let lastSection = null;
+              for (let i = 0; i < images.length; i++) {
+                const s = (images[i].section ?? '').trim();
+                if (!s) continue;
+                if (s !== lastSection) {
+                  sectionRuns.push({ section: s, startIdx: i, count: 1 });
+                  lastSection = s;
+                } else {
+                  sectionRuns[sectionRuns.length - 1].count += 1;
+                }
               }
-              const activeSection = (currentImage?.section ?? '').trim() || null;
-              const jumpToSection = (s) => {
-                const idx = images.findIndex(
-                  (im) => (im.section ?? '').trim() === s,
-                );
-                if (idx >= 0) setCurrentImageIdx(idx);
-              };
+              // The active run is the latest run whose startIdx <=
+              // currentImageIdx — keeps the right entry highlighted
+              // even on images with no section between two named runs.
+              let activeRunIdx = -1;
+              for (let i = 0; i < sectionRuns.length; i++) {
+                if (sectionRuns[i].startIdx <= currentImageIdx) activeRunIdx = i;
+                else break;
+              }
+              const runLabel = (r) =>
+                r.count > 1 ? `${r.section} (${r.count})` : r.section;
               return (
                 <div className="sc-viewer-body">
-                  {/* FIX520.2.5 <panel-img-sections>. FIX520.5.2: only
-                      visible when at least one image has a section. */}
-                  {sections.length > 0 && (
+                  {/* FIX520.2.5 / FIX520.2.5.0 <panel-img-sections>.
+                      FIX520.5.2: only visible when at least one image
+                      has a section. */}
+                  {sectionRuns.length > 0 && (
                     <div
                       className="sc-viewer-sections"
                       data-yagu-id="panel-img-sections"
                     >
                       <ul>
-                        {sections.map((s) => (
-                          <li key={s}>
+                        {sectionRuns.map((r, i) => (
+                          <li key={i}>
                             <button
                               type="button"
-                              className={s === activeSection ? 'active' : ''}
-                              onClick={() => jumpToSection(s)}
-                              title={`Jump to first image in "${s}"`}
+                              className={i === activeRunIdx ? 'active' : ''}
+                              onClick={() => setCurrentImageIdx(r.startIdx)}
+                              title={`Jump to image ${r.startIdx + 1} ("${r.section}")`}
                             >
-                              {s}
+                              {runLabel(r)}
                             </button>
                           </li>
                         ))}
@@ -1118,6 +1132,7 @@ export default function ShowcaseView({ onNavigateHome }) {
                           >
                             ‹
                           </button>
+                          {/* FIX520.2.4 / FIX520.2.4.0 <label-image-index>. */}
                           <span
                             className="sc-viewer-pos"
                             data-yagu-id="label-image-index"

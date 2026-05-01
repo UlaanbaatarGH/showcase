@@ -1345,13 +1345,39 @@ body {
 }
 .sc-menu-items button:hover { background: var(--color-bg-light); }
 
-/* FIX410.1.1.1.1 Visits panel: modal listing login events. */
+/* FIX411 <panel-visits>: modal with tabs (History / IP & stats). */
 .visits-panel {
-  width: min(560px, 100%);
-  max-height: min(80vh, 600px);
+  width: min(640px, 100%);
+  max-height: min(80vh, 640px);
   display: flex;
   flex-direction: column;
   padding: 1rem 1.25rem 1.25rem;
+}
+.visits-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.5rem;
+}
+.visits-tabs button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  border-bottom: 2px solid transparent;
+}
+.visits-tabs button.active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-text);
+}
+.visits-tabs button:hover:not(.active) {
+  color: var(--color-text);
+}
+.visits-body {
+  overflow: auto;
+  flex: 1;
 }
 .visits-header {
   display: flex;

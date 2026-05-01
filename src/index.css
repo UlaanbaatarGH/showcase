@@ -641,22 +641,35 @@ body {
   min-height: 0;
 }
 /* FIX520.2.5 / FIX520.2.5.0 <panel-img-sections>. FIX520.5.2: only rendered when at
-   least one image in the item has a section defined. */
+   least one image in the item has a section defined.
+   FIX520.2.1: a flex column — sections list scrolls in the top area,
+   the nav pill (when this panel is shown) is anchored at the bottom. */
 .sc-viewer-sections {
   flex: 0 0 auto;
   max-width: 12rem;
-  overflow-y: auto;
   padding: 0.75rem 0.5rem;
   border-right: 1px solid var(--color-border);
   background: var(--color-bg-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
 }
 .sc-viewer-sections ul {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+/* FIX520.2.1: nav at the bottom of the sections column. */
+.sc-viewer-sections .sc-viewer-nav {
+  flex: 0 0 auto;
+  align-self: flex-start;
 }
 .sc-viewer-sections button {
   width: 100%;
@@ -851,23 +864,26 @@ body {
   /* FIX520.2.10 / FIX520.2.10.1: compact rounded-pill nav, sized to
      its content (minimum width). Same font-size as the caption so
      both sit on the same line at the same scale. Tight gap + padding
-     so the pill doesn't dominate the row visually. */
+     so the pill doesn't dominate the row visually.
+     FIX520.2.10.2: pill background is theme-driven (no black) so it
+     reads cleanly whether placed in the sections column or the
+     image's bottom strip. */
   display: inline-flex;
   align-self: center;
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: var(--color-bg-lighter);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 0.1rem 0.35rem;
-  color: #fff;
+  color: var(--color-text);
   font-size: 1rem;
   line-height: 1;
 }
 .sc-viewer-nav button {
   background: transparent;
-  color: #fff;
+  color: var(--color-text);
   border: none;
   font: inherit;
   line-height: 1;
@@ -876,7 +892,7 @@ body {
   cursor: pointer;
 }
 .sc-viewer-nav button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-bg);
 }
 .sc-viewer-nav button:disabled {
   opacity: 0.35;

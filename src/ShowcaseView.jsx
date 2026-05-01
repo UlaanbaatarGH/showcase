@@ -1079,6 +1079,41 @@ export default function ShowcaseView({ onNavigateHome }) {
               }
               const runLabel = (r) =>
                 r.count > 1 ? `${r.section} (${r.count})` : r.section;
+              // FIX520.2.1 vs FIX520.2.2: when the sections panel is
+              // visible, the nav pill is rendered at its bottom (left
+              // column). Otherwise the pill lives in the image's
+              // bottom strip alongside the caption (right column).
+              const navPill = currentImage ? (
+                <div className="sc-viewer-nav">
+                  <button
+                    type="button"
+                    data-yagu-id="button-prev"
+                    onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                    disabled={currentImageIdx === 0}
+                    aria-label="Previous image"
+                  >
+                    ‹
+                  </button>
+                  {/* FIX520.2.4 / FIX520.2.4.0 <label-image-index>. */}
+                  <span
+                    className="sc-viewer-pos"
+                    data-yagu-id="label-image-index"
+                  >
+                    {currentImageIdx + 1} / {images.length}
+                  </span>
+                  <button
+                    type="button"
+                    data-yagu-id="button-next"
+                    onClick={() =>
+                      setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                    }
+                    disabled={currentImageIdx >= images.length - 1}
+                    aria-label="Next image"
+                  >
+                    ›
+                  </button>
+                </div>
+              ) : null;
               return (
                 <div className="sc-viewer-body">
                   {/* FIX520.2.5 / FIX520.2.5.0 <panel-img-sections>.
@@ -1103,6 +1138,9 @@ export default function ShowcaseView({ onNavigateHome }) {
                           </li>
                         ))}
                       </ul>
+                      {/* FIX520.2.1: nav pill anchored to the bottom of
+                          the sections column when one is shown. */}
+                      {navPill}
                     </div>
                   )}
                   <div className="sc-viewer-main">
@@ -1137,35 +1175,11 @@ export default function ShowcaseView({ onNavigateHome }) {
                               {currentImage.caption}
                             </div>
                           )}
-                          <div className="sc-viewer-nav">
-                            <button
-                              type="button"
-                              data-yagu-id="button-prev"
-                              onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                              disabled={currentImageIdx === 0}
-                              aria-label="Previous image"
-                            >
-                              ‹
-                            </button>
-                            {/* FIX520.2.4 / FIX520.2.4.0 <label-image-index>. */}
-                            <span
-                              className="sc-viewer-pos"
-                              data-yagu-id="label-image-index"
-                            >
-                              {currentImageIdx + 1} / {images.length}
-                            </span>
-                            <button
-                              type="button"
-                              data-yagu-id="button-next"
-                              onClick={() =>
-                                setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-                              }
-                              disabled={currentImageIdx >= images.length - 1}
-                              aria-label="Next image"
-                            >
-                              ›
-                            </button>
-                          </div>
+                          {/* FIX520.2.2: when there's no sections panel,
+                              the nav pill sits in the image's bottom
+                              strip. Otherwise it lives in the sections
+                              column above. */}
+                          {sectionRuns.length === 0 && navPill}
                         </div>
                       </>
                     ) : (

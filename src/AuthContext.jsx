@@ -2,12 +2,14 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
 import { setAuthToken } from './data/backend.js';
 
-// FIX412.5.1 + FIX412.5.1.1: log a sign-in attempt. When `token` is
-// supplied we send it as the bearer so the backend resolves the row's
-// user_id from it (success path: User column shows the login_name).
-// When omitted, the request is anonymous and the row's user_id stays
-// null — the History tab renders '?' for failed login attempts.
-async function trackLogin(token) {
+// FIX412.5.1 + FIX412.5.1.1 + FIX412.5.1.2: log a sign-in attempt.
+//   page: 'login_ok' or 'login_failed' depending on outcome
+//   login_name: whatever the user typed (so the User column can
+//     display it even when the attempt failed and there's no
+//     app_user row to join with)
+//   token (optional): only set on success — backend resolves user_id
+//     from it so we can also show the canonical login_name later.
+async function trackLogin({ ok, loginName, token }) {
   try {
     await fetch('/api/track', {
       method: 'POST',
@@ -15,7 +17,10 @@ async function trackLogin(token) {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ page: 'login' }),
+      body: JSON.stringify({
+        page: ok ? 'login_ok' : 'login_failed',
+        login_name: loginName,
+      }),
     });
   } catch {
     /* fire-and-forget — never break the sign-in UI */
@@ -112,8 +117,8 @@ export function AuthProvider({ children }) {
     // invalid password. The user can keep trying; nothing reveals the
     // block.
     if (recentFailedAttempts().length >= SIGNIN_MAX_FAILS) {
-      // FIX412.5.1 + FIX412.5.1.1: still log the attempt as a failure.
-      trackLogin();
+      // FIX412.5.1.2: still log the (silently rejected) attempt.
+      trackLogin({ ok: false, loginName });
       throw new Error('Invalid login credentials');
     }
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -122,14 +127,15 @@ export function AuthProvider({ children }) {
     });
     if (error) {
       recordFailedSignIn();
-      // FIX412.5.1 + FIX412.5.1.1: failure → no token → '?' in User col.
-      trackLogin();
+      // FIX412.5.1.1: log the typed name so the User column shows it
+      // even though there's no matching app_user row.
+      trackLogin({ ok: false, loginName });
       throw error;
     }
     clearFailedSignIns();
-    // FIX412.5.1.1: success → pass the freshly-issued access token so
-    // the backend records user_id; the User column shows the login_name.
-    trackLogin(data.session?.access_token);
+    // FIX412.5.1.2: success → 'Login OK' page; pass the freshly-issued
+    // token so the backend can also record user_id.
+    trackLogin({ ok: true, loginName, token: data.session?.access_token });
     return data;
   }, []);
 

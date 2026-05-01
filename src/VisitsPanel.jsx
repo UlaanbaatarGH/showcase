@@ -112,15 +112,22 @@ function VisitsHistoryTab({ ipNames }) {
     const d = new Date(ts);
     return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
   };
-  // FIX412.2.1.1.1: page label — 'home', 'project' and (FIX412.5.1)
-  // 'login' for sign-in attempts. Capitalize for display; future
+  // FIX412.2.1.1.1: page label — 'home' / 'project' / 'login_ok' /
+  // 'login_failed' (FIX412.5.1.2). 'login' is the legacy single-tag
+  // value, kept for old rows. Capitalize for display; future
   // multi-project support will resolve project ids to names.
   const pageLabel = (p) => {
     if (p === 'home') return 'Home';
     if (p === 'project') return 'Project';
+    if (p === 'login_ok') return 'Login OK';
+    if (p === 'login_failed') return 'Login FAILED';
     if (p === 'login') return 'Login';
     return p || '';
   };
+  // FIX412.5.1.1: for sign-in attempts, surface the typed login name
+  // (whether or not it matches a known user). For everything else,
+  // fall back to the canonical login_name from the app_user join.
+  const isLoginRow = (p) => p === 'login_ok' || p === 'login_failed' || p === 'login';
   // FIX412.2.1.2: prefer the friendly name when one is mapped; fall
   // back to the raw IP otherwise.
   const ipLabel = (ip) => (ip && ipNames[ip]) || ip || '';
@@ -142,14 +149,16 @@ function VisitsHistoryTab({ ipNames }) {
       </thead>
       <tbody>
         {visits.map((v, i) => {
-          // FIX412.5.1.1: failed login attempts have no user_id, so the
-          // User column shows '?' (distinct from anonymous page hits,
-          // which keep the '—' placeholder).
-          const userCell = v.login_name
-            ? v.login_name
-            : v.page === 'login'
-              ? <span className="visits-anon">?</span>
-              : <span className="visits-anon">—</span>;
+          // FIX412.5.1.1: login rows show the typed sign-in name
+          // (known user or not). Other rows show the canonical
+          // login_name from the app_user join, or '—' for anonymous.
+          let userCell;
+          if (isLoginRow(v.page)) {
+            userCell = v.typed_login || v.login_name
+              || <span className="visits-anon">?</span>;
+          } else {
+            userCell = v.login_name || <span className="visits-anon">—</span>;
+          }
           return (
             <tr key={i}>
               <td>{userCell}</td>

@@ -826,10 +826,16 @@ body {
 .sc-viewer-bottom.has-caption {
   justify-content: space-between;
 }
+/* FIX520.2.6 (updated) + FIX520.2.6.1: caption is centred. Because
+   the row also holds the nav pill on the right (when present), the
+   caption's flex box covers everything left of the nav — text-align
+   centres the label inside that box, so it visually sits roughly in
+   the middle of the row but slightly left when the nav is wide
+   ("slightly shifted to the left" per the spec). */
 .sc-viewer-bottom .sc-viewer-caption {
   flex: 1 1 auto;
   min-width: 0;
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

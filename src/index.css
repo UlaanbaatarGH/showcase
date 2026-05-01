@@ -714,9 +714,12 @@ body {
   cursor: default;
 }
 .sc-section-children {
+  /* FIX522.5.3 indentation: at least 2 'm' under the parent header so
+     the hierarchy is unmistakable. The buttons inside still carry
+     their own 0.5rem left padding, on top of this. */
   list-style: none;
   margin: 0;
-  padding: 0 0 0 1rem;
+  padding: 0 0 0 2em;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;

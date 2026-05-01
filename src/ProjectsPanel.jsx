@@ -54,16 +54,13 @@ export default function ProjectsPanel({ onClose }) {
     [users],
   );
 
-  const onAdd = async ({ name, manager_id }) => {
+  const onAdd = async ({ name, manager_ids }) => {
     setBusy(true);
     try {
-      const created = await createAdminProject({ name, manager_id });
-      // Refetch so managers come back populated (created returns no
-      // managers — server inserts the row but the join happens on
-      // list).
-      await new Promise((r) => Promise.all([listAdminProjects()])
-        .then(([p]) => { setProjects(p); r(); })
-        .catch(() => r()));
+      const created = await createAdminProject({ name, manager_ids });
+      // Refetch so the joined managers come back populated.
+      const refreshed = await listAdminProjects();
+      setProjects(refreshed);
       setSelectedId(created.id);
       setAddOpen(false);
       setError(null);
@@ -288,23 +285,38 @@ export default function ProjectsPanel({ onClose }) {
   );
 }
 
-// FIX351.2.1 dialog: prompt for project name + initial single manager.
+// FIX351.2.1 (updated) dialog: name + ≥1 managers (multi-select)
+// from <data-users-list> filtered to users with a password set.
 function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   const [name, setName] = useState('');
-  const [managerId, setManagerId] = useState(users[0]?.id || '');
+  const [picked, setPicked] = useState(() => new Set());
   const [err, setErr] = useState(null);
+
+  const toggle = (id) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const submit = (e) => {
     e.preventDefault();
     const n = name.trim();
+    // FIX351.2.1.1: non-blank, unique name.
     if (!n) { setErr('Name is required.'); return; }
     if (existingNames.has(n.toLowerCase())) {
       setErr('Project name already in use.');
       return;
     }
-    if (!managerId) { setErr('Pick a manager.'); return; }
+    // FIX351.2.1.2: at least one manager.
+    if (picked.size === 0) {
+      setErr('Pick at least one manager.');
+      return;
+    }
     setErr(null);
-    onSubmit({ name: n, manager_id: managerId });
+    onSubmit({ name: n, manager_ids: [...picked] });
   };
 
   return (
@@ -327,17 +339,29 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
             required
           />
         </label>
-        <label>
-          Manager
-          <select
-            value={managerId}
-            onChange={(e) => setManagerId(e.target.value)}
-          >
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-        </label>
+        <div className="users-add-managers">
+          <span className="users-add-managers-label">Managers</span>
+          {users.length === 0 ? (
+            <div className="visits-empty">
+              No user with a password set yet.
+            </div>
+          ) : (
+            <ul className="managers-picker-list" data-yagu-id="data-users-list">
+              {users.map((u) => (
+                <li key={u.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={picked.has(u.id)}
+                      onChange={() => toggle(u.id)}
+                    />
+                    {u.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         {err && <div className="visits-err">{err}</div>}
         <div className="users-add-actions">
           <button type="button" onClick={onCancel} disabled={busy}>

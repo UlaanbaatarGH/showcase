@@ -1457,6 +1457,18 @@ body {
   background: var(--color-bg-lighter);
   border-style: solid;
 }
+.users-add-managers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.users-add-managers-label {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.users-add-managers .managers-picker-list {
+  max-height: 14rem;
+}
 .managers-picker {
   width: min(360px, 100%);
   display: flex;

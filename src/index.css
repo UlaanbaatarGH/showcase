@@ -1502,6 +1502,28 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* FIX413.2.1.10: highlight the selected row in <panel-ip-address-and-stats>. */
+.visits-table tbody tr {
+  cursor: pointer;
+}
+.visits-table tbody tr.selected {
+  background: rgba(255, 165, 0, 0.18);
+}
+/* FIX413.2.2: 'Query IP' button sits above the table. */
+.ip-stats-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+/* FIX413.2.2.2: ipapi.co result popup. */
+.ip-query-dialog {
+  width: min(420px, 100%);
+  padding: 1rem 1.25rem 1.25rem;
+}
+.ip-query-dialog .visits-table th {
+  width: 8rem;
+  color: var(--color-text-muted);
+}
 /* FIX413.2.1.2.1: <ip-name> text input. Inline-editable, saved onBlur. */
 .ip-name-input {
   width: 100%;

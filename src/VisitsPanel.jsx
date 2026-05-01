@@ -141,14 +141,24 @@ function VisitsHistoryTab({ ipNames }) {
         </tr>
       </thead>
       <tbody>
-        {visits.map((v, i) => (
-          <tr key={i}>
-            <td>{v.login_name || <span className="visits-anon">—</span>}</td>
-            <td>{ipLabel(v.ip)}</td>
-            <td>{pageLabel(v.page)}</td>
-            <td>{fmt(v.ts)}</td>
-          </tr>
-        ))}
+        {visits.map((v, i) => {
+          // FIX412.5.1.1: failed login attempts have no user_id, so the
+          // User column shows '?' (distinct from anonymous page hits,
+          // which keep the '—' placeholder).
+          const userCell = v.login_name
+            ? v.login_name
+            : v.page === 'login'
+              ? <span className="visits-anon">?</span>
+              : <span className="visits-anon">—</span>;
+          return (
+            <tr key={i}>
+              <td>{userCell}</td>
+              <td>{ipLabel(v.ip)}</td>
+              <td>{pageLabel(v.page)}</td>
+              <td>{fmt(v.ts)}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -158,10 +168,27 @@ function VisitsHistoryTab({ ipNames }) {
 // consultations of the App home page and the 1st project's home page.
 // The name is editable inline; saved on blur, optimistically reflected
 // on the History tab via the parent's ipNames map.
+// FIX413.2.1.10: one row is always selected (1st by default).
+// FIX413.2.2: 'Query IP' button looks up the selected IP via ipapi.co.
 function IpStatsTab({ ipStats, error, onSetName }) {
-  // Local input buffer so typing is responsive; the parent only sees
-  // the value on blur (when we both commit locally and call the API).
   const [drafts, setDrafts] = useState({});
+  const [selectedIp, setSelectedIp] = useState(null);
+  const [queryResult, setQueryResult] = useState(null);
+  const [queryError, setQueryError] = useState(null);
+  const [querying, setQuerying] = useState(false);
+
+  // FIX413.2.1.10: keep a row selected. Default to the first; when the
+  // current selection disappears (e.g. data reload), fall back to 1st.
+  useEffect(() => {
+    const rows = ipStats?.rows;
+    if (!rows || rows.length === 0) {
+      setSelectedIp(null);
+      return;
+    }
+    setSelectedIp((prev) => (
+      rows.some((r) => r.ip === prev) ? prev : rows[0].ip
+    ));
+  }, [ipStats]);
 
   if (error) return <div className="visits-err">{error}</div>;
   if (ipStats === null) return <div className="visits-loading">Loading…</div>;
@@ -180,41 +207,128 @@ function IpStatsTab({ ipStats, error, onSetName }) {
     if (next !== row.name) onSetName(row.ip, next);
   };
 
+  // FIX413.2.2.1 + FIX413.2.2.2: hit ipapi.co with the selected IP and
+  // open a layered popup over the panel showing the canonical fields.
+  const onQueryIp = async () => {
+    if (!selectedIp) return;
+    setQuerying(true);
+    setQueryError(null);
+    try {
+      const r = await fetch(`https://ipapi.co/${encodeURIComponent(selectedIp)}/json/`);
+      const data = await r.json();
+      if (!r.ok || data.error) {
+        throw new Error(data.reason || `HTTP ${r.status}`);
+      }
+      setQueryResult(data);
+    } catch (e) {
+      setQueryError(e.message || String(e));
+    } finally {
+      setQuerying(false);
+    }
+  };
+
   if (!ipStats.rows || ipStats.rows.length === 0) {
     return <div className="visits-empty">No IP recorded yet.</div>;
   }
   return (
-    <table className="visits-table" data-yagu-id="panel-ip-address-and-stats">
-      <thead>
-        <tr>
-          <th>IP Addr</th>
-          <th>IP Name</th>
-          <th>Home</th>
-          <th>{projectName}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {ipStats.rows.map((r) => (
-          <tr key={r.ip}>
-            <td>{r.ip}</td>
-            <td>
-              <input
-                type="text"
-                data-yagu-id="ip-name"
-                className="ip-name-input"
-                value={valueFor(r)}
-                onChange={(e) =>
-                  setDrafts((d) => ({ ...d, [r.ip]: e.target.value }))
-                }
-                onBlur={() => onBlur(r)}
-                placeholder="(unnamed)"
-              />
-            </td>
-            <td className="visits-num">{r.home_count}</td>
-            <td className="visits-num">{r.project_count}</td>
+    <>
+      <div className="ip-stats-toolbar">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={onQueryIp}
+          disabled={!selectedIp || querying}
+        >
+          {querying ? 'Querying…' : 'Query IP'}
+        </button>
+      </div>
+      {queryError && <div className="visits-err">{queryError}</div>}
+      <table className="visits-table" data-yagu-id="panel-ip-address-and-stats">
+        <thead>
+          <tr>
+            <th>IP Addr</th>
+            <th>IP Name</th>
+            <th>Home</th>
+            <th>{projectName}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {ipStats.rows.map((r) => (
+            <tr
+              key={r.ip}
+              className={r.ip === selectedIp ? 'selected' : ''}
+              onClick={() => setSelectedIp(r.ip)}
+            >
+              <td>{r.ip}</td>
+              <td>
+                <input
+                  type="text"
+                  data-yagu-id="ip-name"
+                  className="ip-name-input"
+                  value={valueFor(r)}
+                  onChange={(e) =>
+                    setDrafts((d) => ({ ...d, [r.ip]: e.target.value }))
+                  }
+                  onBlur={() => onBlur(r)}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder="(unnamed)"
+                />
+              </td>
+              <td className="visits-num">{r.home_count}</td>
+              <td className="visits-num">{r.project_count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {queryResult && (
+        <IpQueryDialog
+          data={queryResult}
+          onClose={() => setQueryResult(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// FIX413.2.2.2: layered popup over the IP & stats panel, showing the
+// canonical subset of ipapi.co's response.
+function IpQueryDialog({ data, onClose }) {
+  const fields = [
+    ['ip', 'IP'],
+    ['city', 'City'],
+    ['region', 'Region'],
+    ['country', 'Country'],
+    ['country_name', 'Country name'],
+    ['postal', 'Postal'],
+    ['latitude', 'Latitude'],
+    ['longitude', 'Longitude'],
+    ['timezone', 'Timezone'],
+    ['asn', 'ASN'],
+    ['org', 'Org'],
+  ];
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal ip-query-dialog"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="visits-header">
+          <h2>IP info</h2>
+          <button type="button" className="btn-link" onClick={onClose}>
+            Close
+          </button>
+        </header>
+        <table className="visits-table">
+          <tbody>
+            {fields.map(([k, label]) => (
+              <tr key={k}>
+                <th>{label}</th>
+                <td>{data[k] != null ? String(data[k]) : ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

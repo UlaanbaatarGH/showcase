@@ -1,6 +1,26 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
-import { setAuthToken, trackVisit } from './data/backend.js';
+import { setAuthToken } from './data/backend.js';
+
+// FIX412.5.1 + FIX412.5.1.1: log a sign-in attempt. When `token` is
+// supplied we send it as the bearer so the backend resolves the row's
+// user_id from it (success path: User column shows the login_name).
+// When omitted, the request is anonymous and the row's user_id stays
+// null — the History tab renders '?' for failed login attempts.
+async function trackLogin(token) {
+  try {
+    await fetch('/api/track', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ page: 'login' }),
+    });
+  } catch {
+    /* fire-and-forget — never break the sign-in UI */
+  }
+}
 
 // FIX315.3: client-side rate limit on sign-in. After 3 failed attempts
 // within the rolling window, every subsequent attempt is silently
@@ -87,14 +107,13 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (loginName, password) => {
     if (!supabaseConfigured) throw new Error('auth not configured');
-    // FIX412.5.1: log every sign-in attempt with page='login', success
-    // or fail. Anonymous calls are accepted by /api/track.
-    trackVisit('login');
     // FIX315.3: silent rate limit — after 3 fails in the window, deny
     // every subsequent attempt with the same error wording as an
     // invalid password. The user can keep trying; nothing reveals the
     // block.
     if (recentFailedAttempts().length >= SIGNIN_MAX_FAILS) {
+      // FIX412.5.1 + FIX412.5.1.1: still log the attempt as a failure.
+      trackLogin();
       throw new Error('Invalid login credentials');
     }
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -103,9 +122,14 @@ export function AuthProvider({ children }) {
     });
     if (error) {
       recordFailedSignIn();
+      // FIX412.5.1 + FIX412.5.1.1: failure → no token → '?' in User col.
+      trackLogin();
       throw error;
     }
     clearFailedSignIns();
+    // FIX412.5.1.1: success → pass the freshly-issued access token so
+    // the backend records user_id; the User column shows the login_name.
+    trackLogin(data.session?.access_token);
     return data;
   }, []);
 

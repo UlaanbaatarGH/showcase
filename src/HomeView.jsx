@@ -6,6 +6,7 @@ import {
   listProjects,
   updateProject,
   signProjectCoverUpload,
+  trackVisit,
 } from './data/backend.js';
 
 // FIX400: Home page.
@@ -39,6 +40,9 @@ export default function HomeView({ onOpenProject }) {
   }, [token]);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  // FIX410.1.1.1.1.1: log a consultation of <panel-app-home>.
+  useEffect(() => { trackVisit('home'); }, []);
 
   // FIX400.4.3/.4/.5: buttons follow (signed-in AND editing-state) rules.
   const showEdit = !!profile && !editing;

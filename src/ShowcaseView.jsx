@@ -10,7 +10,7 @@ import GroupingPanel from './grouping/GroupingPanel.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
-import { getShowcase, getFolderImages } from './data/backend.js';
+import { getShowcase, getFolderImages, trackVisit } from './data/backend.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 
 function romanToInt(s) {
@@ -211,6 +211,9 @@ export default function ShowcaseView() {
       })
       .catch((e) => setError(e.message || String(e)));
   }, []);
+
+  // FIX410.1.1.1.1.1: log a consultation of <panel-project-home>.
+  useEffect(() => { trackVisit('project'); }, []);
 
   useEffect(() => {
     if (!menuOpen) return;

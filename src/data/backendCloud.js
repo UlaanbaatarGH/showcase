@@ -43,8 +43,12 @@ export default {
   listProjects: () => call('/api/projects'),
   getShowcase: () => call('/api/showcase'),
   getFolderImages: (folderId) => call(`/api/folders/${folderId}/images`),
-  // FIX410.1.1.1.1: admin-only login log, sorted most-recent first.
+  // FIX410.1.1.1.1: admin-only consultation log, sorted most-recent first.
   listVisits: () => call('/api/admin/visits'),
+  // FIX410.1.1.1.1.1: log a consultation of one of the two tracked pages.
+  // Fire-and-forget — failures swallowed so they don't disrupt the page load.
+  trackVisit: (page) =>
+    call('/api/track', { method: 'POST', body: { page } }).catch(() => null),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>

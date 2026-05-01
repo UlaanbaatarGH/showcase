@@ -1378,6 +1378,9 @@ body {
   color: var(--color-text-muted);
   font-weight: 600;
 }
+.visits-anon {
+  color: var(--color-text-muted);
+}
 
 /* FIX370: Google Sheet import dialog */
 .gsheet-dialog { width: min(560px, 100%); }

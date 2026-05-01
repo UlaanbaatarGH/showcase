@@ -1088,9 +1088,27 @@ export default function ShowcaseView() {
                   <div className="sc-viewer-main">
                     {currentImage ? (
                       <>
-                        {/* FIX520.2 (updated): prev/next + i/n now sit at
-                            the top of the image column; the image fills
-                            the space below. FIX520.2.2 / .2.3 / .2.4. */}
+                        {/* FIX520.2 (updated): image first, then the
+                            prev/next + i/n nav at the bottom of the
+                            column. Keeps the image as tall as possible
+                            on phones, matching the new layout sketch. */}
+                        <div
+                          className="sc-viewer-img-wrap sc-viewer-img-clickable"
+                          onClick={onImageClick}
+                          onTouchStart={onImageTouchStart}
+                          onTouchEnd={onImageTouchEnd}
+                          title="Click to view full screen — swipe left/right to navigate"
+                        >
+                          <ShowcaseImageCanvas
+                            url={currentImage.url}
+                            rotation={currentImage.rotation ?? 0}
+                            crop={currentImage.crop ?? null}
+                            className="sc-viewer-img"
+                          />
+                          {currentImage.caption && (
+                            <div className="sc-viewer-caption">{currentImage.caption}</div>
+                          )}
+                        </div>
                         <div className="sc-viewer-nav">
                           <button
                             type="button"
@@ -1116,23 +1134,6 @@ export default function ShowcaseView() {
                           >
                             ›
                           </button>
-                        </div>
-                        <div
-                          className="sc-viewer-img-wrap sc-viewer-img-clickable"
-                          onClick={onImageClick}
-                          onTouchStart={onImageTouchStart}
-                          onTouchEnd={onImageTouchEnd}
-                          title="Click to view full screen — swipe left/right to navigate"
-                        >
-                          <ShowcaseImageCanvas
-                            url={currentImage.url}
-                            rotation={currentImage.rotation ?? 0}
-                            crop={currentImage.crop ?? null}
-                            className="sc-viewer-img"
-                          />
-                          {currentImage.caption && (
-                            <div className="sc-viewer-caption">{currentImage.caption}</div>
-                          )}
                         </div>
                       </>
                     ) : (
@@ -1411,12 +1412,30 @@ export default function ShowcaseView() {
               ›
             </button>
           </div>
-          <ShowcaseImageCanvas
-            url={currentImage.url}
-            rotation={currentImage.rotation ?? 0}
-            crop={currentImage.crop ?? null}
-            className="sc-fullscreen-img"
-          />
+          {/* FIX520.3.2.3: swipe left/right to navigate. Reuses the same
+              touch refs as the in-page viewer (only one image surface is
+              ever live, so no clash). The wrapper also catches the click
+              that follows a swipe so the backdrop doesn't dismiss the
+              overlay — a normal tap on the image still bubbles up and
+              closes (FIX520.3.2 backdrop dismiss). */}
+          <div
+            className="sc-fullscreen-img-wrap"
+            onTouchStart={onImageTouchStart}
+            onTouchEnd={onImageTouchEnd}
+            onClick={(e) => {
+              if (wasSwipeRef.current) {
+                wasSwipeRef.current = false;
+                e.stopPropagation();
+              }
+            }}
+          >
+            <ShowcaseImageCanvas
+              url={currentImage.url}
+              rotation={currentImage.rotation ?? 0}
+              crop={currentImage.crop ?? null}
+              className="sc-fullscreen-img"
+            />
+          </div>
         </div>
       )}
     </div>

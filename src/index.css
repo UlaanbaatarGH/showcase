@@ -713,7 +713,11 @@ body {
   color: var(--color-text-muted);
   cursor: default;
 }
-.sc-section-children {
+/* Specificity bumped via .sc-viewer-sections so this beats the
+   `.sc-viewer-sections ul { padding: 0 }` rule above. Without the
+   ancestor selector that rule wins on specificity and the indent
+   silently goes back to 0. */
+.sc-viewer-sections .sc-section-children {
   /* FIX522.5.3 indentation: at least 2 'm' under the parent header so
      the hierarchy is unmistakable. The buttons inside still carry
      their own 0.5rem left padding, on top of this. */

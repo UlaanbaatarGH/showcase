@@ -193,27 +193,17 @@ export default function ShowcaseView() {
     window.addEventListener('mouseup', up);
   };
 
-  // FIX508.2.3 / <setup-select-first-item>: when false (default), the
-  // Showcase view opens with no item selected. Honored by both the initial
-  // load and by reloadShowcase (used after Save in the Setup panel).
+  // FIX508.2.3: auto-selection now lives in a separate effect below that
+  // fires against the *displayed* list (post grouping, bucket and column
+  // filters), so the "first item" matches what the user actually sees.
   const reloadShowcase = () =>
     getShowcase()
-      .then((d) => {
-        setData(d);
-        if (d.folders?.length && selectedFolderId == null && d.view_setup?.select_first_item) {
-          setSelectedFolderId(d.folders[0].id);
-        }
-      })
+      .then((d) => setData(d))
       .catch((e) => setError(e.message || String(e)));
 
   useEffect(() => {
     getShowcase()
-      .then((d) => {
-        setData(d);
-        if (d.folders?.length && d.view_setup?.select_first_item) {
-          setSelectedFolderId(d.folders[0].id);
-        }
-      })
+      .then(setData)
       .catch((e) => setError(e.message || String(e)));
   }, []);
 
@@ -468,6 +458,20 @@ export default function ShowcaseView() {
     }
     return rows;
   }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed, propertiesById, propertiesByLabel]);
+
+  // FIX508.2.3 / <setup-select-first-item>: when the option is on, keep
+  // the first *displayed* item selected. Runs against displayedFolders
+  // (after grouping, bucket and column filters) so the spec's "1st
+  // listed item" matches what the user actually sees. Skipped entirely
+  // when the option is off — the selection then stays empty, or wherever
+  // the user has explicitly clicked.
+  useEffect(() => {
+    if (!data?.view_setup?.select_first_item) return;
+    if (displayedFolders.length === 0) return;
+    const stillVisible = displayedFolders.some((f) => f.id === selectedFolderId);
+    if (stillVisible) return;
+    setSelectedFolderId(displayedFolders[0].id);
+  }, [data, displayedFolders, selectedFolderId]);
 
   const handleHeaderClick = (key, ctrl) => {
     setSortKeys((keys) => {

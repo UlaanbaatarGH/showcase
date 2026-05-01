@@ -19,6 +19,7 @@ export const listIpStats = impl.listIpStats;
 export const setIpName = impl.setIpName;
 export const listUsers = impl.listUsers;
 export const createUser = impl.createUser;
+export const updateUser = impl.updateUser;
 export const deleteUser = impl.deleteUser;
 export const redeemAccount = impl.redeemAccount;
 export const listAdminProjects = impl.listAdminProjects;

@@ -1520,6 +1520,10 @@ body {
 .users-remove:not(:disabled):hover { background: rgba(248, 113, 113, 0.12); }
 .users-table .users-check { text-align: center; }
 .users-table .users-code { font-family: monospace; letter-spacing: 0.05em; }
+/* FIX311.2.1.5.1: <user-is-admin> ticked with a green sign. */
+.users-admin-check {
+  accent-color: #4ade80;
+}
 
 /* FIX311.3.1 dialog: small modal prompted from the Add (+) button. */
 .users-add-dialog {

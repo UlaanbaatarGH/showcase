@@ -56,6 +56,8 @@ export default {
   // FIX311 <panel-users>: admin-only user management.
   listUsers: () => call('/api/admin/users'),
   createUser: (body) => call('/api/admin/users', { method: 'POST', body }),
+  updateUser: (id, body) =>
+    call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deleteUser: (id) =>
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // FIX317: anonymous redemption — trade login_name + access_code

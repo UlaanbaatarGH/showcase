@@ -548,7 +548,20 @@ export default function ShowcaseView() {
   useEffect(() => {
     const onKey = (e) => {
       if (showSetup || showColumns || showGrouping || importOpen || importImagesOpen) return;
-      if (fullScreen) return;
+      // FIX520.3.2.2: in fullscreen, ←/→ still navigate images (Prev/Next),
+      // but ↑/↓ are ignored (no item table to walk through).
+      if (fullScreen) {
+        if (e.key === 'ArrowLeft') {
+          if (!images.length) return;
+          e.preventDefault();
+          setCurrentImageIdx((i) => Math.max(0, i - 1));
+        } else if (e.key === 'ArrowRight') {
+          if (!images.length) return;
+          e.preventDefault();
+          setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1));
+        }
+        return;
+      }
       // FIX521: the Image List editor owns its own arrow-key handling while
       // in edition mode (table row selection, not global item/image nav).
       if (editionMode) return;
@@ -1351,6 +1364,32 @@ export default function ShowcaseView() {
           >
             ‹ Back
           </button>
+          {/* FIX520.3.2.2: Prev/Next + i/n, mirroring <panel-showcase-img-viewer>.
+              Disabled at the bounds. stopPropagation so clicks don't bubble
+              to the backdrop (which would close the overlay). */}
+          <div className="sc-fullscreen-nav" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+              disabled={currentImageIdx === 0}
+              aria-label="Previous image"
+            >
+              ‹
+            </button>
+            <span className="sc-fullscreen-pos">
+              {currentImageIdx + 1} / {images.length}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+              }
+              disabled={currentImageIdx >= images.length - 1}
+              aria-label="Next image"
+            >
+              ›
+            </button>
+          </div>
           <ShowcaseImageCanvas
             url={currentImage.url}
             rotation={currentImage.rotation ?? 0}

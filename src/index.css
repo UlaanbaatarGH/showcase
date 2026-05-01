@@ -695,6 +695,32 @@ body {
   color: var(--color-text);
   border-color: var(--color-accent);
 }
+/* FIX522.5.3 hierarchy: a 'root' header followed by indented children.
+   The header is itself a button when a bare-root run exists
+   (FIX522.5.3.1), otherwise a plain non-clickable label. */
+.sc-section-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sc-section-header {
+  font-weight: 600;
+}
+.sc-section-header-static {
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  color: var(--color-text-muted);
+  cursor: default;
+}
+.sc-section-children {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
 .sc-viewer-main {
   flex: 1 1 auto;
   display: flex;

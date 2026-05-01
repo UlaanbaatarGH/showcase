@@ -1051,22 +1051,61 @@ export default function ShowcaseView({ onNavigateHome }) {
               //   Sections panel (left, optional) | Image + nav (right).
               // FIX520.5.2: the sections panel is rendered only when the
               // item has at least one image with a section defined.
-              // FIX520.5.3: a section name appears once per *run* — if
-              // S1 reappears after a different S2, it's listed twice
-              // (each entry navigates to the start of its own run, not
-              // a global "first occurrence").
-              // FIX520.5.4: when a run spans several consecutive images
-              // the count is appended as " (n)"; n=1 stays unadorned.
+              // FIX522.5.1 (ex-520.5.3): a section name appears once per
+              // *run* — if S1 reappears after a different S2, it's
+              // listed twice (each entry navigates to the start of its
+              // own run, not a global "first occurrence").
+              // FIX522.5.2 (ex-520.5.4): when a run spans several
+              // consecutive images the count is appended as " (n)";
+              // n=1 stays unadorned.
+              // FIX522.5.3: a single '/' in a section name introduces a
+              // hierarchy level (root/sub). '//' escapes to a literal
+              // '/'. Consecutive runs sharing the same root collapse
+              // under a single header (FIX522.5.3.2).
+              // FIX522.5.3.1: the root header is clickable only when an
+              // image actually has the bare root as its section name.
+              const splitSection = (s) => {
+                const out = [];
+                let cur = '';
+                for (let i = 0; i < s.length; i++) {
+                  if (s[i] === '/') {
+                    if (s[i + 1] === '/') { cur += '/'; i += 1; }
+                    else { out.push(cur.trim()); cur = ''; }
+                  } else { cur += s[i]; }
+                }
+                out.push(cur.trim());
+                return out;
+              };
               const sectionRuns = [];
               let lastSection = null;
               for (let i = 0; i < images.length; i++) {
                 const s = (images[i].section ?? '').trim();
                 if (!s) continue;
                 if (s !== lastSection) {
-                  sectionRuns.push({ section: s, startIdx: i, count: 1 });
+                  sectionRuns.push({
+                    section: s,
+                    parts: splitSection(s),
+                    startIdx: i,
+                    count: 1,
+                  });
                   lastSection = s;
                 } else {
                   sectionRuns[sectionRuns.length - 1].count += 1;
+                }
+              }
+              // FIX522.5.3.2: collapse consecutive runs sharing the
+              // same root (parts[0]) into a single rendered group.
+              const sectionGroups = [];
+              for (const run of sectionRuns) {
+                const root = run.parts[0];
+                const sub = run.parts.length > 1
+                  ? run.parts.slice(1).join('/')
+                  : null;
+                const last = sectionGroups[sectionGroups.length - 1];
+                if (last && last.root === root) {
+                  last.items.push({ sub, run });
+                } else {
+                  sectionGroups.push({ root, items: [{ sub, run }] });
                 }
               }
               // The active run is the latest run whose startIdx <=
@@ -1077,8 +1116,11 @@ export default function ShowcaseView({ onNavigateHome }) {
                 if (sectionRuns[i].startIdx <= currentImageIdx) activeRunIdx = i;
                 else break;
               }
+              const activeRun = sectionRuns[activeRunIdx] || null;
               const runLabel = (r) =>
                 r.count > 1 ? `${r.section} (${r.count})` : r.section;
+              const subLabel = (it) =>
+                it.run.count > 1 ? `${it.sub} (${it.run.count})` : it.sub;
               // FIX520.2.1 vs FIX520.2.2: when the sections panel is
               // visible, the nav pill is rendered at its bottom (left
               // column). Otherwise the pill lives in the image's
@@ -1116,27 +1158,73 @@ export default function ShowcaseView({ onNavigateHome }) {
               ) : null;
               return (
                 <div className="sc-viewer-body">
-                  {/* FIX520.2.5 / FIX520.2.5.0 <panel-img-sections>.
+                  {/* FIX522 / FIX522.0 <panel-img-sections>.
                       FIX520.5.2: only visible when at least one image
-                      has a section. */}
+                      has a section. FIX522.5.3: a single '/' in a
+                      section name renders as a nested child under a
+                      shared root header. */}
                   {sectionRuns.length > 0 && (
                     <div
                       className="sc-viewer-sections"
                       data-yagu-id="panel-img-sections"
                     >
                       <ul>
-                        {sectionRuns.map((r, i) => (
-                          <li key={i}>
-                            <button
-                              type="button"
-                              className={i === activeRunIdx ? 'active' : ''}
-                              onClick={() => setCurrentImageIdx(r.startIdx)}
-                              title={`Jump to image ${r.startIdx + 1} ("${r.section}")`}
-                            >
-                              {runLabel(r)}
-                            </button>
-                          </li>
-                        ))}
+                        {sectionGroups.map((g, gi) => {
+                          const bare = g.items.find((it) => it.sub === null);
+                          const children = g.items.filter((it) => it.sub !== null);
+                          // Flat case — no '/' anywhere in this group
+                          // (just a plain run, possibly repeated). Render
+                          // as a single clickable entry, no header/child
+                          // structure.
+                          if (children.length === 0 && bare) {
+                            return (
+                              <li key={gi}>
+                                <button
+                                  type="button"
+                                  className={bare.run === activeRun ? 'active' : ''}
+                                  onClick={() => setCurrentImageIdx(bare.run.startIdx)}
+                                  title={`Jump to image ${bare.run.startIdx + 1} ("${bare.run.section}")`}
+                                >
+                                  {runLabel(bare.run)}
+                                </button>
+                              </li>
+                            );
+                          }
+                          // FIX522.5.3.1: header is clickable only when a
+                          // bare-root run exists in this group.
+                          return (
+                            <li key={gi} className="sc-section-group">
+                              {bare ? (
+                                <button
+                                  type="button"
+                                  className={`sc-section-header${bare.run === activeRun ? ' active' : ''}`}
+                                  onClick={() => setCurrentImageIdx(bare.run.startIdx)}
+                                  title={`Jump to image ${bare.run.startIdx + 1} ("${bare.run.section}")`}
+                                >
+                                  {runLabel(bare.run)}
+                                </button>
+                              ) : (
+                                <div className="sc-section-header sc-section-header-static">
+                                  {g.root}
+                                </div>
+                              )}
+                              <ul className="sc-section-children">
+                                {children.map((it, ci) => (
+                                  <li key={ci}>
+                                    <button
+                                      type="button"
+                                      className={it.run === activeRun ? 'active' : ''}
+                                      onClick={() => setCurrentImageIdx(it.run.startIdx)}
+                                      title={`Jump to image ${it.run.startIdx + 1} ("${it.run.section}")`}
+                                    >
+                                      {subLabel(it)}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </li>
+                          );
+                        })}
                       </ul>
                       {/* FIX520.2.1: nav pill anchored to the bottom of
                           the sections column when one is shown. */}

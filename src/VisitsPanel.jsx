@@ -98,15 +98,22 @@ export default function VisitsPanel({ onClose }) {
 // FIX412 <panel-visits-history>: table of consultations sorted most
 // recent first. Columns per FIX412.2.1.{1..4}: User, IP (with name
 // fallback), Page, Date/time.
+// FIX412.2.2: Export button writes the rendered table to CSV.
+// FIX412.2.3: Refresh icon button reloads /api/admin/visits.
 function VisitsHistoryTab({ ipNames }) {
   const [visits, setVisits] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
+    setLoading(true);
     listVisits()
-      .then(setVisits)
-      .catch((e) => setError(e.message || String(e)));
+      .then((d) => { setVisits(d); setError(null); })
+      .catch((e) => setError(e.message || String(e)))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { reload(); }, [reload]);
 
   const fmt = (ts) => {
     const d = new Date(ts);
@@ -132,12 +139,89 @@ function VisitsHistoryTab({ ipNames }) {
   // back to the raw IP otherwise.
   const ipLabel = (ip) => (ip && ipNames[ip]) || ip || '';
 
-  if (error) return <div className="visits-err">{error}</div>;
-  if (visits === null) return <div className="visits-loading">Loading…</div>;
+  // FIX412.2.2: build a CSV from the same rows that fill the table —
+  // same columns, same labels — and trigger a browser download.
+  const exportCsv = () => {
+    if (!visits || visits.length === 0) return;
+    const escape = (v) => {
+      const s = v == null ? '' : String(v);
+      return /["\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const userOf = (v) => {
+      if (isLoginRow(v.page)) return v.typed_login || v.login_name || '';
+      return v.login_name || '';
+    };
+    const header = ['User', 'IP', 'Page', 'Date / time'];
+    const lines = [header.map(escape).join(',')];
+    for (const v of visits) {
+      lines.push([
+        escape(userOf(v)),
+        escape(ipLabel(v.ip)),
+        escape(pageLabel(v.page)),
+        escape(fmt(v.ts)),
+      ].join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `visits-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const toolbar = (
+    <div className="visits-toolbar">
+      <button
+        type="button"
+        onClick={exportCsv}
+        disabled={!visits || visits.length === 0}
+      >
+        Export
+      </button>
+      {/* FIX412.2.3: refresh icon. */}
+      <button
+        type="button"
+        className="visits-refresh"
+        onClick={reload}
+        disabled={loading}
+        aria-label="Refresh"
+        title="Refresh"
+      >
+        ↻
+      </button>
+    </div>
+  );
+
+  if (error) {
+    return (
+      <>
+        {toolbar}
+        <div className="visits-err">{error}</div>
+      </>
+    );
+  }
+  if (visits === null) {
+    return (
+      <>
+        {toolbar}
+        <div className="visits-loading">Loading…</div>
+      </>
+    );
+  }
   if (visits.length === 0) {
-    return <div className="visits-empty">No visit recorded yet.</div>;
+    return (
+      <>
+        {toolbar}
+        <div className="visits-empty">No visit recorded yet.</div>
+      </>
+    );
   }
   return (
+    <>
+    {toolbar}
     <table className="visits-table" data-yagu-id="panel-visits-history">
       <thead>
         <tr>
@@ -170,6 +254,7 @@ function VisitsHistoryTab({ ipNames }) {
         })}
       </tbody>
     </table>
+    </>
   );
 }
 

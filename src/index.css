@@ -1511,6 +1511,37 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* FIX412.2.2 + FIX412.2.3: Export + Refresh toolbar above the
+   visits history table. Same shape as .ip-stats-toolbar. */
+.visits-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.visits-toolbar button {
+  padding: 0.25rem 0.7rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.visits-toolbar button:hover:not(:disabled) {
+  background: var(--color-bg-lighter);
+}
+.visits-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.visits-toolbar .visits-refresh {
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
 /* FIX413.2.1.10: highlight the selected row in <panel-ip-address-and-stats>. */
 .visits-table tbody tr {
   cursor: pointer;

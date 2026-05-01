@@ -321,6 +321,13 @@ export default function ShowcaseImgListEditor({
             Done
           </button>
         </div>
+        {/* FIX521.2.1.1.11 / FIX521.2.1.1.12: a scrolling wrapper holds
+            the whole table — <table> itself doesn't honor overflow, so
+            without this the rows would either spill past the panel
+            (no scrollbar) or push the layout. tbody rows have a fixed
+            height (FIX521.2.1.1.11) so a long caption can't make one
+            row taller than the others. */}
+        <div className="sc-img-list-scroll">
         <table className="sc-img-list-table" data-yagu-id="table-item-img-info">
           <thead>
             <tr>
@@ -388,6 +395,7 @@ export default function ShowcaseImgListEditor({
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="sc-img-list-editor-pane">

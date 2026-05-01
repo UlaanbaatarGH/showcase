@@ -967,9 +967,15 @@ body {
 .sc-img-list-pane:focus {
   background: var(--color-bg-light);
 }
-.sc-img-list-table {
+/* FIX521.2.1.1.12: scrolling wrapper around the table. <table> itself
+   doesn't honor overflow reliably, so we move the flex+overflow here
+   and keep the table at intrinsic size inside. */
+.sc-img-list-scroll {
   flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+}
+.sc-img-list-table {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.875rem;
@@ -987,10 +993,19 @@ body {
   font-weight: 600;
   color: var(--color-text);
 }
+/* FIX521.2.1.1.11: every body row has the same height. A long caption
+   or section ellipsizes inside its cell instead of pushing the row
+   taller than its neighbors. */
+.sc-img-list-table tbody tr {
+  height: 2rem;
+}
 .sc-img-list-table td {
   padding: 0.2rem 0.5rem;
   border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));
   vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sc-img-list-table td.filename {
   max-width: 14rem;

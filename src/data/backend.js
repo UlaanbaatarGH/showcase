@@ -21,6 +21,10 @@ export const listUsers = impl.listUsers;
 export const createUser = impl.createUser;
 export const deleteUser = impl.deleteUser;
 export const redeemAccount = impl.redeemAccount;
+export const listAdminProjects = impl.listAdminProjects;
+export const createAdminProject = impl.createAdminProject;
+export const updateAdminProject = impl.updateAdminProject;
+export const clearProjectManagers = impl.clearProjectManagers;
 
 // Writes
 export const saveSetup = impl.saveSetup;

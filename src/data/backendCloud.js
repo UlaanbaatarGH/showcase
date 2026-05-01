@@ -62,6 +62,14 @@ export default {
   // + new password for a fresh Supabase auth user. Backend rewrites
   // the existing app_user.id to match the new auth user id.
   redeemAccount: (body) => call('/api/auth/redeem', { method: 'POST', body }),
+  // FIX351 <panel-project-list>: admin-only project + managers CRUD.
+  listAdminProjects: () => call('/api/admin/projects'),
+  createAdminProject: (body) =>
+    call('/api/admin/projects', { method: 'POST', body }),
+  updateAdminProject: (id, body) =>
+    call(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
+  clearProjectManagers: (id) =>
+    call(`/api/admin/projects/${encodeURIComponent(id)}/clear-managers`, { method: 'POST' }),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>

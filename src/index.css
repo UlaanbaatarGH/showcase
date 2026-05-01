@@ -814,31 +814,21 @@ body {
 }
 /* FIX520.2 (updated): bottom strip below the image — holds
    <label-img-caption> and the prev/i-n/next nav pill.
-   FIX520.2.6.1 (updated): use block + text-align:center for the strip
-   so the caption (an inline-block) centres at the row's true centre,
-   which lines up with the image's centre above. The nav is pulled out
-   of flow (position:absolute, right:0) so it doesn't perturb the
-   centring. FIX520.2.10: when there's no caption, switch to
-   inline-flex centring so the nav alone is centred. */
+   FIX520.2.10 (updated): nav is always right-aligned (out of flow,
+   position:absolute, right:0), regardless of whether a caption is
+   shown. FIX520.2.10.1: nav already has minimum width via its inline
+   inline-flex pill style.
+   FIX520.2.6.1: caption (when shown) sits as plain text, centred
+   under the image — block layout with text-align:center centres the
+   inline-block caption at the row's true centre, which lines up with
+   the image's centre above. */
 .sc-viewer-bottom {
   flex: 0 0 auto;
   position: relative;
   min-height: 2rem;
-}
-.sc-viewer-bottom:not(.has-caption) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.sc-viewer-bottom.has-caption {
   display: block;
   text-align: center;
 }
-/* FIX520.2.6.2: caption sits as a tight pill — sized to its content
-   (minimum width) and styled like the nav pill so the two read as
-   peers in the bottom strip. inline-block keeps it shrink-wrapped to
-   the text; max-width:100% ellipsizes only when the row is too narrow
-   for the full caption. */
 .sc-viewer-bottom .sc-viewer-caption {
   display: inline-block;
   text-align: center;
@@ -847,16 +837,8 @@ body {
   text-overflow: ellipsis;
   max-width: 100%;
   vertical-align: middle;
-  padding: 0.25rem 0.6rem;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 6px;
-  color: #fff;
-  opacity: 1;
-  font-size: 0.9rem;
-  line-height: 1;
 }
-.sc-viewer-bottom.has-caption .sc-viewer-nav {
+.sc-viewer-bottom .sc-viewer-nav {
   position: absolute;
   right: 0;
   top: 50%;

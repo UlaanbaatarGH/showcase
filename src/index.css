@@ -812,33 +812,40 @@ body {
   font-size: 1rem;
   opacity: 0.85;
 }
-/* FIX520.2 (updated): bottom strip below the image — shares the row
-   between <label-img-caption> (left) and the prev/i-n/next nav pill.
+/* FIX520.2 (updated): bottom strip below the image — holds
+   <label-img-caption> and the prev/i-n/next nav pill.
    FIX520.2.10: nav is centred on its own when no caption is shown,
-   right-aligned (caption fills remaining space) when one is. */
+   pinned to the right (absolutely positioned) when one is. */
 .sc-viewer-bottom {
   flex: 0 0 auto;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   justify-content: center;
+  min-height: 2rem;
 }
-.sc-viewer-bottom.has-caption {
-  justify-content: space-between;
-}
-/* FIX520.2.6 (updated) + FIX520.2.6.1: caption is centred. Because
-   the row also holds the nav pill on the right (when present), the
-   caption's flex box covers everything left of the nav — text-align
-   centres the label inside that box, so it visually sits roughly in
-   the middle of the row but slightly left when the nav is wide
-   ("slightly shifted to the left" per the spec). */
+/* FIX520.2.6.1 (updated): caption is centred *under the image* — i.e.
+   centred across the row, not inside a flex box that excludes the
+   nav. Pull the nav out of flow and absolutely-position it at the
+   right; reserve right-padding equal to the nav's footprint so the
+   centred caption ends up slightly left of the row's true centre when
+   both are present, matching the spec's "slightly shifted to the
+   left" clause. */
 .sc-viewer-bottom .sc-viewer-caption {
-  flex: 1 1 auto;
-  min-width: 0;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+}
+.sc-viewer-bottom.has-caption {
+  padding-right: 9rem;
+}
+.sc-viewer-bottom.has-caption .sc-viewer-nav {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .sc-viewer-nav {
   flex: 0 0 auto;

@@ -4,6 +4,7 @@ import {
   createAdminProject,
   updateAdminProject,
   clearProjectManagers,
+  moveAdminProject,
   listUsers,
 } from './data/backend.js';
 import { useAuth } from './AuthContext.jsx';
@@ -70,6 +71,43 @@ export default function ProjectsPanel({ onClose }) {
       setBusy(false);
     }
   };
+
+  const togglePublic = async (project, next) => {
+    setBusy(true);
+    try {
+      await updateAdminProject(project.id, { is_public: next });
+      setProjects((prev) =>
+        prev?.map((p) => (p.id === project.id ? { ...p, is_public: next } : p)),
+      );
+      setError(null);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // FIX351.2.7 / .2.8: swap the selected project with its neighbour
+  // and refetch the list so it re-orders.
+  const move = async (direction) => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await moveAdminProject(selectedId, direction);
+      const refreshed = await listAdminProjects();
+      setProjects(refreshed);
+      setError(null);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const selectedIdx = projects?.findIndex((p) => p.id === selectedId) ?? -1;
+  const canMoveUp = selectedIdx > 0;
+  const canMoveDown =
+    projects != null && selectedIdx >= 0 && selectedIdx < projects.length - 1;
 
   const onRemove = async () => {
     if (!selectedId) return;
@@ -185,6 +223,28 @@ export default function ProjectsPanel({ onClose }) {
             >
               ×
             </button>
+            {/* FIX351.2.7 <button-move-up-project>. */}
+            <button
+              type="button"
+              data-yagu-id="button-move-up-project"
+              onClick={() => move('up')}
+              disabled={busy || !canMoveUp}
+              aria-label="Move project up"
+              title="Move up"
+            >
+              ↑
+            </button>
+            {/* FIX351.2.8 <button-move-down-project>. */}
+            <button
+              type="button"
+              data-yagu-id="button-move-down-project"
+              onClick={() => move('down')}
+              disabled={busy || !canMoveDown}
+              aria-label="Move project down"
+              title="Move down"
+            >
+              ↓
+            </button>
           </div>
         )}
         {error && <div className="visits-err">{error}</div>}
@@ -198,6 +258,7 @@ export default function ProjectsPanel({ onClose }) {
               <tr>
                 <th>Name</th>
                 <th>Managers</th>
+                <th>Is public</th>
               </tr>
             </thead>
             <tbody>
@@ -253,6 +314,23 @@ export default function ProjectsPanel({ onClose }) {
                         ? <span className="visits-anon">(none)</span>
                         : (p.managers || []).map((m) => m.name).join(', ')
                     )}
+                  </td>
+                  <td className="users-check">
+                    {/* FIX351.2.1.3 <project-is-public>: editable
+                        toggle for admins, read-only display otherwise. */}
+                    <input
+                      type="checkbox"
+                      data-yagu-id="project-is-public"
+                      checked={!!p.is_public}
+                      readOnly={!isAdmin}
+                      tabIndex={isAdmin ? 0 : -1}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={
+                        isAdmin
+                          ? (e) => togglePublic(p, e.target.checked)
+                          : undefined
+                      }
+                    />
                   </td>
                 </tr>
               ))}

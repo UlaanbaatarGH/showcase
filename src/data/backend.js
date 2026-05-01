@@ -26,6 +26,7 @@ export const listAdminProjects = impl.listAdminProjects;
 export const createAdminProject = impl.createAdminProject;
 export const updateAdminProject = impl.updateAdminProject;
 export const clearProjectManagers = impl.clearProjectManagers;
+export const moveAdminProject = impl.moveAdminProject;
 
 // Writes
 export const saveSetup = impl.saveSetup;

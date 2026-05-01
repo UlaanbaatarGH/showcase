@@ -72,6 +72,13 @@ export default {
     call(`/api/admin/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   clearProjectManagers: (id) =>
     call(`/api/admin/projects/${encodeURIComponent(id)}/clear-managers`, { method: 'POST' }),
+  // FIX351.2.7 / FIX351.2.8: shift selected project up/down in the
+  // panel order (and therefore the home page list).
+  moveAdminProject: (id, direction) =>
+    call(`/api/admin/projects/${encodeURIComponent(id)}/move`, {
+      method: 'POST',
+      body: { direction },
+    }),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>

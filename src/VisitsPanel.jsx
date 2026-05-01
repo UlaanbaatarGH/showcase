@@ -257,11 +257,11 @@ function IpStatsTab({ ipStats, error, onSetName }) {
           <tr>
             <th>IP Addr</th>
             <th>IP Name</th>
+            {/* FIX413.2 column order: Login before Home before
+                {project-name1}. */}
+            <th>Login</th>
             <th>Home</th>
             <th>{projectName}</th>
-            {/* FIX413.2.1.4 (Login): total sign-in attempts (success +
-                failure + legacy single 'login' tag) for this IP. */}
-            <th>Login</th>
           </tr>
         </thead>
         <tbody>
@@ -286,9 +286,9 @@ function IpStatsTab({ ipStats, error, onSetName }) {
                   placeholder="(unnamed)"
                 />
               </td>
+              <td className="visits-num">{r.login_count ?? 0}</td>
               <td className="visits-num">{r.home_count}</td>
               <td className="visits-num">{r.project_count}</td>
-              <td className="visits-num">{r.login_count ?? 0}</td>
             </tr>
           ))}
         </tbody>

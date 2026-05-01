@@ -814,30 +814,34 @@ body {
 }
 /* FIX520.2 (updated): bottom strip below the image — holds
    <label-img-caption> and the prev/i-n/next nav pill.
-   FIX520.2.10: nav is centred on its own when no caption is shown,
-   pinned to the right (absolutely positioned) when one is. */
+   FIX520.2.6.1 (updated): use block + text-align:center for the strip
+   so the caption (an inline-block) centres at the row's true centre,
+   which lines up with the image's centre above. The nav is pulled out
+   of flow (position:absolute, right:0) so it doesn't perturb the
+   centring. FIX520.2.10: when there's no caption, switch to
+   inline-flex centring so the nav alone is centred. */
 .sc-viewer-bottom {
   flex: 0 0 auto;
   position: relative;
+  min-height: 2rem;
+}
+.sc-viewer-bottom:not(.has-caption) {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 2rem;
 }
-/* FIX520.2.6.1 (updated): caption is centred *under the image* — i.e.
-   centred at the row's true centre, which lines up with the image's
-   centre above. The nav pill is pulled out of flow (absolute, right:0)
-   so it doesn't push the caption off centre. With short/medium
-   captions there's no visual overlap; very long captions ellipsize
-   inside the row and may visually run under the nav, but that's the
-   "edge case" the spec allows for ("may be slightly shifted to the
-   left" — applies only when the caption would otherwise collide). */
+.sc-viewer-bottom.has-caption {
+  display: block;
+  text-align: center;
+}
 .sc-viewer-bottom .sc-viewer-caption {
+  display: inline-block;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  vertical-align: middle;
 }
 .sc-viewer-bottom.has-caption .sc-viewer-nav {
   position: absolute;

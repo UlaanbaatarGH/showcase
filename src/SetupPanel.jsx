@@ -74,6 +74,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
       // nothing). Auto-clearing here would cascade if, for any reason, the
       // local properties state was briefly missing the target property.
       const data = await saveSetup({
+        // FIX401.2: scope writes to the project we're editing so
+        // the wrong project doesn't get overwritten when more than
+        // one exists.
+        project_id: projectId,
         properties: properties
           .filter((p) => (p.label ?? '').trim())
           .map((p, i) => ({

@@ -196,16 +196,21 @@ export default function ShowcaseView({ onNavigateHome }) {
   // FIX508.2.3: auto-selection now lives in a separate effect below that
   // fires against the *displayed* list (post grouping, bucket and column
   // filters), so the "first item" matches what the user actually sees.
+  // FIX401.2: every fetch is scoped to the URL's project slug so the
+  // showcase only sees one project's items, properties, images,
+  // grouping and column definitions.
   const reloadShowcase = () =>
-    getShowcase()
+    getShowcase(slug)
       .then((d) => setData(d))
       .catch((e) => setError(e.message || String(e)));
 
   useEffect(() => {
-    getShowcase()
+    setData(null);
+    setSelectedFolderId(null);
+    getShowcase(slug)
       .then(setData)
       .catch((e) => setError(e.message || String(e)));
-  }, []);
+  }, [slug]);
 
   // FIX410.1.1.1.1.1: log a consultation of <panel-project-home>.
   useEffect(() => { trackVisit('project'); }, []);
@@ -1449,6 +1454,7 @@ export default function ShowcaseView({ onNavigateHome }) {
       )}
       {showColumns && (
         <ShowcaseViewSetupPanel
+          projectId={data?.project?.id ?? null}
           properties={properties}
           viewSetup={viewSetup}
           isAnonymous={isAnonymous}
@@ -1490,6 +1496,7 @@ export default function ShowcaseView({ onNavigateHome }) {
       )}
       {showGrouping && (
         <GroupingPanel
+          projectId={data?.project?.id ?? null}
           properties={properties}
           viewSetup={viewSetup}
           onCancel={() => setShowGrouping(false)}

@@ -6,6 +6,7 @@ import { saveSetup } from './data/backend.js';
 // Roman year converter). Reached from <button-columns>. The tabbed general
 // Setup panel still exposes the same content via its 'Showcase' tab.
 export default function ShowcaseViewSetupPanel({
+  projectId,
   properties,
   viewSetup,
   isAnonymous = false,
@@ -124,6 +125,8 @@ export default function ShowcaseViewSetupPanel({
       // Pass the existing property list through unchanged — saveSetup would
       // otherwise clear short_label/formula. Same approach as GroupingPanel.
       const data = await saveSetup({
+        // FIX401.2: scope writes to the project we're editing.
+        project_id: projectId,
         properties: (properties ?? []).map((p, i) => ({
           id: p.id,
           label: p.label,

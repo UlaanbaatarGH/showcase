@@ -41,7 +41,11 @@ export default {
   setAuthToken,
   // Reads
   listProjects: () => call('/api/projects'),
-  getShowcase: () => call('/api/showcase'),
+  // FIX401.2: scoped to a single project. The slug comes from the
+  // SPA route (`/{slug}`) and is matched against project names on
+  // the server using the same recipe as the JS slugify.
+  getShowcase: (slug) =>
+    call(`/api/showcase${slug ? `?slug=${encodeURIComponent(slug)}` : ''}`),
   getFolderImages: (folderId) => call(`/api/folders/${folderId}/images`),
   // FIX410.1.1.1.1: admin-only consultation log, sorted most-recent first.
   listVisits: () => call('/api/admin/visits'),

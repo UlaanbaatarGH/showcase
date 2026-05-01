@@ -14,7 +14,7 @@ import { normalizeGroups, freshGroupId } from './groups.js';
 // FIX373.2.1.10 one row is always selected (for Remove).
 // FIX373.2.1.4.1 ticking Default on a row clears it on all others.
 // FIX373.2.1.1.1 Grouping Names must be unique.
-export default function GroupingPanel({ properties, viewSetup, onCancel, onSave }) {
+export default function GroupingPanel({ projectId, properties, viewSetup, onCancel, onSave }) {
   const initial = useMemo(
     () => normalizeGroups(viewSetup?.showcase?.groups, properties),
     [viewSetup, properties],
@@ -91,6 +91,8 @@ export default function GroupingPanel({ properties, viewSetup, onCancel, onSave 
         showcase: { ...(viewSetup?.showcase || {}), groups },
       };
       const result = await saveSetup({
+        // FIX401.2: scope writes to the project we're editing.
+        project_id: projectId,
         properties: (properties ?? []).map((p, i) => ({
           id: p.id,
           label: p.label,

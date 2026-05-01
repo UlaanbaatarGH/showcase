@@ -1,0 +1,51 @@
+import { useEffect, useRef, useState } from 'react';
+import VisitsPanel from './VisitsPanel.jsx';
+
+// FIX410 <menu-admin>: dropdown grouping admin-only views. Mirrors the
+// shape of <menu-import>. Single option today (Visits, FIX410.1.1.1) but
+// designed to grow.
+export default function AdminMenu({ className = '' }) {
+  const [open, setOpen] = useState(false);
+  const [visitsOpen, setVisitsOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  return (
+    <>
+      <div className={`sc-menu ${className}`.trim()} data-yagu-id="menu-admin" ref={ref}>
+        <button
+          type="button"
+          className="sc-menu-trigger"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+        >
+          Admin ▾
+        </button>
+        {open && (
+          <ul className="sc-menu-items" role="menu">
+            <li>
+              <button
+                type="button"
+                role="menuitem"
+                data-yagu-id="menu-option-visits"
+                onClick={() => { setOpen(false); setVisitsOpen(true); }}
+              >
+                Visits
+              </button>
+            </li>
+          </ul>
+        )}
+      </div>
+      {visitsOpen && <VisitsPanel onClose={() => setVisitsOpen(false)} />}
+    </>
+  );
+}

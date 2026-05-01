@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import AdminMenu from './AdminMenu.jsx';
 import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
 import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
@@ -755,7 +756,7 @@ export default function ShowcaseView() {
   };
 
   return (
-    <div className="sc-layout">
+    <div className="sc-layout" data-yagu-id="panel-project-home">
       {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel.
           FIX503.2.10.1 left: <button-home>, <label-project-name>.
           FIX503.2.10.2 right: <button-columns>, <button-item-grouping>,
@@ -841,6 +842,10 @@ export default function ShowcaseView() {
             )}
           </div>
         )}
+        {/* FIX503.2.7 <menu-admin>: signed-in only, alongside the other
+            admin affordances. Reuses the same component instantiated on
+            the App home page (FIX410.4.1 / FIX410.4.2). */}
+        {profile && <AdminMenu />}
         {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
             <button-setup>: Setup icon button, signed-in only. Opens the
             tabbed general panel (admin: property list + file-explorer

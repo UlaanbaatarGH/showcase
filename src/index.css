@@ -1333,6 +1333,52 @@ body {
 }
 .sc-menu-items button:hover { background: var(--color-bg-light); }
 
+/* FIX410.1.1.1.1 Visits panel: modal listing login events. */
+.visits-panel {
+  width: min(560px, 100%);
+  max-height: min(80vh, 600px);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.visits-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.visits-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.visits-loading,
+.visits-empty {
+  color: var(--color-text-muted);
+  padding: 1rem 0;
+}
+.visits-err {
+  color: #f88;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+}
+.visits-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  overflow: auto;
+}
+.visits-table th,
+.visits-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+.visits-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
 /* FIX370: Google Sheet import dialog */
 .gsheet-dialog { width: min(560px, 100%); }
 .gsheet-stage {

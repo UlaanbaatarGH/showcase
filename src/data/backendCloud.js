@@ -43,6 +43,8 @@ export default {
   listProjects: () => call('/api/projects'),
   getShowcase: () => call('/api/showcase'),
   getFolderImages: (folderId) => call(`/api/folders/${folderId}/images`),
+  // FIX410.1.1.1.1: admin-only login log, sorted most-recent first.
+  listVisits: () => call('/api/admin/visits'),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>

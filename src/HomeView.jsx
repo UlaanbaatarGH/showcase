@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import SignInPanel from './SignInPanel.jsx';
+import AdminMenu from './AdminMenu.jsx';
 import {
   listProjects,
   updateProject,
@@ -132,7 +133,7 @@ export default function HomeView({ onOpenProject }) {
   };
 
   return (
-    <div className="home">
+    <div className="home" data-yagu-id="panel-app-home">
       <div className="home-topbar">
         {profile ? (
           <>
@@ -169,6 +170,9 @@ export default function HomeView({ onOpenProject }) {
                 </button>
               </>
             )}
+            {/* FIX400.2.6 + FIX400.4.6 <menu-admin>: signed-in only, between
+                Edit and Sign in/out per FIX400.2 layout. */}
+            <AdminMenu />
             <button className="btn-link" onClick={signOut} disabled={editing}>
               Sign out
             </button>

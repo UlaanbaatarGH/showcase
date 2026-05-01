@@ -13,6 +13,7 @@ export const listProjects = impl.listProjects;
 export const getShowcase = impl.getShowcase;
 export const getFolderImages = impl.getFolderImages;
 export const getStorageSize = impl.getStorageSize;
+export const listVisits = impl.listVisits;
 
 // Writes
 export const saveSetup = impl.saveSetup;

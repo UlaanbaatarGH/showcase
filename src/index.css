@@ -969,44 +969,15 @@ body {
 }
 .sc-fullscreen-back:hover { background: rgba(0, 0, 0, 0.75); }
 
-/* FIX520.3.2.2: Prev/Next + position indicator in fullscreen, top-right.
-   Same disabled-at-bounds behavior as the in-page viewer nav. */
+/* FIX520.3.2.2 + FIX520.3.2.2.1: in fullscreen, the nav reuses the
+   .sc-viewer-nav styling so its appearance matches the in-page nav.
+   Only positioning is fullscreen-specific — pinned to the same
+   bottom-right corner as the in-page (no-sections) layout. */
 .sc-fullscreen-nav {
   position: fixed;
-  top: 0.75rem;
+  bottom: 0.75rem;
   right: 0.75rem;
   z-index: 1001;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 6px;
-  padding: 0.25rem 0.5rem;
-  color: #fff;
-}
-.sc-fullscreen-nav button {
-  background: transparent;
-  color: #fff;
-  border: none;
-  font: inherit;
-  font-size: 1.2rem;
-  line-height: 1;
-  padding: 0.25rem 0.5rem;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.sc-fullscreen-nav button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.15);
-}
-.sc-fullscreen-nav button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.sc-fullscreen-pos {
-  font-size: 0.9rem;
-  min-width: 3.5em;
-  text-align: center;
 }
 
 /* FIX521 <panel-showcase-img-list-editor>: two-pane layout — table of

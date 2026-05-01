@@ -1432,23 +1432,32 @@ export default function ShowcaseView({ onNavigateHome }) {
           >
             ‹ Back
           </button>
-          {/* FIX520.3.2.2: Prev/Next + i/n, mirroring <panel-showcase-img-viewer>.
-              Disabled at the bounds. stopPropagation so clicks don't bubble
-              to the backdrop (which would close the overlay). */}
-          <div className="sc-fullscreen-nav" onClick={(e) => e.stopPropagation()}>
+          {/* FIX520.3.2.2 + FIX520.3.2.2.1: Prev/Next + i/n with the
+              same appearance as the in-page <panel-showcase-img-viewer>
+              nav (.sc-viewer-nav class) and positioned at the same
+              corner in the visible area (bottom-right). */}
+          <div
+            className="sc-viewer-nav sc-fullscreen-nav"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
+              data-yagu-id="button-prev"
               onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
               disabled={currentImageIdx === 0}
               aria-label="Previous image"
             >
               ‹
             </button>
-            <span className="sc-fullscreen-pos">
+            <span
+              className="sc-viewer-pos"
+              data-yagu-id="label-image-index"
+            >
               {currentImageIdx + 1} / {images.length}
             </span>
             <button
               type="button"
+              data-yagu-id="button-next"
               onClick={() =>
                 setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
               }

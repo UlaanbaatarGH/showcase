@@ -1102,10 +1102,10 @@ export default function ShowcaseView({ onNavigateHome }) {
                   <div className="sc-viewer-main">
                     {currentImage ? (
                       <>
-                        {/* FIX520.2 (updated): image first, then the
-                            prev/next + i/n nav at the bottom of the
-                            column. Keeps the image as tall as possible
-                            on phones, matching the new layout sketch. */}
+                        {/* FIX520.2 (updated): image fills the column;
+                            caption (left, FIX520.2.6) and nav pill
+                            (right when caption present, centred when
+                            not — FIX520.2.10) share the bottom row. */}
                         <div
                           className="sc-viewer-img-wrap sc-viewer-img-clickable"
                           onClick={onImageClick}
@@ -1119,36 +1119,47 @@ export default function ShowcaseView({ onNavigateHome }) {
                             crop={currentImage.crop ?? null}
                             className="sc-viewer-img"
                           />
-                          {currentImage.caption && (
-                            <div className="sc-viewer-caption">{currentImage.caption}</div>
-                          )}
                         </div>
-                        <div className="sc-viewer-nav">
-                          <button
-                            type="button"
-                            onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                            disabled={currentImageIdx === 0}
-                            aria-label="Previous image"
-                          >
-                            ‹
-                          </button>
-                          {/* FIX520.2.4 / FIX520.2.4.0 <label-image-index>. */}
-                          <span
-                            className="sc-viewer-pos"
-                            data-yagu-id="label-image-index"
-                          >
-                            {currentImageIdx + 1} / {images.length}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-                            }
-                            disabled={currentImageIdx >= images.length - 1}
-                            aria-label="Next image"
-                          >
-                            ›
-                          </button>
+                        <div
+                          className={`sc-viewer-bottom${currentImage.caption ? ' has-caption' : ''}`}
+                        >
+                          {currentImage.caption && (
+                            <div
+                              className="sc-viewer-caption"
+                              data-yagu-id="label-img-caption"
+                            >
+                              {currentImage.caption}
+                            </div>
+                          )}
+                          <div className="sc-viewer-nav">
+                            <button
+                              type="button"
+                              data-yagu-id="button-prev"
+                              onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                              disabled={currentImageIdx === 0}
+                              aria-label="Previous image"
+                            >
+                              ‹
+                            </button>
+                            {/* FIX520.2.4 / FIX520.2.4.0 <label-image-index>. */}
+                            <span
+                              className="sc-viewer-pos"
+                              data-yagu-id="label-image-index"
+                            >
+                              {currentImageIdx + 1} / {images.length}
+                            </span>
+                            <button
+                              type="button"
+                              data-yagu-id="button-next"
+                              onClick={() =>
+                                setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                              }
+                              disabled={currentImageIdx >= images.length - 1}
+                              aria-label="Next image"
+                            >
+                              ›
+                            </button>
+                          </div>
                         </div>
                       </>
                     ) : (

@@ -812,6 +812,28 @@ body {
   font-size: 1rem;
   opacity: 0.85;
 }
+/* FIX520.2 (updated): bottom strip below the image — shares the row
+   between <label-img-caption> (left) and the prev/i-n/next nav pill.
+   FIX520.2.10: nav is centred on its own when no caption is shown,
+   right-aligned (caption fills remaining space) when one is. */
+.sc-viewer-bottom {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.sc-viewer-bottom.has-caption {
+  justify-content: space-between;
+}
+.sc-viewer-bottom .sc-viewer-caption {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .sc-viewer-nav {
   flex: 0 0 auto;
   /* FIX520.2 (updated): prev/next + i/n sit at the top of the image

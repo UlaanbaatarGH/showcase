@@ -834,6 +834,11 @@ body {
   display: block;
   text-align: center;
 }
+/* FIX520.2.6.2: caption sits as a tight pill — sized to its content
+   (minimum width) and styled like the nav pill so the two read as
+   peers in the bottom strip. inline-block keeps it shrink-wrapped to
+   the text; max-width:100% ellipsizes only when the row is too narrow
+   for the full caption. */
 .sc-viewer-bottom .sc-viewer-caption {
   display: inline-block;
   text-align: center;
@@ -842,6 +847,14 @@ body {
   text-overflow: ellipsis;
   max-width: 100%;
   vertical-align: middle;
+  padding: 0.25rem 0.6rem;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  color: #fff;
+  opacity: 1;
+  font-size: 0.9rem;
+  line-height: 1;
 }
 .sc-viewer-bottom.has-caption .sc-viewer-nav {
   position: absolute;

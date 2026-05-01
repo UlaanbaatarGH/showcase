@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
-import { setAuthToken } from './data/backend.js';
+import { setAuthToken, redeemAccount } from './data/backend.js';
 
 // FIX412.5.1 + FIX412.5.1.1 + FIX412.5.1.2: log a sign-in attempt.
 //   page: 'login_ok' or 'login_failed' depending on outcome
@@ -55,18 +55,6 @@ function clearFailedSignIns() {
 // FIX310 + FIX300: holds the current session token and the app_user profile row.
 const AuthContext = createContext(null);
 
-async function upsertAppUser(loginName, token) {
-  const res = await fetch('/api/users/me', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ login_name: loginName }),
-  });
-  if (!res.ok) throw new Error(`POST /api/users/me failed: ${res.status}`);
-  return res.json();
-}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -139,18 +127,22 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const signUp = useCallback(async (loginName, password) => {
+  // FIX317: redeem an admin-issued access code to set the user's
+  // password. Backend creates the Supabase auth row and links it to
+  // the existing app_user; we then sign in normally so the session
+  // pipeline is identical to a regular login.
+  const redeem = useCallback(async ({ loginName, accessCode, password }) => {
     if (!supabaseConfigured) throw new Error('auth not configured');
-    const { data, error } = await supabase.auth.signUp({
+    await redeemAccount({
+      name: loginName,
+      access_code: accessCode,
+      password,
+    });
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: loginNameToEmail(loginName),
       password,
     });
     if (error) throw error;
-    // With email confirmation OFF in Supabase, signUp returns a session directly.
-    // Upsert the app_user row immediately so the backend knows about the user.
-    if (data.session) {
-      await upsertAppUser(loginName, data.session.access_token);
-    }
     return data;
   }, []);
 
@@ -189,7 +181,7 @@ export function AuthProvider({ children }) {
     loading,
     configured: supabaseConfigured,
     signIn,
-    signUp,
+    redeem,
     signOut,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

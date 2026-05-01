@@ -20,6 +20,7 @@ export const setIpName = impl.setIpName;
 export const listUsers = impl.listUsers;
 export const createUser = impl.createUser;
 export const deleteUser = impl.deleteUser;
+export const redeemAccount = impl.redeemAccount;
 
 // Writes
 export const saveSetup = impl.saveSetup;

@@ -58,6 +58,10 @@ export default {
   createUser: (body) => call('/api/admin/users', { method: 'POST', body }),
   deleteUser: (id) =>
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // FIX317: anonymous redemption — trade login_name + access_code
+  // + new password for a fresh Supabase auth user. Backend rewrites
+  // the existing app_user.id to match the new auth user id.
+  redeemAccount: (body) => call('/api/auth/redeem', { method: 'POST', body }),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>

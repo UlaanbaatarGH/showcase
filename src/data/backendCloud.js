@@ -49,6 +49,10 @@ export default {
   // Fire-and-forget — failures swallowed so they don't disrupt the page load.
   trackVisit: (page) =>
     call('/api/track', { method: 'POST', body: { page } }).catch(() => null),
+  // FIX413: per-IP friendly name + page consultation counts.
+  listIpStats: () => call('/api/admin/ip-stats'),
+  setIpName: (ip, name) =>
+    call('/api/admin/ip-name', { method: 'POST', body: { ip, name } }),
   // Writes
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>

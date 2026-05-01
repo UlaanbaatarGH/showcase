@@ -1,16 +1,49 @@
-import { useEffect, useState } from 'react';
-import { listVisits } from './data/backend.js';
+import { useCallback, useEffect, useState } from 'react';
+import { listVisits, listIpStats, setIpName } from './data/backend.js';
 
 // FIX411 <panel-visits>: tabbed panel grouping the visit views.
 // FIX411.2: two tabs — <panel-visits-history> (FIX412) and
 // <panel-ip-address-and-stats> (FIX413). The IP-name map referenced
-// in FIX412.2.1.2 is wired through `ipNames` so the History tab can
-// display friendly names once FIX413 lands; today it stays empty and
-// the column falls back to the IP address.
+// in FIX412.2.1.2 lives here and is shared across tabs so editing a
+// name on the IP tab reflects on the History tab without a refetch.
 export default function VisitsPanel({ onClose }) {
   const [tab, setTab] = useState('history');
-  // Empty until FIX413 / <panel-ip-address-and-stats> persists names.
+  const [ipStats, setIpStats] = useState(null);
+  const [ipError, setIpError] = useState(null);
+
+  const reloadIpStats = useCallback(() => {
+    listIpStats()
+      .then((d) => { setIpStats(d); setIpError(null); })
+      .catch((e) => setIpError(e.message || String(e)));
+  }, []);
+
+  useEffect(() => { reloadIpStats(); }, [reloadIpStats]);
+
+  // FIX412.2.1.2: lookup map { ip → name } shared with the History tab.
   const ipNames = {};
+  if (ipStats?.rows) {
+    for (const r of ipStats.rows) {
+      if (r.name) ipNames[r.ip] = r.name;
+    }
+  }
+
+  // Optimistic update: when the user edits a name on the IP tab, update
+  // local state immediately so the History column refreshes; the server
+  // round-trip happens in the background and reload syncs counts after.
+  const onSetIpName = async (ip, name) => {
+    setIpStats((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: prev.rows.map((r) => (r.ip === ip ? { ...r, name } : r)),
+      };
+    });
+    try {
+      await setIpName(ip, name);
+    } catch (e) {
+      setIpError(e.message || String(e));
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -50,7 +83,11 @@ export default function VisitsPanel({ onClose }) {
           {tab === 'history' ? (
             <VisitsHistoryTab ipNames={ipNames} />
           ) : (
-            <IpStatsTab />
+            <IpStatsTab
+              ipStats={ipStats}
+              error={ipError}
+              onSetName={onSetIpName}
+            />
           )}
         </div>
       </div>
@@ -116,16 +153,67 @@ function VisitsHistoryTab({ ipNames }) {
   );
 }
 
-// FIX413 <panel-ip-address-and-stats>: placeholder until storage and
-// per-IP aggregation land. Keeps the tab visible so the layout is
-// stable; the body fills in when FIX413 is implemented.
-function IpStatsTab() {
+// FIX413 <panel-ip-address-and-stats>: per-IP friendly name + counts of
+// consultations of the App home page and the 1st project's home page.
+// The name is editable inline; saved on blur, optimistically reflected
+// on the History tab via the parent's ipNames map.
+function IpStatsTab({ ipStats, error, onSetName }) {
+  // Local input buffer so typing is responsive; the parent only sees
+  // the value on blur (when we both commit locally and call the API).
+  const [drafts, setDrafts] = useState({});
+
+  if (error) return <div className="visits-err">{error}</div>;
+  if (ipStats === null) return <div className="visits-loading">Loading…</div>;
+
+  const projectName = ipStats.projects?.[0]?.name || 'Project';
+  const valueFor = (row) =>
+    Object.prototype.hasOwnProperty.call(drafts, row.ip) ? drafts[row.ip] : row.name;
+
+  const onBlur = (row) => {
+    const next = (drafts[row.ip] ?? row.name).trim();
+    setDrafts((d) => {
+      const c = { ...d };
+      delete c[row.ip];
+      return c;
+    });
+    if (next !== row.name) onSetName(row.ip, next);
+  };
+
+  if (!ipStats.rows || ipStats.rows.length === 0) {
+    return <div className="visits-empty">No IP recorded yet.</div>;
+  }
   return (
-    <div
-      className="visits-empty"
-      data-yagu-id="panel-ip-address-and-stats"
-    >
-      Coming with FIX413 — IP names and per-page consultation counts.
-    </div>
+    <table className="visits-table" data-yagu-id="panel-ip-address-and-stats">
+      <thead>
+        <tr>
+          <th>IP Addr</th>
+          <th>IP Name</th>
+          <th>Home</th>
+          <th>{projectName}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {ipStats.rows.map((r) => (
+          <tr key={r.ip}>
+            <td>{r.ip}</td>
+            <td>
+              <input
+                type="text"
+                data-yagu-id="ip-name"
+                className="ip-name-input"
+                value={valueFor(r)}
+                onChange={(e) =>
+                  setDrafts((d) => ({ ...d, [r.ip]: e.target.value }))
+                }
+                onBlur={() => onBlur(r)}
+                placeholder="(unnamed)"
+              />
+            </td>
+            <td className="visits-num">{r.home_count}</td>
+            <td className="visits-num">{r.project_count}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

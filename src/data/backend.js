@@ -15,6 +15,8 @@ export const getFolderImages = impl.getFolderImages;
 export const getStorageSize = impl.getStorageSize;
 export const listVisits = impl.listVisits;
 export const trackVisit = impl.trackVisit;
+export const listIpStats = impl.listIpStats;
+export const setIpName = impl.setIpName;
 
 // Writes
 export const saveSetup = impl.saveSetup;

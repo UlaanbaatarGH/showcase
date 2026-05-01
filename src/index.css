@@ -1419,6 +1419,25 @@ body {
 .visits-anon {
   color: var(--color-text-muted);
 }
+.visits-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* FIX413.2.3.2.1: <ip-name> text input. Inline-editable, saved onBlur. */
+.ip-name-input {
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  background: var(--color-bg-light);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.ip-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #888);
+}
 
 /* FIX370: Google Sheet import dialog */
 .gsheet-dialog { width: min(560px, 100%); }

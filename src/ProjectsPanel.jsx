@@ -6,11 +6,16 @@ import {
   clearProjectManagers,
   listUsers,
 } from './data/backend.js';
+import { useAuth } from './AuthContext.jsx';
 
 // FIX351 <panel-project-list>: admin-only projects + managers list.
 // Spec quirk: the Remove button (FIX351.2.2) clears managers — it
 // does NOT delete the project. Deletion would be a separate flow.
 export default function ProjectsPanel({ onClose }) {
+  const { profile } = useAuth();
+  // The list itself is open to any signed-in user. Only Add, Remove,
+  // Rename and Manager edits require admin — backend enforces too.
+  const isAdmin = profile?.profile === 'admin';
   const [projects, setProjects] = useState(null);
   const [users, setUsers] = useState(null);
   const [error, setError] = useState(null);
@@ -153,36 +158,38 @@ export default function ProjectsPanel({ onClose }) {
             Close
           </button>
         </header>
-        <div className="users-toolbar">
-          {/* FIX351.2.5 <button-add-project>: green '+'. */}
-          <button
-            type="button"
-            className="users-add"
-            data-yagu-id="button-add-project"
-            onClick={() => setAddOpen(true)}
-            disabled={busy || eligibleUsers.length === 0}
-            title={
-              eligibleUsers.length === 0
-                ? 'At least one user with a password is required.'
-                : 'Add project'
-            }
-            aria-label="Add project"
-          >
-            +
-          </button>
-          {/* FIX351.2.6 <button-remove-project>: red '×' (clears managers). */}
-          <button
-            type="button"
-            className="users-remove"
-            data-yagu-id="button-remove-project"
-            onClick={onRemove}
-            disabled={busy || !selectedId}
-            aria-label="Remove project managers"
-            title="Clear managers of the selected project"
-          >
-            ×
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="users-toolbar">
+            {/* FIX351.2.5 <button-add-project>: green '+'. */}
+            <button
+              type="button"
+              className="users-add"
+              data-yagu-id="button-add-project"
+              onClick={() => setAddOpen(true)}
+              disabled={busy || eligibleUsers.length === 0}
+              title={
+                eligibleUsers.length === 0
+                  ? 'At least one user with a password is required.'
+                  : 'Add project'
+              }
+              aria-label="Add project"
+            >
+              +
+            </button>
+            {/* FIX351.2.6 <button-remove-project>: red '×' (clears managers). */}
+            <button
+              type="button"
+              className="users-remove"
+              data-yagu-id="button-remove-project"
+              onClick={onRemove}
+              disabled={busy || !selectedId}
+              aria-label="Remove project managers"
+              title="Clear managers of the selected project"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {error && <div className="visits-err">{error}</div>}
         {projects === null && <div className="visits-loading">Loading…</div>}
         {projects && projects.length === 0 && (
@@ -204,41 +211,51 @@ export default function ProjectsPanel({ onClose }) {
                   onClick={() => setSelectedId(p.id)}
                 >
                   <td>
-                    {/* FIX351.2.3: editable name. Saved on blur or
-                        Enter; client-side uniqueness check first,
-                        backend re-checks. */}
-                    <input
-                      type="text"
-                      data-yagu-id="project-name"
-                      className="ip-name-input"
-                      value={nameDraft[p.id] ?? p.name}
-                      onChange={(e) =>
-                        setNameDraft((d) => ({ ...d, [p.id]: e.target.value }))
-                      }
-                      onBlur={() => saveName(p)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          e.target.blur();
+                    {isAdmin ? (
+                      /* FIX351.2.3: editable name. Saved on blur or
+                         Enter; client-side uniqueness check first,
+                         backend re-checks. */
+                      <input
+                        type="text"
+                        data-yagu-id="project-name"
+                        className="ip-name-input"
+                        value={nameDraft[p.id] ?? p.name}
+                        onChange={(e) =>
+                          setNameDraft((d) => ({ ...d, [p.id]: e.target.value }))
                         }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                        onBlur={() => saveName(p)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.target.blur();
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      p.name
+                    )}
                   </td>
                   <td data-yagu-id="project-managers">
-                    {/* FIX351.2.4: click to edit the managers list. */}
-                    <button
-                      type="button"
-                      className="projects-managers-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setManagersEditId(p.id);
-                      }}
-                    >
-                      {(p.managers || []).length === 0
+                    {isAdmin ? (
+                      /* FIX351.2.4: click to edit the managers list. */
+                      <button
+                        type="button"
+                        className="projects-managers-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setManagersEditId(p.id);
+                        }}
+                      >
+                        {(p.managers || []).length === 0
+                          ? <span className="visits-anon">(none)</span>
+                          : (p.managers || []).map((m) => m.name).join(', ')}
+                      </button>
+                    ) : (
+                      (p.managers || []).length === 0
                         ? <span className="visits-anon">(none)</span>
-                        : (p.managers || []).map((m) => m.name).join(', ')}
-                    </button>
+                        : (p.managers || []).map((m) => m.name).join(', ')
+                    )}
                   </td>
                 </tr>
               ))}

@@ -143,6 +143,10 @@ export function AuthProvider({ children }) {
       password,
     });
     if (error) throw error;
+    // FIX412.5.1.{1,2}: log the auto-login that follows a successful
+    // redemption. Same shape as the normal signIn() success path —
+    // pass the freshly-issued token so user_id is recorded.
+    trackLogin({ ok: true, loginName, token: data.session?.access_token });
     return data;
   }, []);
 

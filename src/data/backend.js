@@ -17,6 +17,9 @@ export const listVisits = impl.listVisits;
 export const trackVisit = impl.trackVisit;
 export const listIpStats = impl.listIpStats;
 export const setIpName = impl.setIpName;
+export const listUsers = impl.listUsers;
+export const createUser = impl.createUser;
+export const deleteUser = impl.deleteUser;
 
 // Writes
 export const saveSetup = impl.saveSetup;

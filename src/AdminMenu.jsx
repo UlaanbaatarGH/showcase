@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import VisitsPanel from './VisitsPanel.jsx';
+import UsersPanel from './UsersPanel.jsx';
 
-// FIX410 <menu-admin>: dropdown grouping admin-only views. Mirrors the
-// shape of <menu-import>. Single option today (Visits, FIX410.1.1.1) but
-// designed to grow.
+// FIX410 <menu-admin>: dropdown grouping admin-only views.
+// FIX410.2.1: Visits → <panel-visits>. FIX410.2.2: Users → <panel-users>.
 export default function AdminMenu({ className = '' }) {
   const [open, setOpen] = useState(false);
   const [visitsOpen, setVisitsOpen] = useState(false);
+  const [usersOpen, setUsersOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -42,10 +43,21 @@ export default function AdminMenu({ className = '' }) {
                 Visits
               </button>
             </li>
+            <li>
+              <button
+                type="button"
+                role="menuitem"
+                data-yagu-id="menu-option-users"
+                onClick={() => { setOpen(false); setUsersOpen(true); }}
+              >
+                Users
+              </button>
+            </li>
           </ul>
         )}
       </div>
       {visitsOpen && <VisitsPanel onClose={() => setVisitsOpen(false)} />}
+      {usersOpen && <UsersPanel onClose={() => setUsersOpen(false)} />}
     </>
   );
 }

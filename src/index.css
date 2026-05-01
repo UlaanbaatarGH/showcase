@@ -1432,6 +1432,85 @@ body {
 }
 .sc-menu-items button:hover { background: var(--color-bg-light); }
 
+/* FIX311 <panel-users>: admin user management modal. Wider than the
+   visits panel because of the extra columns. */
+.users-panel {
+  width: min(820px, 100%);
+  max-height: min(80vh, 640px);
+  max-height: min(80dvh, 640px);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.users-toolbar {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.users-toolbar button {
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.users-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.users-add { color: #4ade80; }
+.users-add:not(:disabled):hover { background: rgba(74, 222, 128, 0.12); }
+.users-remove { color: #f87171; font-size: 1.3rem; }
+.users-remove:not(:disabled):hover { background: rgba(248, 113, 113, 0.12); }
+.users-table .users-check { text-align: center; }
+.users-table .users-code { font-family: monospace; letter-spacing: 0.05em; }
+
+/* FIX311.3.1 dialog: small modal prompted from the Add (+) button. */
+.users-add-dialog {
+  width: min(380px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.users-add-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.users-add-dialog input {
+  padding: 0.4rem 0.6rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+}
+.users-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.users-add-actions button {
+  padding: 0.35rem 0.9rem;
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.users-add-actions button.btn-primary {
+  background: var(--color-accent, #4f46e5);
+  border-color: var(--color-accent, #4f46e5);
+  color: #fff;
+}
+.users-add-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* FIX411 <panel-visits>: modal with tabs (History / IP & stats). */
 .visits-panel {
   width: min(640px, 100%);

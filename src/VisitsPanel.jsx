@@ -112,12 +112,13 @@ function VisitsHistoryTab({ ipNames }) {
     const d = new Date(ts);
     return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
   };
-  // FIX412.2.1.1.1: page label — only 'home' and 'project' are tracked
-  // today. Capitalize for display; future multi-project support will
-  // resolve project ids to names.
+  // FIX412.2.1.1.1: page label — 'home', 'project' and (FIX412.5.1)
+  // 'login' for sign-in attempts. Capitalize for display; future
+  // multi-project support will resolve project ids to names.
   const pageLabel = (p) => {
     if (p === 'home') return 'Home';
     if (p === 'project') return 'Project';
+    if (p === 'login') return 'Login';
     return p || '';
   };
   // FIX412.2.1.2: prefer the friendly name when one is mapped; fall

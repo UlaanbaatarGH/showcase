@@ -1,6 +1,31 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
-import { setAuthToken } from './data/backend.js';
+import { setAuthToken, trackVisit } from './data/backend.js';
+
+// FIX315.3: client-side rate limit on sign-in. After 3 failed attempts
+// within the rolling window, every subsequent attempt is silently
+// denied (no special error — same wording as a wrong password) until
+// the window elapses, even if the credentials would now be correct.
+const SIGNIN_FAILS_KEY = 'sc-signin-fails';
+const SIGNIN_MAX_FAILS = 3;
+const SIGNIN_BLOCK_MS = 15 * 60 * 1000;
+function recentFailedAttempts() {
+  try {
+    const list = JSON.parse(localStorage.getItem(SIGNIN_FAILS_KEY) || '[]');
+    const cutoff = Date.now() - SIGNIN_BLOCK_MS;
+    return Array.isArray(list) ? list.filter((t) => Number.isFinite(t) && t > cutoff) : [];
+  } catch {
+    return [];
+  }
+}
+function recordFailedSignIn() {
+  const list = recentFailedAttempts();
+  list.push(Date.now());
+  try { localStorage.setItem(SIGNIN_FAILS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}
+function clearFailedSignIns() {
+  try { localStorage.removeItem(SIGNIN_FAILS_KEY); } catch { /* ignore */ }
+}
 
 // FIX310 + FIX300: holds the current session token and the app_user profile row.
 const AuthContext = createContext(null);
@@ -62,11 +87,25 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (loginName, password) => {
     if (!supabaseConfigured) throw new Error('auth not configured');
+    // FIX412.5.1: log every sign-in attempt with page='login', success
+    // or fail. Anonymous calls are accepted by /api/track.
+    trackVisit('login');
+    // FIX315.3: silent rate limit — after 3 fails in the window, deny
+    // every subsequent attempt with the same error wording as an
+    // invalid password. The user can keep trying; nothing reveals the
+    // block.
+    if (recentFailedAttempts().length >= SIGNIN_MAX_FAILS) {
+      throw new Error('Invalid login credentials');
+    }
     const { data, error } = await supabase.auth.signInWithPassword({
       email: loginNameToEmail(loginName),
       password,
     });
-    if (error) throw error;
+    if (error) {
+      recordFailedSignIn();
+      throw error;
+    }
+    clearFailedSignIns();
     return data;
   }, []);
 

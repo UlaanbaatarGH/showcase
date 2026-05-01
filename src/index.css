@@ -825,21 +825,19 @@ body {
   min-height: 2rem;
 }
 /* FIX520.2.6.1 (updated): caption is centred *under the image* — i.e.
-   centred across the row, not inside a flex box that excludes the
-   nav. Pull the nav out of flow and absolutely-position it at the
-   right; reserve right-padding equal to the nav's footprint so the
-   centred caption ends up slightly left of the row's true centre when
-   both are present, matching the spec's "slightly shifted to the
-   left" clause. */
+   centred at the row's true centre, which lines up with the image's
+   centre above. The nav pill is pulled out of flow (absolute, right:0)
+   so it doesn't push the caption off centre. With short/medium
+   captions there's no visual overlap; very long captions ellipsize
+   inside the row and may visually run under the nav, but that's the
+   "edge case" the spec allows for ("may be slightly shifted to the
+   left" — applies only when the caption would otherwise collide). */
 .sc-viewer-bottom .sc-viewer-caption {
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-}
-.sc-viewer-bottom.has-caption {
-  padding-right: 9rem;
 }
 .sc-viewer-bottom.has-caption .sc-viewer-nav {
   position: absolute;

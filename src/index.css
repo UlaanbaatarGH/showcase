@@ -1502,7 +1502,7 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-/* FIX413.2.3.2.1: <ip-name> text input. Inline-editable, saved onBlur. */
+/* FIX413.2.1.2.1: <ip-name> text input. Inline-editable, saved onBlur. */
 .ip-name-input {
   width: 100%;
   padding: 0.25rem 0.4rem;

@@ -193,11 +193,14 @@ export default function ShowcaseView() {
     window.addEventListener('mouseup', up);
   };
 
+  // FIX508.2.3 / <setup-select-first-item>: when false (default), the
+  // Showcase view opens with no item selected. Honored by both the initial
+  // load and by reloadShowcase (used after Save in the Setup panel).
   const reloadShowcase = () =>
     getShowcase()
       .then((d) => {
         setData(d);
-        if (d.folders?.length && selectedFolderId == null) {
+        if (d.folders?.length && selectedFolderId == null && d.view_setup?.select_first_item) {
           setSelectedFolderId(d.folders[0].id);
         }
       })
@@ -207,7 +210,9 @@ export default function ShowcaseView() {
     getShowcase()
       .then((d) => {
         setData(d);
-        if (d.folders?.length) setSelectedFolderId(d.folders[0].id);
+        if (d.folders?.length && d.view_setup?.select_first_item) {
+          setSelectedFolderId(d.folders[0].id);
+        }
       })
       .catch((e) => setError(e.message || String(e)));
   }, []);
@@ -1127,7 +1132,11 @@ export default function ShowcaseView() {
                         </div>
                       </>
                     ) : (
-                      <div className="sc-viewer-empty">No images in this item.</div>
+                      <div className="sc-viewer-empty">
+                        {selectedFolderId == null
+                          ? 'No item selected.'
+                          : 'No images in this item.'}
+                      </div>
                     )}
                   </div>
                 </div>

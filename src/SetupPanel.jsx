@@ -53,9 +53,12 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
   // view_setup directly (not under file_explorer) since they affect the
   // Showcase too. Default true (FIX508.2.1.1 / .2.2.1).
+  // FIX508.2.3 / <setup-select-first-item>: default false — opening the
+  // Showcase view leaves the selection empty until the user picks an item.
   const [generalSetup, setGeneralSetup] = useState({
     show_items_with_no_img: initialViewSetup?.show_items_with_no_img !== false,
     show_items_with_no_date: initialViewSetup?.show_items_with_no_date !== false,
+    select_first_item: !!initialViewSetup?.select_first_item,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -96,6 +99,9 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           // FIX510.5.2 / FIX374.2.16. The date property itself is
           // <setup-date-property> on file_explorer above.
           show_items_with_no_date: generalSetup.show_items_with_no_date,
+          // FIX508.2.3 / <setup-select-first-item>: when false, the
+          // Showcase view opens with no item selected.
+          select_first_item: generalSetup.select_first_item,
         },
       });
       onSave(data);
@@ -223,6 +229,22 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                   }
                 />
                 Show items with no date
+              </label>
+              {/* FIX508.2.3 / <setup-select-first-item>: when off (the
+                  default), the Showcase view opens with no item selected. */}
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="setup-select-first-item"
+                  type="checkbox"
+                  checked={generalSetup.select_first_item}
+                  onChange={(e) =>
+                    setGeneralSetup({
+                      ...generalSetup,
+                      select_first_item: e.target.checked,
+                    })
+                  }
+                />
+                Select first item by default
               </label>
             </section>
           )}

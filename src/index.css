@@ -718,12 +718,11 @@ body {
    ancestor selector that rule wins on specificity and the indent
    silently goes back to 0. */
 .sc-viewer-sections .sc-section-children {
-  /* FIX522.5.3 indentation: at least 2 'm' under the parent header so
-     the hierarchy is unmistakable. The buttons inside still carry
-     their own 0.5rem left padding, on top of this. */
+  /* FIX522.5.3 indentation under the parent header. Buttons inside
+     also carry their own 0.5rem left padding on top of this. */
   list-style: none;
   margin: 0;
-  padding: 0 0 0 2em;
+  padding: 0 0 0 1.33em;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;

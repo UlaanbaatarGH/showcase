@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://showcase-api-muxl.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

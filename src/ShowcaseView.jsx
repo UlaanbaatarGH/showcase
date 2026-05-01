@@ -79,7 +79,7 @@ function compareValues(a, b) {
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
 }
 
-export default function ShowcaseView() {
+export default function ShowcaseView({ onNavigateHome }) {
   const { profile } = useAuth();
   const [data, setData] = useState(null);
   const [selectedFolderId, setSelectedFolderId] = useState(null);
@@ -780,7 +780,7 @@ export default function ShowcaseView() {
           type="button"
           className="sc-home-btn"
           data-yagu-id="button-home"
-          onClick={() => { window.location.hash = '#home'; }}
+          onClick={() => onNavigateHome?.()}
           aria-label="Home"
           title="Home"
         >

@@ -2,32 +2,30 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import HomeView from './HomeView.jsx';
 import ShowcaseView from './ShowcaseView.jsx';
 import { AuthProvider } from './AuthContext.jsx';
+import { navigate, parseLocation, projectSlug } from './router.js';
 
 const PhotoModule = lazy(() => import('./photo/PhotoModule.jsx'));
 
-function getDefaultView() {
-  // Local dev defaults to the admin File Explorer; production defaults to home.
-  return import.meta.env.DEV ? 'admin' : 'home';
-}
-
-function getViewFromHash() {
-  const h = window.location.hash;
-  if (h === '#showcase') return 'showcase';
-  if (h === '#admin') return 'admin';
-  if (h === '#home') return 'home';
-  return getDefaultView();
-}
-
 function AppBody() {
-  const [view, setView] = useState(getViewFromHash);
+  const [route, setRoute] = useState(parseLocation);
 
   useEffect(() => {
-    const onHash = () => setView(getViewFromHash());
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    const onPop = () => setRoute(parseLocation());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  if (view === 'admin') {
+  // Dev convenience: `npm run dev` on a bare URL lands on the admin
+  // File Explorer, matching the pre-router behavior. Fires once on
+  // mount; afterwards the user navigates freely between views.
+  useEffect(() => {
+    if (import.meta.env.DEV && window.location.pathname === '/') {
+      navigate('/admin');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (route.view === 'admin') {
     if (!import.meta.env.DEV) {
       return (
         <div className="sc-error">
@@ -42,12 +40,21 @@ function AppBody() {
     );
   }
 
-  if (view === 'home') {
-    // FIX400.3.1: click a project opens it. Only one project supported end-to-end
-    // for now, so we just navigate to #showcase.
-    return <HomeView onOpenProject={() => { window.location.hash = '#showcase'; }} />;
+  if (route.view === 'home') {
+    return (
+      <HomeView
+        onOpenProject={(p) => navigate(`/${projectSlug(p.name)}`)}
+      />
+    );
   }
-  return <ShowcaseView />;
+
+  // route.view === 'project'
+  return (
+    <ShowcaseView
+      slug={route.slug}
+      onNavigateHome={() => navigate('/')}
+    />
+  );
 }
 
 export default function App() {

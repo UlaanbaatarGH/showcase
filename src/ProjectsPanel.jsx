@@ -403,14 +403,20 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   );
 }
 
-// FIX352 <panel-project>: edit a project's Name, Data Managers, User
-// Managers and Is public. Managers are picked from <list-users>
-// having this project in their <user-projects> (FIX352.3.1) — i.e.,
-// the union of the project's existing data + user managers. Adding a
-// brand-new candidate goes through <panel-user> first.
-// FIX352.3.10.11: User Managers checkboxes are admin-only; non-admin
-// callers (User Managers of the project per FIX351.5.7) see them
-// disabled.
+// FIX352 <panel-project>: edit a project's Name, Data Managers,
+// Users Managers and Is public. Layout follows FIX352.2 line-by-line:
+//   Name [_______]
+//   Data Managers {project-managers}
+//   Users Managers {project-users-managers}
+//   Is public [x]
+//   [Cancel] [Save]
+// Each manager value is a clickable text — clicking opens a picker
+// (FIX352.3.1) sourced from <list-users> having this project in
+// their <user-projects>, i.e., the union of the project's existing
+// data + user managers. Brand-new candidates are added via
+// <panel-user> first.
+// FIX352.3.10.11: the User Managers value is editable only by an
+// admin; non-admin callers see it as plain non-clickable text.
 function ProjectPanel({
   busy,
   project,
@@ -428,6 +434,8 @@ function ProjectPanel({
     () => new Set((project?.user_managers || []).map((m) => m.id)),
   );
   const [err, setErr] = useState(null);
+  // Which picker is open: 'data' | 'user' | null.
+  const [pickerRole, setPickerRole] = useState(null);
 
   // FIX352.3.1: picker source = users having this project in their
   // <user-projects>, i.e., the existing project_access set (= union
@@ -442,22 +450,9 @@ function ProjectPanel({
 
   if (!project) return null;
 
-  const toggleData = (id) => {
-    setDataManagers((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const toggleUser = (id) => {
-    if (!isAdmin) return; // FIX352.3.10.11: admin-only
-    setUserManagers((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const namesFor = (set) => {
+    const list = candidates.filter((u) => set.has(u.id)).map((u) => u.name);
+    return list.length === 0 ? '(none)' : list.join(', ');
   };
 
   const submit = () => {
@@ -484,83 +479,67 @@ function ProjectPanel({
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div
-        className="modal users-add-dialog"
+        className="modal panel-project-modal"
         data-yagu-id="panel-project"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="visits-header">
-          <h2>Project</h2>
-        </header>
-        {/* FIX352.2 layout: Name / Data Managers / Users Managers /
-            Is public / [Cancel] [Save]. */}
-        <label>
-          Name
+        {/* FIX352.2 layout — one row per spec line. */}
+        <div className="panel-project-row">
+          <span className="panel-project-row-label">Name</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
-        </label>
-        <div className="users-add-managers">
-          <span className="users-add-managers-label">Data Managers</span>
-          {candidates.length === 0 ? (
-            <div className="visits-empty">
-              No candidate — add the user via the Users panel first.
-            </div>
-          ) : (
-            <ul className="managers-picker-list" data-yagu-id="project-managers">
-              {candidates.map((u) => (
-                <li key={u.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={dataManagers.has(u.id)}
-                      onChange={() => toggleData(u.id)}
-                    />
-                    {u.name}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
-        <div className="users-add-managers">
-          <span className="users-add-managers-label">Users Managers</span>
-          {candidates.length === 0 ? (
-            <div className="visits-empty">No candidate.</div>
+        <div className="panel-project-row">
+          <span className="panel-project-row-label">Data Managers</span>
+          <button
+            type="button"
+            className="panel-project-value"
+            data-yagu-id="project-managers"
+            onClick={() => setPickerRole('data')}
+            disabled={busy}
+            title="Click to edit data managers"
+          >
+            {namesFor(dataManagers)}
+          </button>
+        </div>
+        <div className="panel-project-row">
+          <span className="panel-project-row-label">Users Managers</span>
+          {isAdmin ? (
+            <button
+              type="button"
+              className="panel-project-value"
+              data-yagu-id="project-user-managers"
+              onClick={() => setPickerRole('user')}
+              disabled={busy}
+              title="Click to edit user managers"
+            >
+              {namesFor(userManagers)}
+            </button>
           ) : (
-            <ul
-              className="managers-picker-list"
+            // FIX352.3.10.11: non-admin callers can see but not edit.
+            <span
+              className="panel-project-value panel-project-value-readonly"
               data-yagu-id="project-user-managers"
             >
-              {candidates.map((u) => (
-                <li key={u.id}>
-                  <label className={isAdmin ? '' : 'is-disabled'}>
-                    <input
-                      type="checkbox"
-                      checked={userManagers.has(u.id)}
-                      disabled={!isAdmin}
-                      onChange={() => toggleUser(u.id)}
-                    />
-                    {u.name}
-                  </label>
-                </li>
-              ))}
-            </ul>
+              {namesFor(userManagers)}
+            </span>
           )}
         </div>
-        <label className="setup-checkbox-row">
+        <div className="panel-project-row">
+          <span className="panel-project-row-label">Is public</span>
           <input
             type="checkbox"
             data-yagu-id="project-is-public"
             checked={isPublic}
             onChange={(e) => setIsPublic(e.target.checked)}
           />
-          Is public
-        </label>
+        </div>
         {err && <div className="visits-err">{err}</div>}
-        <div className="users-add-actions">
+        <div className="panel-project-actions">
           {/* FIX352.3.10 Cancel / Save. */}
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel
@@ -572,6 +551,77 @@ function ProjectPanel({
             disabled={busy}
           >
             {busy ? '…' : 'Save'}
+          </button>
+        </div>
+        {pickerRole && (
+          <ManagerPicker
+            title={pickerRole === 'data' ? 'Data Managers' : 'Users Managers'}
+            candidates={candidates}
+            selectedIds={pickerRole === 'data' ? dataManagers : userManagers}
+            onCancel={() => setPickerRole(null)}
+            onApply={(next) => {
+              if (pickerRole === 'data') setDataManagers(next);
+              else setUserManagers(next);
+              setPickerRole(null);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// FIX352.3.1: sub-picker opened from a manager value in
+// <panel-project>. Shows one checkbox per candidate user; Done
+// commits the new selection back to the parent panel as draft state
+// (the actual save happens when the panel's Save button is clicked).
+function ManagerPicker({ title, candidates, selectedIds, onCancel, onApply }) {
+  const [picked, setPicked] = useState(() => new Set(selectedIds));
+  const toggle = (id) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div
+        className="modal managers-picker"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="visits-header">
+          <h2>{title}</h2>
+        </header>
+        {candidates.length === 0 ? (
+          <div className="visits-empty">
+            No candidate — add the user via the Users panel first.
+          </div>
+        ) : (
+          <ul className="managers-picker-list" data-yagu-id="list-users">
+            {candidates.map((u) => (
+              <li key={u.id}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={picked.has(u.id)}
+                    onChange={() => toggle(u.id)}
+                  />
+                  {u.name}
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="users-add-actions">
+          <button type="button" onClick={onCancel}>Cancel</button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => onApply(picked)}
+          >
+            Done
           </button>
         </div>
       </div>

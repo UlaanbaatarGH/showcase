@@ -119,13 +119,15 @@ function VisitsHistoryTab({ ipNames }) {
     const d = new Date(ts);
     return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
   };
-  // FIX412.2.1.1.1: page label — 'home' / 'project' / 'login_ok' /
-  // 'login_failed' (FIX412.5.1.2). 'login' is the legacy single-tag
-  // value, kept for old rows. Capitalize for display; future
-  // multi-project support will resolve project ids to names.
-  const pageLabel = (p) => {
+  // FIX412.2.1.1.1 (updated): page label — 'home' → 'Home',
+  // 'project' → the project's name (falls back to 'Project' for
+  // legacy rows that pre-date the project_id tagging). Login rows
+  // map to 'Login OK' / 'Login FAILED' (FIX412.5.1.2). 'login' is
+  // the older single tag, kept for legacy rows.
+  const pageLabel = (v) => {
+    const p = v.page;
     if (p === 'home') return 'Home';
-    if (p === 'project') return 'Project';
+    if (p === 'project') return v.project_name || 'Project';
     if (p === 'login_ok') return 'Login OK';
     if (p === 'login_failed') return 'Login FAILED';
     if (p === 'login') return 'Login';
@@ -157,7 +159,7 @@ function VisitsHistoryTab({ ipNames }) {
       lines.push([
         escape(userOf(v)),
         escape(ipLabel(v.ip)),
-        escape(pageLabel(v.page)),
+        escape(pageLabel(v)),
         escape(fmt(v.ts)),
       ].join(','));
     }
@@ -247,7 +249,7 @@ function VisitsHistoryTab({ ipNames }) {
             <tr key={i}>
               <td>{userCell}</td>
               <td>{ipLabel(v.ip)}</td>
-              <td>{pageLabel(v.page)}</td>
+              <td>{pageLabel(v)}</td>
               <td>{fmt(v.ts)}</td>
             </tr>
           );
@@ -290,6 +292,13 @@ function IpStatsTab({ ipStats, error, onSetName }) {
   const projectName = ipStats.projects?.[0]?.name || 'Project';
   const valueFor = (row) =>
     Object.prototype.hasOwnProperty.call(drafts, row.ip) ? drafts[row.ip] : row.name;
+  // FIX413.2.1.6 <ip-action-when>: most recent action timestamp,
+  // formatted with the user's locale.
+  const fmtWhen = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
+  };
 
   const onBlur = (row) => {
     const next = (drafts[row.ip] ?? row.name).trim();
@@ -325,7 +334,7 @@ function IpStatsTab({ ipStats, error, onSetName }) {
     return <div className="visits-empty">No IP recorded yet.</div>;
   }
   return (
-    <>
+    <div data-yagu-id="panel-ip-address-and-stats">
       <div className="ip-stats-toolbar">
         <button
           type="button"
@@ -337,16 +346,19 @@ function IpStatsTab({ ipStats, error, onSetName }) {
         </button>
       </div>
       {queryError && <div className="visits-err">{queryError}</div>}
-      <table className="visits-table" data-yagu-id="panel-ip-address-and-stats">
+      <table className="visits-table" data-yagu-id="list-ip-addr">
         <thead>
           <tr>
             <th>IP Addr</th>
             <th>IP Name</th>
             {/* FIX413.2 column order: Login before Home before
-                {project-name1}. */}
+                {project-name1}, with When last. */}
             <th>Login</th>
             <th>Home</th>
             <th>{projectName}</th>
+            {/* FIX413.2.1.6 <ip-action-when>: timestamp of the IP's
+                last action, sorted descending (FIX413.5.1). */}
+            <th>When</th>
           </tr>
         </thead>
         <tbody>
@@ -374,6 +386,7 @@ function IpStatsTab({ ipStats, error, onSetName }) {
               <td className="visits-num">{r.login_count ?? 0}</td>
               <td className="visits-num">{r.home_count}</td>
               <td className="visits-num">{r.project_count}</td>
+              <td data-yagu-id="ip-action-when">{fmtWhen(r.last_ts)}</td>
             </tr>
           ))}
         </tbody>
@@ -384,7 +397,7 @@ function IpStatsTab({ ipStats, error, onSetName }) {
           onClose={() => setQueryResult(null)}
         />
       )}
-    </>
+    </div>
   );
 }
 

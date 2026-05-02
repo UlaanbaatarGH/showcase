@@ -51,8 +51,13 @@ export default {
   listVisits: () => call('/api/admin/visits'),
   // FIX410.1.1.1.1.1: log a consultation of one of the two tracked pages.
   // Fire-and-forget — failures swallowed so they don't disrupt the page load.
-  trackVisit: (page) =>
-    call('/api/track', { method: 'POST', body: { page } }).catch(() => null),
+  // FIX412.2.1.1.1: when page='project', pass the project's id so the
+  // backend can render the project's name in the History tab.
+  trackVisit: (page, opts = {}) =>
+    call('/api/track', {
+      method: 'POST',
+      body: { page, ...(opts.project_id != null ? { project_id: opts.project_id } : {}) },
+    }).catch(() => null),
   // FIX413: per-IP friendly name + page consultation counts.
   listIpStats: () => call('/api/admin/ip-stats'),
   setIpName: (ip, name) =>

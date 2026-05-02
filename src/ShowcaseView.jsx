@@ -221,7 +221,18 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   }, [slug, profile?.id]);
 
   // FIX410.1.1.1.1.1: log a consultation of <panel-project-home>.
-  useEffect(() => { trackVisit('project'); }, []);
+  // FIX412.2.1.1.1: tag the visit with the resolved project id so the
+  // History tab can render its name. Fire once per project — the
+  // backend dedups within 30s anyway so a re-fire on slug change is
+  // harmless.
+  const trackedProjectIdRef = useRef(null);
+  useEffect(() => {
+    const pid = data?.project?.id;
+    if (pid == null) return;
+    if (trackedProjectIdRef.current === pid) return;
+    trackedProjectIdRef.current = pid;
+    trackVisit('project', { project_id: pid });
+  }, [data?.project?.id]);
 
   useEffect(() => {
     if (!menuOpen) return;

@@ -141,7 +141,6 @@ export default function HomeView({ onOpenProject }) {
       <div className="home-topbar">
         {profile ? (
           <>
-            <span className="home-user">Signed in as {profile.login_name}</span>
             {showEdit && (
               <button
                 type="button"
@@ -174,9 +173,12 @@ export default function HomeView({ onOpenProject }) {
                 </button>
               </>
             )}
-            {/* FIX400.2.6 + FIX400.4.6 <menu-admin>: signed-in only, between
-                Edit and Sign in/out per FIX400.2 layout. */}
+            {/* FIX400.2.6 <menu-admin>: signed-in only, between Edit
+                and {user} per the FIX400.2 layout. */}
             <AdminMenu />
+            {/* FIX400.2.7 {user}: the signed-in user's name, between
+                Admin and Sign in/out. Only visible when signed in. */}
+            <span className="home-user">{profile.login_name}</span>
             <button className="btn-link" onClick={signOut} disabled={editing}>
               Sign out
             </button>

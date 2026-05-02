@@ -1137,6 +1137,13 @@ body {
   color: var(--color-text-muted);
   font-size: 0.9rem;
 }
+/* FIX503.2.9 {user}: signed-in user's name in the project header,
+   between Setup and Sign out. */
+.sc-user-label {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  padding: 0 0.25rem;
+}
 .home-loading, .home-empty {
   color: var(--color-text-muted);
   font-size: 1rem;

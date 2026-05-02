@@ -875,6 +875,12 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             ⚙
           </button>
         )}
+        {/* FIX503.2.9 {user}: the signed-in user's name, between
+            Setup and Sign out per the FIX503.2 layout. Only visible
+            when signed in. */}
+        {profile && (
+          <span className="sc-user-label">{profile.login_name}</span>
+        )}
         {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6]
             <button-sign-out>: visible only when the caller is signed
             in (FIX503.2.8.2). */}

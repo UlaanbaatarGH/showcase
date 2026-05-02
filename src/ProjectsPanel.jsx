@@ -363,8 +363,11 @@ export default function ProjectsPanel({ onClose }) {
   );
 }
 
-// FIX351.2.1 (updated) dialog: name + ≥1 managers (multi-select)
-// from <list-users> filtered to users with a password set.
+// FIX351.2.1 (updated) dialog. The dialog itself is FIX351.2.1.1
+// (prompts for a name); FIX351.2.1.2 [ex-.1.1] enforces non-blank +
+// uniqueness; FIX351.2.1.3 inserts the row; FIX351.2.1.2 (removed) —
+// managers are no longer required at create time and can be picked
+// optionally from <list-users> filtered to users with a password set.
 function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   const [name, setName] = useState('');
   const [picked, setPicked] = useState(() => new Set());
@@ -382,7 +385,7 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   const submit = (e) => {
     e.preventDefault();
     const n = name.trim();
-    // FIX351.2.1.1: non-blank, unique name.
+    // FIX351.2.1.2 [ex-351.2.1.1]: non-blank, unique name.
     if (!n) { setErr('Name is required.'); return; }
     if (existingNames.has(n.toLowerCase())) {
       setErr('Project name already in use.');

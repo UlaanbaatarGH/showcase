@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listVisits, listIpStats, setIpName } from './data/backend.js';
 
+// FIX412.2.1.1.1 + FIX413.2.1.6.1: shared date/time formatter for
+// the visits log and IP-stats When column. One line, no seconds,
+// 24-hour clock, day-month-year ordering.
+function formatDateTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+    + ` ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+}
+
 // FIX411 <panel-visits>: tabbed panel grouping the visit views.
 // FIX411.2: two tabs — <panel-visits-history> (FIX412) and
 // <panel-ip-address-and-stats> (FIX413). The IP-name map referenced
@@ -115,10 +129,9 @@ function VisitsHistoryTab({ ipNames }) {
 
   useEffect(() => { reload(); }, [reload]);
 
-  const fmt = (ts) => {
-    const d = new Date(ts);
-    return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
-  };
+  // FIX412.2.1.1.1 (format): one line, dd/mm/yyyy hh:mm — same
+  // format reused on the IP-stats When column (FIX413.2.1.6.1).
+  const fmt = formatDateTime;
   // FIX412.2.1.1.1 (updated): page label — 'home' → 'Home',
   // 'project' → the project's name (falls back to 'Project' for
   // legacy rows that pre-date the project_id tagging). Login rows
@@ -292,13 +305,9 @@ function IpStatsTab({ ipStats, error, onSetName }) {
   const projectName = ipStats.projects?.[0]?.name || 'Project';
   const valueFor = (row) =>
     Object.prototype.hasOwnProperty.call(drafts, row.ip) ? drafts[row.ip] : row.name;
-  // FIX413.2.1.6 <ip-action-when>: most recent action timestamp,
-  // formatted with the user's locale.
-  const fmtWhen = (ts) => {
-    if (!ts) return '';
-    const d = new Date(ts);
-    return Number.isNaN(d.getTime()) ? ts : d.toLocaleString();
-  };
+  // FIX413.2.1.6 + FIX413.2.1.6.1 <ip-action-when>: most recent
+  // action timestamp formatted as dd/mm/yyyy hh:mm.
+  const fmtWhen = formatDateTime;
 
   const onBlur = (row) => {
     const next = (drafts[row.ip] ?? row.name).trim();

@@ -1030,7 +1030,12 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             >
               Details
             </button>
-            {profile && !editionMode && (
+            {/* FIX515.4.3 keeps the Images-tab Edit visible to any
+                logged-in user; FIX518.4.7 narrows the Details-tab
+                Edit to admin-only. */}
+            {!editionMode && (viewerTab === 'details'
+              ? profile?.profile === 'admin'
+              : !!profile) && (
               <button
                 type="button"
                 className="sc-viewer-edit-btn"
@@ -1349,10 +1354,24 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
                         />
                       );
                     }
+                    const draft = storedValue(p);
+                    // FIX518.4.8: a multi-line value stays multi-line
+                    // when edited too, otherwise the single-line input
+                    // would silently lose its newlines on save.
+                    if (typeof draft === 'string' && draft.includes('\n')) {
+                      const rows = Math.min(8, draft.split('\n').length + 1);
+                      return (
+                        <textarea
+                          value={draft}
+                          rows={rows}
+                          onChange={(e) => setDraft(p, e.target.value)}
+                        />
+                      );
+                    }
                     return (
                       <input
                         type="text"
-                        value={storedValue(p)}
+                        value={draft}
                         onChange={(e) => setDraft(p, e.target.value)}
                       />
                     );
@@ -1368,6 +1387,12 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
                         tabIndex={-1}
                       />
                     );
+                  }
+                  // FIX518.4.8: preserve newlines on display so values
+                  // imported as multi-line text render across multiple
+                  // lines (CSS white-space: pre-line on the wrapper).
+                  if (typeof raw === 'string' && raw.includes('\n')) {
+                    return <span className="sc-details-multiline">{raw}</span>;
                   }
                   return raw;
                 };

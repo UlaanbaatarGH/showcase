@@ -804,7 +804,8 @@ body {
   overflow: auto;
   padding: 1rem 1.5rem;
 }
-.sc-details.editing input[type="text"] {
+.sc-details.editing input[type="text"],
+.sc-details.editing textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 0.2rem 0.4rem;
@@ -828,6 +829,11 @@ body {
   font-weight: normal;
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+/* FIX518.4.8: render multi-line property values across multiple lines. */
+.sc-details-multiline {
+  display: inline-block;
+  white-space: pre-line;
 }
 .sc-viewer-img {
   max-width: 100%;

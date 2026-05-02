@@ -55,6 +55,17 @@ export default function ProjectsPanel({ onClose }) {
     [users],
   );
 
+  // FIX351.5.7: <button-edit-project> is enabled only for an admin or
+  // a manager of the currently selected project. Currently the click
+  // opens the existing manager picker as a stand-in for the (not yet
+  // implemented) <panel-project> from FIX352.
+  const managedProjectIds = useMemo(
+    () => new Set(profile?.managed_project_ids || []),
+    [profile?.managed_project_ids],
+  );
+  const canEditSelected =
+    selectedId != null && (isAdmin || managedProjectIds.has(selectedId));
+
   const onAdd = async ({ name, manager_ids }) => {
     setBusy(true);
     try {
@@ -193,60 +204,79 @@ export default function ProjectsPanel({ onClose }) {
             Close
           </button>
         </header>
-        {isAdmin && (
-          <div className="users-toolbar">
-            {/* FIX351.2.5 <button-add-project>: green '+'. */}
-            <button
-              type="button"
-              className="users-add"
-              data-yagu-id="button-add-project"
-              onClick={() => setAddOpen(true)}
-              disabled={busy || eligibleUsers.length === 0}
-              title={
-                eligibleUsers.length === 0
-                  ? 'At least one user with a password is required.'
-                  : 'Add project'
-              }
-              aria-label="Add project"
-            >
-              +
-            </button>
-            {/* FIX351.2.6 <button-remove-project>: red '×' (clears managers). */}
-            <button
-              type="button"
-              className="users-remove"
-              data-yagu-id="button-remove-project"
-              onClick={onRemove}
-              disabled={busy || !selectedId}
-              aria-label="Remove project managers"
-              title="Clear managers of the selected project"
-            >
-              ×
-            </button>
-            {/* FIX351.2.7 <button-move-up-project>. */}
-            <button
-              type="button"
-              data-yagu-id="button-move-up-project"
-              onClick={() => move('up')}
-              disabled={busy || !canMoveUp}
-              aria-label="Move project up"
-              title="Move up"
-            >
-              ↑
-            </button>
-            {/* FIX351.2.8 <button-move-down-project>. */}
-            <button
-              type="button"
-              data-yagu-id="button-move-down-project"
-              onClick={() => move('down')}
-              disabled={busy || !canMoveDown}
-              aria-label="Move project down"
-              title="Move down"
-            >
-              ↓
-            </button>
-          </div>
-        )}
+        {/* Toolbar: FIX351.5.3 / .5.4 / .5.5 / .5.6 keep Add/Remove/Move
+            buttons admin-only; FIX351.5.7 adds Edit, visible to all
+            and enabled for admin OR manager of the selected project. */}
+        <div className="users-toolbar">
+          {isAdmin && (
+            <>
+              {/* FIX351.2.5 <button-add-project>: green '+'. */}
+              <button
+                type="button"
+                className="users-add"
+                data-yagu-id="button-add-project"
+                onClick={() => setAddOpen(true)}
+                disabled={busy || eligibleUsers.length === 0}
+                title={
+                  eligibleUsers.length === 0
+                    ? 'At least one user with a password is required.'
+                    : 'Add project'
+                }
+                aria-label="Add project"
+              >
+                +
+              </button>
+              {/* FIX351.2.6 <button-remove-project>: red '×' (clears managers). */}
+              <button
+                type="button"
+                className="users-remove"
+                data-yagu-id="button-remove-project"
+                onClick={onRemove}
+                disabled={busy || !selectedId}
+                aria-label="Remove project managers"
+                title="Clear managers of the selected project"
+              >
+                ×
+              </button>
+              {/* FIX351.2.7 <button-move-up-project>. */}
+              <button
+                type="button"
+                data-yagu-id="button-move-up-project"
+                onClick={() => move('up')}
+                disabled={busy || !canMoveUp}
+                aria-label="Move project up"
+                title="Move up"
+              >
+                ↑
+              </button>
+              {/* FIX351.2.8 <button-move-down-project>. */}
+              <button
+                type="button"
+                data-yagu-id="button-move-down-project"
+                onClick={() => move('down')}
+                disabled={busy || !canMoveDown}
+                aria-label="Move project down"
+                title="Move down"
+              >
+                ↓
+              </button>
+            </>
+          )}
+          {/* FIX351.2.9 + FIX351.5.7 <button-edit-project>: opens the
+              project editor for the selected project. Stand-in until
+              <panel-project> (FIX352) lands — for admins, opens the
+              existing manager picker. */}
+          <button
+            type="button"
+            className="users-projects-btn"
+            data-yagu-id="button-edit-project"
+            onClick={() => setManagersEditId(selectedId)}
+            disabled={busy || !canEditSelected}
+            title="Edit project"
+          >
+            Edit
+          </button>
+        </div>
         {error && <div className="visits-err">{error}</div>}
         {projects === null && <div className="visits-loading">Loading…</div>}
         {projects && projects.length === 0 && (

@@ -1505,6 +1505,10 @@ body {
   font: inherit;
   font-size: 1.1rem;
   line-height: 1;
+  /* FIX311.2.4 / FIX351.2.7 / FIX351.2.8 (bug fix): default toolbar
+     button text is white. .users-add and .users-remove override below
+     with their green/red glyph colors. */
+  color: #fff;
 }
 .users-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 .users-add { color: #4ade80; }

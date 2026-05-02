@@ -427,8 +427,9 @@ function UserPanel({
         data-yagu-id="panel-user"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* FIX312.1 layout: header reads 'User {user-name}'. */}
         <header className="visits-header">
-          <h2>User — {user.name}</h2>
+          <h2>User {user.name}</h2>
         </header>
         {/* FIX312.1.1 Field 'Name'. */}
         <label>

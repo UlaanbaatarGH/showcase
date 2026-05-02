@@ -80,6 +80,15 @@ export default function UsersPanel({ onClose }) {
   const canEditAnyProject =
     isAdmin || (projects || []).some((p) => managedProjectIds.has(p.id));
 
+  // FIX311.5.9: <user-email> and <user-access-code> are visible to
+  // admins (.5.9.1) and to project managers when the row's user has
+  // one of the manager's projects in their <user-projects> (.5.9.2).
+  const canSeeSensitive = (u) => {
+    if (isAdmin) return true;
+    const userProjectIds = (u.projects || []).map((p) => p.id);
+    return userProjectIds.some((pid) => managedProjectIds.has(pid));
+  };
+
   // FIX311.3.5 + FIX312: <panel-user> editor state. Cancel discards;
   // Save commits name/email/projects in one batch.
   const [userEditOpen, setUserEditOpen] = useState(false);
@@ -244,9 +253,12 @@ export default function UsersPanel({ onClose }) {
                       Editing happens through <panel-user>
                       (FIX311.3.5 / FIX312.1.1). */}
                   <td data-yagu-id="user-name">{u.name}</td>
-                  {/* FIX311.2.1.2 <user-email>: read-only display.
-                      Editing through <panel-user> (FIX312.1.2). */}
-                  <td data-yagu-id="user-email">{u.email || ''}</td>
+                  {/* FIX311.2.1.2 + FIX311.5.9 <user-email>: read-only
+                      display, only visible to callers allowed to see
+                      sensitive fields. */}
+                  <td data-yagu-id="user-email">
+                    {canSeeSensitive(u) ? (u.email || '') : ''}
+                  </td>
                   <td className="users-check">
                     {/* FIX311.2.1.3 <user-has-password>: read-only. */}
                     <input
@@ -258,9 +270,11 @@ export default function UsersPanel({ onClose }) {
                       onClick={(e) => e.stopPropagation()}
                     />
                   </td>
-                  {/* FIX311.2.1.4 <user-access-code>: read-only 6 digits. */}
+                  {/* FIX311.2.1.4 + FIX311.5.9 <user-access-code>:
+                      read-only 6 digits, only visible to callers
+                      allowed to see sensitive fields. */}
                   <td data-yagu-id="user-access-code" className="users-code">
-                    {u.access_code || ''}
+                    {canSeeSensitive(u) ? (u.access_code || '') : ''}
                   </td>
                   <td className="users-check">
                     {/* FIX311.2.1.5 + .5.1 + .5.2 <user-is-admin>:
@@ -305,6 +319,9 @@ export default function UsersPanel({ onClose }) {
             projects={projects}
             isAdmin={isAdmin}
             canEditProjectFor={canEditProjectFor}
+            canSeeEmail={canSeeSensitive(
+              users?.find((u) => u.id === selectedId) || { projects: [] },
+            )}
             onCancel={() => setUserEditOpen(false)}
             onSubmit={(payload) => applyUserEdits(selectedId, payload)}
           />
@@ -397,6 +414,7 @@ function UserPanel({
   projects,
   isAdmin,
   canEditProjectFor,
+  canSeeEmail,
   onCancel,
   onSubmit,
 }) {
@@ -441,16 +459,20 @@ function UserPanel({
             disabled={!isAdmin}
           />
         </label>
-        {/* FIX312.1.2 Field 'Email'. */}
-        <label>
-          Email
-          <input
-            type="text"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={!isAdmin}
-          />
-        </label>
+        {/* FIX312.1.2 + FIX311.5.9 Field 'Email': hidden entirely
+            when the caller is not allowed to see the email (a PM
+            opening a user with no shared project). */}
+        {canSeeEmail && (
+          <label>
+            Email
+            <input
+              type="text"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={!isAdmin}
+            />
+          </label>
+        )}
         {/* FIX312.1.3 + FIX312.5.1 Field 'Projects': checkbox per
             project. Admins see all; others only their own managed
             projects. */}

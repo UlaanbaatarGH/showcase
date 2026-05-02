@@ -364,7 +364,7 @@ export default function ProjectsPanel({ onClose }) {
 }
 
 // FIX351.2.1 (updated) dialog: name + ≥1 managers (multi-select)
-// from <data-users-list> filtered to users with a password set.
+// from <list-users> filtered to users with a password set.
 function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   const [name, setName] = useState('');
   const [picked, setPicked] = useState(() => new Set());
@@ -388,11 +388,8 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
       setErr('Project name already in use.');
       return;
     }
-    // FIX351.2.1.2: at least one manager.
-    if (picked.size === 0) {
-      setErr('Pick at least one manager.');
-      return;
-    }
+    // FIX351.2.1.2 (removed): no manager required at create time —
+    // managers can be assigned later via <user-projects> (FIX311.3.3).
     setErr(null);
     onSubmit({ name: n, manager_ids: [...picked] });
   };
@@ -424,7 +421,7 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
               No user with a password set yet.
             </div>
           ) : (
-            <ul className="managers-picker-list" data-yagu-id="data-users-list">
+            <ul className="managers-picker-list" data-yagu-id="list-users">
               {users.map((u) => (
                 <li key={u.id}>
                   <label>
@@ -483,7 +480,7 @@ function ManagersPickerDialog({ busy, users, project, onCancel, onSubmit }) {
             No user with a password set yet.
           </div>
         ) : (
-          <ul className="managers-picker-list" data-yagu-id="data-users-list">
+          <ul className="managers-picker-list" data-yagu-id="list-users">
             {users.map((u) => (
               <li key={u.id}>
                 <label>

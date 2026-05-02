@@ -64,6 +64,18 @@ export default {
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deleteUser: (id) =>
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // FIX311.3.3 / FIX311.5.6 / FIX311.5.7 <user-projects>: add or
+  // remove a project from a user's project_access set.
+  grantUserProject: (userId, projectId) =>
+    call(
+      `/api/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
+      { method: 'POST' },
+    ),
+  revokeUserProject: (userId, projectId) =>
+    call(
+      `/api/admin/users/${encodeURIComponent(userId)}/projects/${encodeURIComponent(projectId)}`,
+      { method: 'DELETE' },
+    ),
   // FIX317: anonymous redemption — trade login_name + access_code
   // + new password for a fresh Supabase auth user. Backend rewrites
   // the existing app_user.id to match the new auth user id.

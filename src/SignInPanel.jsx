@@ -91,6 +91,7 @@ export default function SignInPanel({ onClose }) {
           autoFocus
           required
           minLength={3}
+          autoComplete="username"
         />
       </label>
       {/* FIX317.2.2: access code, only in create mode. */}
@@ -105,6 +106,7 @@ export default function SignInPanel({ onClose }) {
             inputMode="numeric"
             pattern="[0-9]{6}"
             placeholder="6 digits"
+            autoComplete="one-time-code"
           />
         </label>
       )}
@@ -116,6 +118,7 @@ export default function SignInPanel({ onClose }) {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={mode === 'create' ? 8 : 6}
+          autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
         />
       </label>
       {/* FIX317.2.4: confirm password, only in create mode. */}
@@ -128,6 +131,7 @@ export default function SignInPanel({ onClose }) {
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
             minLength={8}
+            autoComplete="new-password"
           />
         </label>
       )}

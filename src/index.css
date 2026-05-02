@@ -1543,6 +1543,81 @@ body {
   cursor: not-allowed;
 }
 
+/* FIX312.1 <panel-user> layout — line-by-line as per the spec:
+   User {name}
+   Name  [______]
+   Email [______]
+   Projects
+     [x] p1
+     [x] p2
+     ...
+   [Cancel][Save]                                                    */
+.panel-user-modal {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.panel-user-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+.panel-user-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+.panel-user-row-label {
+  min-width: 4rem;
+  color: var(--color-text-muted);
+}
+.panel-user-row input[type="text"] {
+  flex: 1;
+  padding: 0.35rem 0.55rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+}
+.panel-user-projects {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.panel-user-projects-label {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+.panel-user-projects-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.panel-user-projects-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.panel-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.panel-user-actions button {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 /* FIX311.3.1 dialog: small modal prompted from the Add (+) button. */
 .users-add-dialog {
   width: min(380px, 100%);

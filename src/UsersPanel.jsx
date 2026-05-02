@@ -71,14 +71,18 @@ export default function UsersPanel({ onClose }) {
     }
   };
 
-  // FIX311.5.6 + FIX312.5.1: which projects the caller can grant or
-  // revoke. Admin can edit any project; a Project Manager only the
-  // ones they manage. Drives the panel's enabled rows and the Edit
-  // button visibility for non-admins.
+  // FIX312.5.2: only Admin or User-Manager-of-the-project can
+  // grant / revoke that project to a user. The Edit button visibility
+  // also follows this rule (a plain Data Manager has no business in
+  // <panel-user>).
+  const userManagedProjectIds = useMemo(
+    () => new Set(profile?.user_managed_project_ids || []),
+    [profile?.user_managed_project_ids],
+  );
   const canEditProjectFor = (projectId) =>
-    isAdmin || managedProjectIds.has(projectId);
+    isAdmin || userManagedProjectIds.has(projectId);
   const canEditAnyProject =
-    isAdmin || (projects || []).some((p) => managedProjectIds.has(p.id));
+    isAdmin || (projects || []).some((p) => userManagedProjectIds.has(p.id));
 
   // FIX311.5.9: <user-email> and <user-access-code> are visible to
   // admins (.5.9.1) and to project managers when the row's user has
@@ -441,48 +445,54 @@ function UserPanel({
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div
-        className="modal users-add-dialog"
+        className="modal panel-user-modal"
         data-yagu-id="panel-user"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* FIX312.1 layout: header reads 'User {user-name}'. */}
-        <header className="visits-header">
-          <h2>User {user.name}</h2>
-        </header>
+        {/* FIX312.1 layout — line-by-line:
+            User {user-name}
+            Name  [______]
+            Email [______]
+            Projects
+              [x] project1
+              [x] project2
+              ...
+            [Cancel][Save] */}
+        <div className="panel-user-title">User {user.name}</div>
         {/* FIX312.1.1 Field 'Name'. */}
-        <label>
-          Name
+        <div className="panel-user-row">
+          <span className="panel-user-row-label">Name</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={!isAdmin}
           />
-        </label>
+        </div>
         {/* FIX312.1.2 + FIX311.5.9 Field 'Email': hidden entirely
             when the caller is not allowed to see the email (a PM
             opening a user with no shared project). */}
         {canSeeEmail && (
-          <label>
-            Email
+          <div className="panel-user-row">
+            <span className="panel-user-row-label">Email</span>
             <input
               type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={!isAdmin}
             />
-          </label>
+          </div>
         )}
         {/* FIX312.1.3 + FIX312.5.1 Field 'Projects': checkbox per
             project. Admins see all; others only their own managed
             projects. */}
-        <div className="users-add-managers">
-          <span className="users-add-managers-label">Projects</span>
+        <div className="panel-user-projects">
+          <div className="panel-user-projects-label">Projects</div>
           {visibleProjects.length === 0 ? (
             <div className="visits-empty">No project to grant.</div>
           ) : (
             <ul
-              className="managers-picker-list"
+              className="panel-user-projects-list"
               data-yagu-id="user-projects-editor"
             >
               {visibleProjects.map((p) => (
@@ -500,7 +510,7 @@ function UserPanel({
             </ul>
           )}
         </div>
-        <div className="users-add-actions">
+        <div className="panel-user-actions">
           {/* FIX312.1.10 Button Cancel. */}
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel

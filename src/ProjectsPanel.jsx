@@ -9,13 +9,13 @@ import {
 } from './data/backend.js';
 import { useAuth } from './AuthContext.jsx';
 
-// FIX351 <panel-project-list>: admin-only projects + managers list.
-// Spec quirk: the Remove button (FIX351.2.2) clears managers — it
-// does NOT delete the project. Deletion would be a separate flow.
+// FIX351 <panel-project-list>: signed-in projects + managers list.
+// Columns are read-only displays per FIX351.2.1.x; field edits live
+// in the project editor opened by <button-edit-project> (FIX352).
+// The Remove button (FIX351.2.2) clears managers — it does NOT
+// delete the project.
 export default function ProjectsPanel({ onClose }) {
   const { profile } = useAuth();
-  // The list itself is open to any signed-in user. Only Add, Remove,
-  // Rename and Manager edits require admin — backend enforces too.
   const isAdmin = profile?.profile === 'admin';
   const [projects, setProjects] = useState(null);
   const [users, setUsers] = useState(null);
@@ -23,8 +23,7 @@ export default function ProjectsPanel({ onClose }) {
   const [selectedId, setSelectedId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [managersEditId, setManagersEditId] = useState(null);
-  const [nameDraft, setNameDraft] = useState({}); // projectId → text
+  const [editProjectId, setEditProjectId] = useState(null);
 
   const reload = useCallback(() => {
     Promise.all([listAdminProjects(), listUsers()])
@@ -49,16 +48,14 @@ export default function ProjectsPanel({ onClose }) {
     ));
   }, [projects]);
 
-  // FIX351.2.1 + FIX317-aware: only redeemed users can be managers.
+  // FIX317-aware: only redeemed users can be managers.
   const eligibleUsers = useMemo(
     () => (users || []).filter((u) => u.has_password),
     [users],
   );
 
   // FIX351.5.7: <button-edit-project> is enabled only for an admin or
-  // a manager of the currently selected project. Currently the click
-  // opens the existing manager picker as a stand-in for the (not yet
-  // implemented) <panel-project> from FIX352.
+  // a manager of the currently selected project.
   const managedProjectIds = useMemo(
     () => new Set(profile?.managed_project_ids || []),
     [profile?.managed_project_ids],
@@ -70,7 +67,6 @@ export default function ProjectsPanel({ onClose }) {
     setBusy(true);
     try {
       const created = await createAdminProject({ name, manager_ids });
-      // Refetch so the joined managers come back populated.
       const refreshed = await listAdminProjects();
       setProjects(refreshed);
       setSelectedId(created.id);
@@ -83,23 +79,6 @@ export default function ProjectsPanel({ onClose }) {
     }
   };
 
-  const togglePublic = async (project, next) => {
-    setBusy(true);
-    try {
-      await updateAdminProject(project.id, { is_public: next });
-      setProjects((prev) =>
-        prev?.map((p) => (p.id === project.id ? { ...p, is_public: next } : p)),
-      );
-      setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // FIX351.2.7 / .2.8: swap the selected project with its neighbour
-  // and refetch the list so it re-orders.
   const move = async (direction) => {
     if (!selectedId) return;
     setBusy(true);
@@ -132,7 +111,11 @@ export default function ProjectsPanel({ onClose }) {
     try {
       await clearProjectManagers(selectedId);
       setProjects((prev) =>
-        prev?.map((p) => (p.id === selectedId ? { ...p, managers: [] } : p)),
+        prev?.map((p) =>
+          p.id === selectedId
+            ? { ...p, managers: [], data_managers: [], user_managers: [] }
+            : p,
+        ),
       );
       setError(null);
     } catch (e) {
@@ -142,48 +125,16 @@ export default function ProjectsPanel({ onClose }) {
     }
   };
 
-  const saveName = async (project) => {
-    const draft = (nameDraft[project.id] ?? project.name).trim();
-    setNameDraft((d) => {
-      const c = { ...d };
-      delete c[project.id];
-      return c;
-    });
-    if (!draft || draft === project.name) return;
-    try {
-      await updateAdminProject(project.id, { name: draft });
-      setProjects((prev) =>
-        prev?.map((p) => (p.id === project.id ? { ...p, name: draft } : p)),
-      );
-      setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
-    }
-  };
-
-  const saveManagers = async (project, managerIds) => {
+  // FIX352.3.10 Save: persist Name, Data Managers, Is public, and
+  // (admin-only per FIX352.3.10.11) User Managers.
+  const saveProject = async (projectId, payload) => {
     setBusy(true);
     try {
-      await updateAdminProject(project.id, { managers: managerIds });
-      // Resolve names from the users list to update the local view
-      // optimistically. The picker only offers eligibleUsers so all
-      // ids are guaranteed to be in our cached `users` array.
-      const usersById = new Map((users || []).map((u) => [u.id, u]));
-      setProjects((prev) =>
-        prev?.map((p) => (
-          p.id === project.id
-            ? {
-                ...p,
-                managers: managerIds.map((id) => ({
-                  id,
-                  name: usersById.get(id)?.name || id,
-                })),
-              }
-            : p
-        )),
-      );
+      await updateAdminProject(projectId, payload);
+      const refreshed = await listAdminProjects();
+      setProjects(refreshed);
+      setEditProjectId(null);
       setError(null);
-      setManagersEditId(null);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -204,9 +155,9 @@ export default function ProjectsPanel({ onClose }) {
             Close
           </button>
         </header>
-        {/* Toolbar: FIX351.5.3 / .5.4 / .5.5 / .5.6 keep Add/Remove/Move
-            buttons admin-only; FIX351.5.7 adds Edit, visible to all
-            and enabled for admin OR manager of the selected project. */}
+        {/* Toolbar: FIX351.5.3-.5.6 keep Add/Remove/Move admin-only;
+            FIX351.5.7 Edit is rendered for everyone but enabled only
+            for admin OR manager of the selected project. */}
         <div className="users-toolbar">
           {isAdmin && (
             <>
@@ -262,15 +213,13 @@ export default function ProjectsPanel({ onClose }) {
               </button>
             </>
           )}
-          {/* FIX351.2.9 + FIX351.5.7 <button-edit-project>: opens the
-              project editor for the selected project. Stand-in until
-              <panel-project> (FIX352) lands — for admins, opens the
-              existing manager picker. */}
+          {/* FIX351.2.9 <button-edit-project>: opens <panel-project>
+              (FIX352) for the selected row. */}
           <button
             type="button"
             className="users-projects-btn"
             data-yagu-id="button-edit-project"
-            onClick={() => setManagersEditId(selectedId)}
+            onClick={() => setEditProjectId(selectedId)}
             disabled={busy || !canEditSelected}
             title="Edit project"
           >
@@ -286,8 +235,13 @@ export default function ProjectsPanel({ onClose }) {
           <table className="visits-table users-table">
             <thead>
               <tr>
+                {/* FIX351.2.1.1 Column 'Name'. */}
                 <th>Name</th>
-                <th>Managers</th>
+                {/* FIX351.2.1.2 Column 'Data Managers'. */}
+                <th>Data Managers</th>
+                {/* FIX351.2.1.5 Column 'User Managers'. */}
+                <th>User Managers</th>
+                {/* FIX351.2.1.3 Column 'Is public'. */}
                 <th>Is public</th>
               </tr>
             </thead>
@@ -298,68 +252,27 @@ export default function ProjectsPanel({ onClose }) {
                   className={p.id === selectedId ? 'selected' : ''}
                   onClick={() => setSelectedId(p.id)}
                 >
-                  <td>
-                    {isAdmin ? (
-                      /* FIX351.2.3: editable name. Saved on blur or
-                         Enter; client-side uniqueness check first,
-                         backend re-checks. */
-                      <input
-                        type="text"
-                        data-yagu-id="project-name"
-                        className="ip-name-input"
-                        value={nameDraft[p.id] ?? p.name}
-                        onChange={(e) =>
-                          setNameDraft((d) => ({ ...d, [p.id]: e.target.value }))
-                        }
-                        onBlur={() => saveName(p)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      p.name
-                    )}
-                  </td>
+                  <td data-yagu-id="project-name">{p.name}</td>
                   <td data-yagu-id="project-managers">
-                    {isAdmin ? (
-                      /* FIX351.2.4: click to edit the managers list. */
-                      <button
-                        type="button"
-                        className="projects-managers-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setManagersEditId(p.id);
-                        }}
-                      >
-                        {(p.managers || []).length === 0
-                          ? <span className="visits-anon">(none)</span>
-                          : (p.managers || []).map((m) => m.name).join(', ')}
-                      </button>
-                    ) : (
-                      (p.managers || []).length === 0
-                        ? <span className="visits-anon">(none)</span>
-                        : (p.managers || []).map((m) => m.name).join(', ')
-                    )}
+                    {(p.data_managers || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.data_managers || []).map((m) => m.name).join(', ')}
+                  </td>
+                  <td data-yagu-id="project-user-managers">
+                    {(p.user_managers || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.user_managers || []).map((m) => m.name).join(', ')}
                   </td>
                   <td className="users-check">
-                    {/* FIX351.2.1.3 <project-is-public>: editable
-                        toggle for admins, read-only display otherwise. */}
+                    {/* FIX351.2.1.3 <project-is-public>: read-only
+                        display. Editing is via <panel-project>. */}
                     <input
                       type="checkbox"
                       data-yagu-id="project-is-public"
                       checked={!!p.is_public}
-                      readOnly={!isAdmin}
-                      tabIndex={isAdmin ? 0 : -1}
+                      readOnly
+                      tabIndex={-1}
                       onClick={(e) => e.stopPropagation()}
-                      onChange={
-                        isAdmin
-                          ? (e) => togglePublic(p, e.target.checked)
-                          : undefined
-                      }
                     />
                   </td>
                 </tr>
@@ -376,16 +289,18 @@ export default function ProjectsPanel({ onClose }) {
             onSubmit={onAdd}
           />
         )}
-        {managersEditId != null && (
-          <ManagersPickerDialog
+        {editProjectId != null && (
+          <ProjectPanel
             busy={busy}
-            users={eligibleUsers}
-            project={projects?.find((p) => p.id === managersEditId)}
-            onCancel={() => setManagersEditId(null)}
-            onSubmit={(ids) => saveManagers(
-              projects.find((p) => p.id === managersEditId),
-              ids,
+            project={projects?.find((p) => p.id === editProjectId)}
+            existingNames={new Set(
+              (projects || [])
+                .filter((p) => p.id !== editProjectId)
+                .map((p) => p.name.toLowerCase()),
             )}
+            isAdmin={isAdmin}
+            onCancel={() => setEditProjectId(null)}
+            onSubmit={(payload) => saveProject(editProjectId, payload)}
           />
         )}
       </div>
@@ -393,11 +308,10 @@ export default function ProjectsPanel({ onClose }) {
   );
 }
 
-// FIX351.2.1 (updated) dialog. The dialog itself is FIX351.2.1.1
-// (prompts for a name); FIX351.2.1.2 [ex-.1.1] enforces non-blank +
-// uniqueness; FIX351.2.1.3 inserts the row; FIX351.2.1.2 (removed) —
-// managers are no longer required at create time and can be picked
-// optionally from <list-users> filtered to users with a password set.
+// FIX351.2.1 (updated) Add Project dialog. The dialog itself is
+// FIX351.2.1.1 (prompts for a name); FIX351.2.1.2 [ex-.1.1] enforces
+// non-blank + uniqueness; FIX351.2.1.3 inserts the row. FIX351.2.1.2
+// (removed) — managers are no longer required at create time.
 function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   const [name, setName] = useState('');
   const [picked, setPicked] = useState(() => new Set());
@@ -415,14 +329,11 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   const submit = (e) => {
     e.preventDefault();
     const n = name.trim();
-    // FIX351.2.1.2 [ex-351.2.1.1]: non-blank, unique name.
     if (!n) { setErr('Name is required.'); return; }
     if (existingNames.has(n.toLowerCase())) {
       setErr('Project name already in use.');
       return;
     }
-    // FIX351.2.1.2 (removed): no manager required at create time —
-    // managers can be assigned later via <user-projects> (FIX311.3.3).
     setErr(null);
     onSubmit({ name: n, manager_ids: [...picked] });
   };
@@ -484,58 +395,172 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   );
 }
 
-// FIX351.2.4: manager picker — multi-select checkboxes over the
-// eligible users (those with a password set).
-function ManagersPickerDialog({ busy, users, project, onCancel, onSubmit }) {
-  const [picked, setPicked] = useState(() =>
-    new Set((project?.managers || []).map((m) => m.id)),
+// FIX352 <panel-project>: edit a project's Name, Data Managers, User
+// Managers and Is public. Managers are picked from <list-users>
+// having this project in their <user-projects> (FIX352.3.1) — i.e.,
+// the union of the project's existing data + user managers. Adding a
+// brand-new candidate goes through <panel-user> first.
+// FIX352.3.10.11: User Managers checkboxes are admin-only; non-admin
+// callers (User Managers of the project per FIX351.5.7) see them
+// disabled.
+function ProjectPanel({
+  busy,
+  project,
+  existingNames,
+  isAdmin,
+  onCancel,
+  onSubmit,
+}) {
+  const [name, setName] = useState(project?.name || '');
+  const [isPublic, setIsPublic] = useState(!!project?.is_public);
+  const [dataManagers, setDataManagers] = useState(
+    () => new Set((project?.data_managers || []).map((m) => m.id)),
   );
+  const [userManagers, setUserManagers] = useState(
+    () => new Set((project?.user_managers || []).map((m) => m.id)),
+  );
+  const [err, setErr] = useState(null);
+
+  // FIX352.3.1: picker source = users having this project in their
+  // <user-projects>, i.e., the existing project_access set (= union
+  // of current data + user managers).
+  const candidates = useMemo(() => {
+    if (!project) return [];
+    const seen = new Map();
+    for (const m of project.data_managers || []) seen.set(m.id, m);
+    for (const m of project.user_managers || []) seen.set(m.id, m);
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [project]);
+
   if (!project) return null;
-  const toggle = (id) => {
-    setPicked((prev) => {
+
+  const toggleData = (id) => {
+    setDataManagers((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
   };
+  const toggleUser = (id) => {
+    if (!isAdmin) return; // FIX352.3.10.11: admin-only
+    setUserManagers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const submit = () => {
+    const trimmed = name.trim();
+    // FIX352.3.10.1 [ex-351.2.3]: non-blank, unique name.
+    if (!trimmed) { setErr('Name is required.'); return; }
+    if (existingNames.has(trimmed.toLowerCase())) {
+      setErr('Project name already in use.');
+      return;
+    }
+    setErr(null);
+    const payload = {
+      name: trimmed,
+      is_public: isPublic,
+      data_managers: [...dataManagers],
+    };
+    if (isAdmin) {
+      // FIX352.3.10.11: only admin sends user_managers.
+      payload.user_managers = [...userManagers];
+    }
+    onSubmit(payload);
+  };
+
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div
-        className="modal managers-picker"
+        className="modal users-add-dialog"
+        data-yagu-id="panel-project"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="visits-header">
-          <h2>Managers — {project.name}</h2>
+          <h2>Project</h2>
         </header>
-        {users.length === 0 ? (
-          <div className="visits-empty">
-            No user with a password set yet.
-          </div>
-        ) : (
-          <ul className="managers-picker-list" data-yagu-id="list-users">
-            {users.map((u) => (
-              <li key={u.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={picked.has(u.id)}
-                    onChange={() => toggle(u.id)}
-                  />
-                  {u.name}
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* FIX352.2 layout: Name / Data Managers / Users Managers /
+            Is public / [Cancel] [Save]. */}
+        <label>
+          Name
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </label>
+        <div className="users-add-managers">
+          <span className="users-add-managers-label">Data Managers</span>
+          {candidates.length === 0 ? (
+            <div className="visits-empty">
+              No candidate — add the user via the Users panel first.
+            </div>
+          ) : (
+            <ul className="managers-picker-list" data-yagu-id="project-managers">
+              {candidates.map((u) => (
+                <li key={u.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={dataManagers.has(u.id)}
+                      onChange={() => toggleData(u.id)}
+                    />
+                    {u.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="users-add-managers">
+          <span className="users-add-managers-label">Users Managers</span>
+          {candidates.length === 0 ? (
+            <div className="visits-empty">No candidate.</div>
+          ) : (
+            <ul
+              className="managers-picker-list"
+              data-yagu-id="project-user-managers"
+            >
+              {candidates.map((u) => (
+                <li key={u.id}>
+                  <label className={isAdmin ? '' : 'is-disabled'}>
+                    <input
+                      type="checkbox"
+                      checked={userManagers.has(u.id)}
+                      disabled={!isAdmin}
+                      onChange={() => toggleUser(u.id)}
+                    />
+                    {u.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <label className="setup-checkbox-row">
+          <input
+            type="checkbox"
+            data-yagu-id="project-is-public"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+          />
+          Is public
+        </label>
+        {err && <div className="visits-err">{err}</div>}
         <div className="users-add-actions">
+          {/* FIX352.3.10 Cancel / Save. */}
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
           <button
             type="button"
             className="btn-primary"
-            onClick={() => onSubmit([...picked])}
+            onClick={submit}
             disabled={busy}
           >
             {busy ? '…' : 'Save'}

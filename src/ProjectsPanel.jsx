@@ -127,6 +127,9 @@ export default function ProjectsPanel({ onClose }) {
 
   // FIX352.3.10 Save: persist Name, Data Managers, Is public, and
   // (admin-only per FIX352.3.10.11) User Managers.
+  // Re-throws on failure so the open ProjectPanel popup can display
+  // the error inline (the parent panel's error banner sits behind
+  // the popup and would be invisible).
   const saveProject = async (projectId, payload) => {
     setBusy(true);
     try {
@@ -135,8 +138,6 @@ export default function ProjectsPanel({ onClose }) {
       setProjects(refreshed);
       setEditProjectId(null);
       setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
     } finally {
       setBusy(false);
     }
@@ -455,7 +456,7 @@ function ProjectPanel({
     return list.length === 0 ? '(none)' : list.join(', ');
   };
 
-  const submit = () => {
+  const submit = async () => {
     const trimmed = name.trim();
     // FIX352.3.10.1 [ex-351.2.3]: non-blank, unique name.
     if (!trimmed) { setErr('Name is required.'); return; }
@@ -473,7 +474,12 @@ function ProjectPanel({
       // FIX352.3.10.11: only admin sends user_managers.
       payload.user_managers = [...userManagers];
     }
-    onSubmit(payload);
+    try {
+      await onSubmit(payload);
+      // On success the parent closes the popup via setEditProjectId(null).
+    } catch (e) {
+      setErr(e.message || String(e));
+    }
   };
 
   return (

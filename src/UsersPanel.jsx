@@ -116,55 +116,39 @@ export default function UsersPanel({ onClose }) {
     }
   };
 
-  // FIX311.3.3 / FIX311.5.6: add or remove a project from a user's
-  // <user-projects>. Permission is admin OR PM-of-this-project; the
-  // dropdown is filtered for non-admins so non-pickable rows don't
-  // appear.
+  // FIX311.3.3 / FIX311.5.6: which projects the caller can grant or
+  // revoke. Admin can edit any project; a Project Manager only the
+  // ones they manage. Drives both the popup's enabled rows and the
+  // 'Project access' button visibility.
   const canEditProjectFor = (projectId) =>
     isAdmin || managedProjectIds.has(projectId);
-  const grantProject = async (userId, projectId) => {
-    setBusy(true);
-    try {
-      await grantUserProject(userId, projectId);
-      const proj = projects.find((p) => p.id === projectId);
-      setUsers((prev) =>
-        prev?.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                projects: [
-                  ...(u.projects || []),
-                  { id: projectId, name: proj?.name ?? '?' },
-                ],
-              }
-            : u,
-        ),
-      );
-      setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setBusy(false);
+  const canEditAnyProject =
+    isAdmin || (projects || []).some((p) => managedProjectIds.has(p.id));
+  // FIX311.3.4: editor popup state — open against the currently
+  // selected user. Cancel discards; Ok applies the deltas.
+  const [projectEditOpen, setProjectEditOpen] = useState(false);
+  const applyProjectAccess = async (userId, nextIds) => {
+    const current = new Set(
+      (users?.find((u) => u.id === userId)?.projects || []).map((p) => p.id),
+    );
+    const target = new Set(nextIds);
+    const toGrant = [...target].filter((id) => !current.has(id));
+    const toRevoke = [...current].filter((id) => !target.has(id));
+    if (toGrant.length === 0 && toRevoke.length === 0) {
+      setProjectEditOpen(false);
+      return;
     }
-  };
-  const revokeProject = async (userId, projectId) => {
     setBusy(true);
     try {
-      await revokeUserProject(userId, projectId);
-      // FIX311.5.7: removing the project from <user-projects> is the
-      // same row that drives <project-managers>, so the user is also
-      // implicitly dropped from the project's manager list.
-      setUsers((prev) =>
-        prev?.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                projects: (u.projects || []).filter((p) => p.id !== projectId),
-              }
-            : u,
-        ),
-      );
+      for (const pid of toGrant) await grantUserProject(userId, pid);
+      for (const pid of toRevoke) await revokeUserProject(userId, pid);
+      // Reload to re-fetch consolidated state (and let the backend
+      // be the source of truth for project ordering).
+      await new Promise((r) => {
+        listUsers().then((d) => { setUsers(d); r(); }).catch(() => r());
+      });
       setError(null);
+      setProjectEditOpen(false);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -204,32 +188,50 @@ export default function UsersPanel({ onClose }) {
             Close
           </button>
         </header>
-        {/* FIX311.5.2 + FIX311.5.3: Add and Remove are admin-only. */}
-        {isAdmin && (
+        {/* Toolbar: FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only;
+            FIX311.5.6 lets project managers also see the Project access
+            button (for the projects they manage). */}
+        {(isAdmin || canEditAnyProject) && (
           <div className="users-toolbar">
-            {/* FIX311.2.2 + FIX311.2.2.0 <admin-add-user>: green '+' icon. */}
+            {isAdmin && (
+              <>
+                {/* FIX311.2.2 + FIX311.2.2.0 <admin-add-user>: green '+' icon. */}
+                <button
+                  type="button"
+                  className="users-add"
+                  data-yagu-id="admin-add-user"
+                  onClick={() => setAddOpen(true)}
+                  disabled={busy}
+                  aria-label="Add user"
+                  title="Add user"
+                >
+                  +
+                </button>
+                {/* FIX311.2.3 + FIX311.2.3.0 <admin-remove-user>: red cross icon. */}
+                <button
+                  type="button"
+                  className="users-remove"
+                  data-yagu-id="admin-remove-user"
+                  onClick={onRemove}
+                  disabled={busy || !selectedId}
+                  aria-label="Remove user"
+                  title="Remove user"
+                >
+                  ×
+                </button>
+              </>
+            )}
+            {/* FIX311.2.4 + FIX311.2.4.0 + FIX311.3.4 <button-set-user-projects>:
+                opens the project-access editor for the selected user. */}
             <button
               type="button"
-              className="users-add"
-              data-yagu-id="admin-add-user"
-              onClick={() => setAddOpen(true)}
-              disabled={busy}
-              aria-label="Add user"
-              title="Add user"
-            >
-              +
-            </button>
-            {/* FIX311.2.3 + FIX311.2.3.0 <admin-remove-user>: red cross icon. */}
-            <button
-              type="button"
-              className="users-remove"
-              data-yagu-id="admin-remove-user"
-              onClick={onRemove}
+              className="users-projects-btn"
+              data-yagu-id="button-set-user-projects"
+              onClick={() => setProjectEditOpen(true)}
               disabled={busy || !selectedId}
-              aria-label="Remove user"
-              title="Remove user"
+              title="Project access"
             >
-              ×
+              Project access
             </button>
           </div>
         )}
@@ -330,20 +332,13 @@ export default function UsersPanel({ onClose }) {
                       onClick={(e) => e.stopPropagation()}
                     />
                   </td>
-                  {/* FIX311.2.1.6 + FIX311.3.3 + FIX311.5.6 + FIX311.5.7
-                      <user-projects>: editable list of projects the user
-                      has access to. Each chip can be removed; the picker
-                      shows projects not yet linked, filtered by what the
-                      caller is allowed to grant (admin: any project; PM:
-                      only their managed projects). */}
-                  <UserProjectsCell
-                    user={u}
-                    allProjects={projects}
-                    canEditProjectFor={canEditProjectFor}
-                    onGrant={(pid) => grantProject(u.id, pid)}
-                    onRevoke={(pid) => revokeProject(u.id, pid)}
-                    busy={busy}
-                  />
+                  {/* FIX311.2.1.6 + FIX311.2.1.6.1 + FIX311.2.1.6.1.1
+                      <user-projects>: read-only list of project names
+                      (no inline edition — use the 'Project access'
+                      toolbar button to edit). */}
+                  <td data-yagu-id="user-projects">
+                    {(u.projects || []).map((p) => p.name).join(', ')}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -356,6 +351,18 @@ export default function UsersPanel({ onClose }) {
             existingEmails={new Set((users || []).map((u) => (u.email || '').toLowerCase()).filter(Boolean))}
             onCancel={() => setAddOpen(false)}
             onSubmit={onAdd}
+          />
+        )}
+        {/* FIX311.3.4 <button-set-user-projects> action: tick the
+            projects the selected user should have access to. */}
+        {projectEditOpen && selectedId && (
+          <ProjectAccessDialog
+            busy={busy}
+            user={users?.find((u) => u.id === selectedId)}
+            projects={projects}
+            canEditProjectFor={canEditProjectFor}
+            onCancel={() => setProjectEditOpen(false)}
+            onSubmit={(ids) => applyProjectAccess(selectedId, ids)}
           />
         )}
       </div>
@@ -432,70 +439,82 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
   );
 }
 
-// FIX311.2.1.6 + FIX311.3.3 <user-projects>: editable list cell.
-// Shows one chip per linked project (with × when the caller can
-// revoke it) and a dropdown of pickable projects the caller can grant.
-// Read-only when the caller has no edit rights for any of the user's
-// linked projects nor permission to add a new one.
-function UserProjectsCell({
-  user,
-  allProjects,
-  canEditProjectFor,
-  onGrant,
-  onRevoke,
+// FIX311.3.4 + FIX311.5.6 <button-set-user-projects> action: popup
+// editor with one tick per existing project. Pre-ticked from the
+// user's current <user-projects>. Rows the caller can't grant/revoke
+// (PM with no manager rights for that project) are shown disabled so
+// the read-only state is visible. On Ok, the parent computes the
+// grant/revoke deltas and applies them.
+function ProjectAccessDialog({
   busy,
+  user,
+  projects,
+  canEditProjectFor,
+  onCancel,
+  onSubmit,
 }) {
-  const linked = user.projects || [];
-  const linkedIds = new Set(linked.map((p) => p.id));
-  const pickable = allProjects.filter(
-    (p) => !linkedIds.has(p.id) && canEditProjectFor(p.id),
+  const initial = useMemo(
+    () => new Set((user?.projects || []).map((p) => p.id)),
+    [user],
   );
+  const [picked, setPicked] = useState(() => new Set(initial));
+  const toggle = (id) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  if (!user) return null;
   return (
-    <td data-yagu-id="user-projects" className="users-projects">
-      <div className="users-projects-chips">
-        {linked.map((p) => {
-          const removable = canEditProjectFor(p.id);
-          return (
-            <span key={p.id} className="users-projects-chip">
-              {p.name}
-              {removable && (
-                <button
-                  type="button"
-                  className="users-projects-chip-x"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRevoke(p.id);
-                  }}
-                  disabled={busy}
-                  aria-label={`Remove ${p.name}`}
-                  title={`Remove ${p.name}`}
-                >
-                  ×
-                </button>
-              )}
-            </span>
-          );
-        })}
-        {pickable.length > 0 && (
-          <select
-            className="users-projects-add"
-            value=""
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              const pid = Number(e.target.value);
-              if (!Number.isFinite(pid)) return;
-              onGrant(pid);
-              e.target.value = '';
-            }}
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div
+        className="modal managers-picker"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="visits-header">
+          <h2>Project access — {user.name}</h2>
+        </header>
+        {projects.length === 0 ? (
+          <div className="visits-empty">No project yet.</div>
+        ) : (
+          <ul
+            className="managers-picker-list"
+            data-yagu-id="user-projects-editor"
+          >
+            {projects.map((p) => {
+              const editable = canEditProjectFor(p.id);
+              return (
+                <li key={p.id}>
+                  <label className={editable ? '' : 'is-disabled'}>
+                    <input
+                      type="checkbox"
+                      checked={picked.has(p.id)}
+                      disabled={!editable}
+                      onChange={() => toggle(p.id)}
+                    />
+                    {p.name}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="users-add-actions">
+          <button type="button" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => onSubmit([...picked])}
             disabled={busy}
           >
-            <option value="">+ Add…</option>
-            {pickable.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        )}
+            {busy ? '…' : 'Ok'}
+          </button>
+        </div>
       </div>
-    </td>
+    </div>
   );
 }

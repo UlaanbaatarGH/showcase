@@ -1518,46 +1518,25 @@ body {
   accent-color: #4ade80;
 }
 
-/* FIX311.2.1.6 + FIX311.3.3 <user-projects>: editable chip list. */
-.users-projects-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
-.users-projects-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 1px 6px;
-  background: var(--color-bg-soft, rgba(255, 255, 255, 0.08));
-  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.16));
-  border-radius: 999px;
-  font-size: 0.85em;
-  white-space: nowrap;
-}
-.users-projects-chip-x {
-  background: none;
-  border: none;
-  padding: 0 2px;
-  margin: 0;
-  color: #f87171;
-  font-size: 1em;
-  line-height: 1;
-  cursor: pointer;
-}
-.users-projects-chip-x:disabled { opacity: 0.4; cursor: not-allowed; }
-.users-projects-chip-x:not(:disabled):hover {
-  color: #fca5a5;
-}
-.users-projects-add {
-  font-size: 0.85em;
-  padding: 1px 4px;
+/* FIX311.2.4 <button-set-user-projects>: toolbar text button. */
+.users-projects-btn {
+  font-size: 0.9em;
+  padding: 2px 10px;
   background: transparent;
-  border: 1px dashed var(--color-border, rgba(255, 255, 255, 0.24));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.24));
   border-radius: 4px;
   color: inherit;
   cursor: pointer;
+}
+.users-projects-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.users-projects-btn:not(:disabled):hover {
+  background: var(--color-bg-soft, rgba(255, 255, 255, 0.08));
+}
+
+/* FIX311.3.4 dialog: disabled rows (caller cannot grant/revoke). */
+.managers-picker-list label.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* FIX311.3.1 dialog: small modal prompted from the Add (+) button. */

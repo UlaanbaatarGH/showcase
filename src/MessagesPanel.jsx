@@ -80,9 +80,15 @@ export default function MessagesPanel({ onClose, projectId = null }) {
                     <td>{r.subject}</td>
                     <td className="panel-message-list-body">{r.body}</td>
                     <td>{r.sender_email}</td>
+                    {/* FIX421.2.1.7 + FIX420.4.2.3 <msg-reply-validity>:
+                        ticked when the auto-reply went through (=
+                        email_invalid is false). Flipped to false
+                        asynchronously by the bounce/complaint webhook
+                        on /api/webhooks/resend. */}
                     <td className="users-check">
                       <input
                         type="checkbox"
+                        data-yagu-id="msg-reply-validity"
                         checked={!r.email_invalid}
                         readOnly
                         tabIndex={-1}

@@ -1133,15 +1133,13 @@ body {
   align-items: center;
   gap: 0.75rem;
 }
-.home-user {
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-}
-/* FIX503.2.9 {user}: signed-in user's name in the project header,
-   between Setup and Sign out. */
+/* FIX400.2.7 + FIX400.2.7.1 / FIX503.2.9 + FIX503.2.9.1: the
+   {user} label on both top bars is rendered in bold yellow. */
+.home-user,
 .sc-user-label {
-  color: var(--color-text-muted);
+  color: #facc15;
   font-size: 0.9rem;
+  font-weight: 700;
   padding: 0 0.25rem;
 }
 .home-loading, .home-empty {

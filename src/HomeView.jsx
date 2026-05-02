@@ -139,12 +139,17 @@ export default function HomeView({ onOpenProject }) {
   return (
     <div className="home" data-yagu-id="panel-app-home">
       <div className="home-topbar">
+        {/* FIX400.2.10: every command on the home top bar uses the
+            same .sc-menu-trigger styling as the project header
+            (<panel-showcase-header>) — same font, same colour, same
+            border, regardless of whether it acts like a button or a
+            menu. */}
         {profile ? (
           <>
             {showEdit && (
               <button
                 type="button"
-                className="btn-link"
+                className="sc-menu-trigger"
                 data-yagu-id="button-edit-project"
                 onClick={enterEdit}
               >
@@ -155,7 +160,7 @@ export default function HomeView({ onOpenProject }) {
               <>
                 <button
                   type="button"
-                  className="btn-link"
+                  className="sc-menu-trigger"
                   data-yagu-id="button-cancel-edit-project"
                   onClick={cancelEdit}
                   disabled={saving}
@@ -164,7 +169,7 @@ export default function HomeView({ onOpenProject }) {
                 </button>
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="sc-menu-trigger"
                   data-yagu-id="button-save-edit-project"
                   onClick={saveEdit}
                   disabled={saving}
@@ -179,13 +184,19 @@ export default function HomeView({ onOpenProject }) {
             {/* FIX400.2.7 {user}: the signed-in user's name, between
                 Admin and Sign in/out. Only visible when signed in. */}
             <span className="home-user">{profile.login_name}</span>
-            <button className="btn-link" onClick={signOut} disabled={editing}>
+            <button
+              type="button"
+              className="sc-menu-trigger"
+              onClick={signOut}
+              disabled={editing}
+            >
               Sign out
             </button>
           </>
         ) : (
           <button
-            className="btn-primary"
+            type="button"
+            className="sc-menu-trigger"
             data-yagu-id="button-sign-in"
             onClick={() => setSignInOpen(true)}
             disabled={!configured}

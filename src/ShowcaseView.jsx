@@ -288,7 +288,12 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     return { ...base, showcase: effectiveShowcaseCfg };
   }, [data, effectiveShowcaseCfg, localShowcaseOverride]);
   const showcaseCfg = effectiveShowcaseCfg;
-  const configuredColumns = showcaseCfg.columns ?? [];
+  // FIX506.2.2 / FIX500.2.3.2.1.2.2 (updated): the 'Main image icon'
+  // column was removed. Filter any leftover entries from previously
+  // saved view_setup so existing projects don't render orphan columns.
+  const configuredColumns = (showcaseCfg.columns ?? []).filter(
+    (c) => c.type !== 'main_image_icon',
+  );
   const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
   // FIX373 (updated): groups carry their own id + name. normalizeGroups
@@ -659,16 +664,6 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     ) : null;
 
   const renderHeaderCell = (col) => {
-    if (col.type === 'main_image_icon') {
-      return (
-        <th
-          key="main_image_icon"
-          className="sc-th-thumb"
-          style={widthCss(col.width) ? { width: widthCss(col.width) } : undefined}
-          aria-label="Main image"
-        />
-      );
-    }
     const key = columnKey(col);
     const label = columnHeaderLabel(col);
     return (
@@ -695,9 +690,6 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   };
 
   const renderFilterCell = (col) => {
-    if (col.type === 'main_image_icon') {
-      return <th key="main_image_icon" className="sc-th-thumb" aria-hidden="true" />;
-    }
     const key = columnKey(col);
     const label = columnHeaderLabel(col);
     return (
@@ -715,29 +707,6 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   };
 
   const renderBodyCell = (folder, col) => {
-    if (col.type === 'main_image_icon') {
-      return (
-        <td
-          key="main_image_icon"
-          className="sc-td-thumb"
-          style={widthCss(col.width) ? { width: widthCss(col.width) } : undefined}
-        >
-          {folder.main_image_url ? (
-            <img
-              src={folder.main_image_url}
-              alt=""
-              style={
-                folder.main_rotation
-                  ? { transform: `rotate(${folder.main_rotation}deg)` }
-                  : undefined
-              }
-            />
-          ) : (
-            <div className="sc-td-thumb-empty" />
-          )}
-        </td>
-      );
-    }
     const key = columnKey(col);
     const cellStyle = {};
     const w = widthCss(col.width);

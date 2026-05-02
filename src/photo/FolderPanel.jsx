@@ -193,7 +193,7 @@ async function readSortFile(folderPath) {
   } catch { return null; }
 }
 
-export default function FolderPanel({ folderPath, refreshKey, mainImageIconHeight = 80 }) {
+export default function FolderPanel({ folderPath, refreshKey }) {
   const [properties, setProperties] = useState([]);
   const [images, setImages] = useState([]);
   // Magnifier controls
@@ -313,18 +313,6 @@ export default function FolderPanel({ folderPath, refreshKey, mainImageIconHeigh
               ))}
             </tbody>
           </table>
-        )}
-        {/* FIX501.30.2.1.3: Main Image Icon below the Properties list */}
-        {/* FIX501.30.2.1.3.1: height from <input-main-img-icon-height> / FIX501.30.2.1.3.2: left-aligned */}
-        {mainImageName && (
-          <div className="folder-panel-main-icon">
-            <div className="folder-panel-main-icon-label">Main Image Icon</div>
-            <img
-              src={imageUrl(folderPath + '/' + mainImageName)}
-              alt={mainImageName}
-              style={{ height: `${mainImageIconHeight}px`, width: 'auto' }}
-            />
-          </div>
         )}
       </div>
 

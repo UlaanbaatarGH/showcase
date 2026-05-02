@@ -49,28 +49,6 @@
   width: 100%;
 }
 
-/* FIX501.30.2.1.3: Main Image Icon below properties */
-.folder-panel-main-icon {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-.folder-panel-main-icon-label {
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-/* FIX501.30.2.1.3.2: icon only — no framing rectangle, left-aligned, natural aspect ratio */
-.folder-panel-main-icon img {
-  display: block;
-  width: auto;
-  max-width: none;
-}
-
 /* FIX501.30.2.2: Vertical image stack (right) */
 .folder-panel-images-wrap {
   flex: 1;

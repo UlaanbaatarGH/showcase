@@ -464,7 +464,7 @@
   white-space: nowrap;
 }
 
-/* FIX506.2.2: Main Image Icon height field */
+/* Setup-dialog single-line input row (folder column name, etc.) */
 .photo-setup-field-row {
   display: flex;
   align-items: center;
@@ -473,9 +473,6 @@
 }
 .photo-setup-field-row input[type="text"] {
   width: 80px;
-}
-.photo-input-invalid {
-  border-color: var(--color-primary) !important;
 }
 
 /* FIX500.2.3.2.1.3.1: column picker */

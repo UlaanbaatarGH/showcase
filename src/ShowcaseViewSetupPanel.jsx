@@ -40,7 +40,6 @@ export default function ShowcaseViewSetupPanel({
   const displayedColumnName = (col) => {
     if (col.type === 'folder_name') return '#';
     if (col.type === 'img') return 'Img';
-    if (col.type === 'main_image_icon') return 'Main image icon';
     if (col.type === 'property') {
       const p = (properties ?? []).find((pp) => pp.id === col.property_id);
       return p?.label || '(missing property)';
@@ -51,11 +50,9 @@ export default function ShowcaseViewSetupPanel({
     const used = new Set(showcase.columns.map(columnKey));
     const options = [];
     // FIX500.2.3.2.1.2.2 (updated): picker aggregates the predefined
-    // '#' (item id), the project's properties (<list-properties>), the
-    // 'Main image icon' and the 'With image' derived property (rendered
-    // as 'Img' once added — <derived-property-img>).
-    if (!used.has('main_image_icon'))
-      options.push({ key: 'main_image_icon', label: 'Main image icon', create: () => ({ type: 'main_image_icon' }) });
+    // '#' (item id), the project's properties (<list-properties>) and
+    // the 'With image' derived property (rendered as 'Img' once added
+    // — <derived-property-img>).
     if (!used.has('folder_name'))
       options.push({ key: 'folder_name', label: '#', create: () => ({ type: 'folder_name' }) });
     if (!used.has('img'))

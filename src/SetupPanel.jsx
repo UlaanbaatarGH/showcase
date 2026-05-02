@@ -41,7 +41,6 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
     (initialProperties ?? []).map((p) => ({ ...p })),
   );
   const [fileExplorer, setFileExplorer] = useState({
-    main_img_icon_height: initialViewSetup?.file_explorer?.main_img_icon_height ?? 100,
     // FIX506.2.3 / <setup-property-tagged-deleted>: id of the property
     // that marks an item as deleted when non-blank. null = no such property.
     deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
@@ -332,17 +331,6 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             <button type="button" className="setup-add-btn" onClick={addProperty}>
               + Add property
             </button>
-
-            <h3>Main Image Icon height (px)</h3>
-            <input
-              type="number"
-              min="1"
-              value={fileExplorer.main_img_icon_height}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setFileExplorer({ ...fileExplorer, main_img_icon_height: Number.isFinite(n) && n > 0 ? n : 100 });
-              }}
-            />
 
             {/* FIX506.2.3: pick the property whose non-blank value marks
                 an item as deleted. Deleted items are hidden from the

@@ -542,9 +542,6 @@ body {
   color: var(--color-text-muted) !important;
   background: var(--color-bg) !important;
 }
-.sc-th-thumb {
-  width: 64px;
-}
 .sc-table tbody tr { cursor: pointer; }
 .sc-table tbody tr:nth-child(even) td { background: #cccccc; }
 .sc-table tbody tr:nth-child(odd)  td { background: #dedede; }
@@ -558,22 +555,6 @@ body {
   border: 1px solid #bbb;
   padding: 3px 6px;
   vertical-align: middle;
-}
-.sc-td-thumb {
-  width: 64px;
-}
-.sc-td-thumb img {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 4px;
-  display: block;
-}
-.sc-td-thumb-empty {
-  width: 48px;
-  height: 48px;
-  background: #333;
-  border-radius: 4px;
 }
 .sc-td-name {
   font-weight: 600;

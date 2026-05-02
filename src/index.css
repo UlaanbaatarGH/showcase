@@ -1480,7 +1480,7 @@ body {
   background: var(--color-bg-lighter);
 }
 
-/* FIX311 <panel-users>: admin user management modal. Wider than the
+/* FIX311 <panel-users-list>: admin user management modal. Wider than the
    visits panel because of the extra columns. */
 .users-panel {
   width: min(820px, 100%);

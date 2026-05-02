@@ -57,7 +57,7 @@ export default {
   listIpStats: () => call('/api/admin/ip-stats'),
   setIpName: (ip, name) =>
     call('/api/admin/ip-name', { method: 'POST', body: { ip, name } }),
-  // FIX311 <panel-users>: admin-only user management.
+  // FIX311 <panel-users-list>: admin-only user management.
   listUsers: () => call('/api/admin/users'),
   createUser: (body) => call('/api/admin/users', { method: 'POST', body }),
   updateUser: (id, body) =>

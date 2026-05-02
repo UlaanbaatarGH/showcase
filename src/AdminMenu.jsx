@@ -4,7 +4,7 @@ import UsersPanel from './UsersPanel.jsx';
 import ProjectsPanel from './ProjectsPanel.jsx';
 
 // FIX410 <menu-admin>: dropdown grouping admin-only views.
-// FIX410.2.1: Visits → <panel-visits>. FIX410.2.2: Users → <panel-users>.
+// FIX410.2.1: Visits → <panel-visits>. FIX410.2.2: Users → <panel-users-list>.
 // FIX351 (sibling): Projects → <panel-project-list>.
 export default function AdminMenu({ className = '' }) {
   const [open, setOpen] = useState(false);

@@ -136,6 +136,7 @@ export default function UsersPanel({ onClose }) {
         {/* FIX311.5.2 + FIX311.5.3: Add and Remove are admin-only. */}
         {isAdmin && (
           <div className="users-toolbar">
+            {/* FIX311.2.2 + FIX311.2.2.0 <admin-add-user>: green '+' icon. */}
             <button
               type="button"
               className="users-add"
@@ -147,6 +148,7 @@ export default function UsersPanel({ onClose }) {
             >
               +
             </button>
+            {/* FIX311.2.3 + FIX311.2.3.0 <admin-remove-user>: red cross icon. */}
             <button
               type="button"
               className="users-remove"

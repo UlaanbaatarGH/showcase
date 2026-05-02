@@ -753,8 +753,15 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
       raw === '' || raw == null
         ? '—'
         : formatYearValue(raw, prop.label, romanYearConverter);
+    // FIX510.2.1.6: a property value with newlines renders on multiple
+    // lines. Override the table's default `white-space: nowrap` (and
+    // any col.wrap setting) with pre-line so the newlines survive.
+    const cellStyleForDisplay =
+      typeof display === 'string' && display.includes('\n')
+        ? { ...cellStyle, whiteSpace: 'pre-line' }
+        : cellStyle;
     return (
-      <td key={key} style={cellStyle}>
+      <td key={key} style={cellStyleForDisplay}>
         {display}
       </td>
     );

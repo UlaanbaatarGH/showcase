@@ -285,7 +285,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                 )}
                 {properties.map((p, i) => (
                   <tr key={p.id}>
-                    <td>{p.id > 0 ? p.id : <span className="setup-new">new</span>}</td>
+                    {/* FIX350.2.2.2.1.1 / .1.1.1: stored id is
+                        project_id*1000 + N; display the local part
+                        (= id mod 1000) so users see 1, 2, 3… */}
+                    <td>{p.id > 0 ? (p.id % 1000) : <span className="setup-new">new</span>}</td>
                     <td>
                       <input
                         type="text"

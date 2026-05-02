@@ -82,9 +82,13 @@ export default {
       { method: 'DELETE' },
     ),
   // FIX317: anonymous redemption — trade login_name + access_code
-  // + new password for a fresh Supabase auth user. Backend rewrites
-  // the existing app_user.id to match the new auth user id.
+  // + new password + email for a fresh Supabase auth user. Backend
+  // rewrites the existing app_user.id to match the new auth user id.
   redeemAccount: (body) => call('/api/auth/redeem', { method: 'POST', body }),
+  // FIX316.2.1 / FIX317 (Visitor flow): self-signup with no access
+  // code. Creates a fresh visitor app_user + Supabase auth user.
+  signupVisitor: (body) =>
+    call('/api/auth/signup-visitor', { method: 'POST', body }),
   // FIX351 <panel-project-list>: admin-only project + managers CRUD.
   listAdminProjects: () => call('/api/admin/projects'),
   createAdminProject: (body) =>

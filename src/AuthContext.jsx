@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
-import { setAuthToken, redeemAccount } from './data/backend.js';
+import { setAuthToken, redeemAccount, signupVisitor } from './data/backend.js';
 
 // FIX412.5.1 + FIX412.5.1.1 + FIX412.5.1.2: log a sign-in attempt.
 //   page: 'login_ok' or 'login_failed' depending on outcome
@@ -169,12 +169,13 @@ export function AuthProvider({ children }) {
   // password. Backend creates the Supabase auth row and links it to
   // the existing app_user; we then sign in normally so the session
   // pipeline is identical to a regular login.
-  const redeem = useCallback(async ({ loginName, accessCode, password }) => {
+  const redeem = useCallback(async ({ loginName, accessCode, password, email }) => {
     if (!supabaseConfigured) throw new Error('auth not configured');
     await redeemAccount({
       name: loginName,
       access_code: accessCode,
       password,
+      email,
     });
     const { data, error } = await supabase.auth.signInWithPassword({
       email: loginNameToEmail(loginName),
@@ -184,6 +185,20 @@ export function AuthProvider({ children }) {
     // FIX412.5.1.{1,2}: log the auto-login that follows a successful
     // redemption. Same shape as the normal signIn() success path —
     // pass the freshly-issued token so user_id is recorded.
+    trackLogin({ ok: true, loginName, token: data.session?.access_token });
+    return data;
+  }, []);
+
+  // FIX316.2.1 + FIX317 (Visitor flow): self-signup with no access
+  // code. Creates the visitor account + signs in immediately.
+  const signUpVisitor = useCallback(async ({ loginName, password, email }) => {
+    if (!supabaseConfigured) throw new Error('auth not configured');
+    await signupVisitor({ name: loginName, password, email });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: loginNameToEmail(loginName),
+      password,
+    });
+    if (error) throw error;
     trackLogin({ ok: true, loginName, token: data.session?.access_token });
     return data;
   }, []);
@@ -226,6 +241,7 @@ export function AuthProvider({ children }) {
     configured: supabaseConfigured,
     signIn,
     redeem,
+    signUpVisitor,
     signOut,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1367,6 +1367,14 @@ body {
   margin-top: 0.25rem;
 }
 .signin-toggle:hover { text-decoration: underline; }
+/* FIX316.2.1 + FIX316.2.2: two entry buttons side-by-side. */
+.signin-toggle-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+.signin-toggle-row .signin-toggle { margin-top: 0; }
 
 /* FIX370: Showcase top bar + Import menu */
 .sc-topbar {

@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
 
-// FIX316 + FIX317: the sign-in popup also exposes a Create Account
-// option that swaps the form for <panel-create-account>. Self-signup
-// is replaced by admin-issued access codes — the user redeems by
-// entering Login Name + Access Code + Password (twice).
+// FIX316: the Sign-in popup hosts both the sign-in form and the
+// Create-Account flows. FIX316.2.1 / .2.2: two entry buttons
+// (<button-new-visitor>, <button-new-manager>) swap the form for
+// <panel-create-account>. Visitor flow is self-service (no access
+// code); manager flow requires the admin-issued <user-access-code>.
 export default function SignInPanel({ onClose }) {
-  const { signIn, redeem, configured } = useAuth();
-  // 'signin' | 'create'
+  const { signIn, redeem, signUpVisitor, configured } = useAuth();
+  // 'signin' | 'create-visitor' | 'create-manager'
   const [mode, setMode] = useState('signin');
   const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
   // Create-account-only fields:
   const [accessCode, setAccessCode] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -29,10 +31,12 @@ export default function SignInPanel({ onClose }) {
     );
   }
 
+  const isCreate = mode === 'create-visitor' || mode === 'create-manager';
+
   async function submit(e) {
     e.preventDefault();
     setErr(null);
-    if (mode === 'create') {
+    if (isCreate) {
       // FIX317.3.1.3: passwords match, ≥ 8 chars (frontend gate; the
       // server re-checks).
       if (password !== confirmPassword) {
@@ -43,13 +47,20 @@ export default function SignInPanel({ onClose }) {
         setErr('Password must be at least 8 characters.');
         return;
       }
+      // FIX317.3.1.4: email shape check on the client too.
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+        setErr('Email is not valid.');
+        return;
+      }
     }
     setBusy(true);
     try {
       if (mode === 'signin') {
         await signIn(loginName, password);
+      } else if (mode === 'create-manager') {
+        await redeem({ loginName, accessCode, password, email: email.trim() });
       } else {
-        await redeem({ loginName, accessCode, password });
+        await signUpVisitor({ loginName, password, email: email.trim() });
       }
       onClose?.();
     } catch (e2) {
@@ -73,15 +84,24 @@ export default function SignInPanel({ onClose }) {
     // password doesn't leak from one mode to the other.
     setPassword('');
     setConfirmPassword('');
+    setAccessCode('');
+    setEmail('');
   };
+
+  const title = mode === 'signin'
+    ? 'Sign in'
+    : mode === 'create-visitor'
+    ? 'New Visitor'
+    : 'New Manager';
 
   return (
     <form
       className="signin-panel"
-      data-yagu-id={mode === 'create' ? 'panel-create-account' : undefined}
+      data-yagu-id={isCreate ? 'panel-create-account' : undefined}
       onSubmit={submit}
     >
-      <h2>{mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
+      <h2>{title}</h2>
+      {/* FIX317.2.1 Login Name. */}
       <label>
         Login name
         <input
@@ -94,8 +114,9 @@ export default function SignInPanel({ onClose }) {
           autoComplete="username"
         />
       </label>
-      {/* FIX317.2.2: access code, only in create mode. */}
-      {mode === 'create' && (
+      {/* FIX317.2.2 + FIX317.2.2.1: Access Code is visible only for
+          the Manager flow. */}
+      {mode === 'create-manager' && (
         <label>
           Access code
           <input
@@ -110,6 +131,7 @@ export default function SignInPanel({ onClose }) {
           />
         </label>
       )}
+      {/* FIX317.2.3 Password. */}
       <label>
         Password
         <input
@@ -117,12 +139,12 @@ export default function SignInPanel({ onClose }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={mode === 'create' ? 8 : 6}
-          autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
+          minLength={isCreate ? 8 : 6}
+          autoComplete={isCreate ? 'new-password' : 'current-password'}
         />
       </label>
-      {/* FIX317.2.4: confirm password, only in create mode. */}
-      {mode === 'create' && (
+      {/* FIX317.2.4 Confirm Password — only in the create flows. */}
+      {isCreate && (
         <label>
           Confirm password
           <input
@@ -135,6 +157,19 @@ export default function SignInPanel({ onClose }) {
           />
         </label>
       )}
+      {/* FIX317.2.5 Email — required in both create flows. */}
+      {isCreate && (
+        <label>
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+        </label>
+      )}
       {err && <div className="signin-err">{err}</div>}
       <div className="signin-actions">
         <button type="button" className="btn-cancel" onClick={onClose} disabled={busy}>
@@ -144,17 +179,40 @@ export default function SignInPanel({ onClose }) {
           {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create'}
         </button>
       </div>
-      {/* FIX316.1: toggle to and from the create-account view. */}
-      <button
-        type="button"
-        className="signin-toggle"
-        onClick={() => switchMode(mode === 'signin' ? 'create' : 'signin')}
-        disabled={busy}
-      >
-        {mode === 'signin'
-          ? 'Have an access code? Create your account'
-          : 'Already have an account? Sign in'}
-      </button>
+      {/* FIX316.2.1 + FIX316.2.2: two entry buttons that switch into
+          the create-account flow. FIX316.2 (updated): clicking either
+          turns this panel into <panel-create-account>. */}
+      {mode === 'signin' ? (
+        <div className="signin-toggle-row">
+          <button
+            type="button"
+            className="signin-toggle"
+            data-yagu-id="button-new-visitor"
+            onClick={() => switchMode('create-visitor')}
+            disabled={busy}
+          >
+            New Visitor Access
+          </button>
+          <button
+            type="button"
+            className="signin-toggle"
+            data-yagu-id="button-new-manager"
+            onClick={() => switchMode('create-manager')}
+            disabled={busy}
+          >
+            New Manager Access
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="signin-toggle"
+          onClick={() => switchMode('signin')}
+          disabled={busy}
+        >
+          Already have an account? Sign in
+        </button>
+      )}
     </form>
   );
 }

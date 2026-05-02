@@ -243,6 +243,8 @@ export default function ProjectsPanel({ onClose }) {
                 <th>User Managers</th>
                 {/* FIX351.2.1.3 Column 'Is public'. */}
                 <th>Is public</th>
+                {/* FIX351.2.1.6 Column 'Volume (Mbytes)'. */}
+                <th>Volume (Mbytes)</th>
               </tr>
             </thead>
             <tbody>
@@ -274,6 +276,12 @@ export default function ProjectsPanel({ onClose }) {
                       tabIndex={-1}
                       onClick={(e) => e.stopPropagation()}
                     />
+                  </td>
+                  {/* FIX351.2.1.6 + FIX351.2.1.6.1 <project-img-volume>:
+                      total image storage size, displayed in MB with
+                      two decimals. */}
+                  <td data-yagu-id="project-img-volume" className="visits-num">
+                    {((p.image_bytes || 0) / (1024 * 1024)).toFixed(2)}
                   </td>
                 </tr>
               ))}

@@ -875,9 +875,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             ⚙
           </button>
         )}
-        {/* FIX503.2 layout (last item) + FIX503.2.6 (Sign out variant)
+        {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6]
             <button-sign-out>: visible only when the caller is signed
-            in (FIX503.2.6.2). */}
+            in (FIX503.2.8.2). */}
         {profile && (
           <button
             type="button"

@@ -82,6 +82,11 @@ function compareValues(a, b) {
 export default function ShowcaseView({ slug, onNavigateHome }) {
   const { profile } = useAuth();
   const [data, setData] = useState(null);
+  // FIX503.5.1: <menu-import>, <button-item-grouping>, <button-setup>,
+  // <menu-admin> are visible only to project Admins/Managers. The
+  // backend computes per-project membership and returns the flag on
+  // /api/showcase.
+  const isAdminOrManager = !!data?.project?.is_admin_or_manager;
   const [selectedFolderId, setSelectedFolderId] = useState(null);
   // FIX515: Item Details panel — two tabs sharing the right column.
   // FIX515.4.1: tab persists when the selected item changes (state lives
@@ -210,7 +215,10 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     getShowcase(slug)
       .then(setData)
       .catch((e) => setError(e.message || String(e)));
-  }, [slug]);
+    // FIX503.5.1: re-fetch on sign-in/sign-out too — the response
+    // carries the per-user is_admin_or_manager flag that gates the
+    // header's admin affordances.
+  }, [slug, profile?.id]);
 
   // FIX410.1.1.1.1.1: log a consultation of <panel-project-home>.
   useEffect(() => { trackVisit('project'); }, []);
@@ -778,8 +786,8 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         </button>
         {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.5.1 (.4.1.2)
             <button-item-grouping>: opens <panel-item-grouping-setup> in a
-            layer popup, signed-in only. */}
-        {profile && (
+            layer popup, admin- or project-manager-only. */}
+        {isAdminOrManager && (
           <button
             type="button"
             className="sc-menu-trigger"
@@ -790,8 +798,8 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
           </button>
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Import menu, visible only when signed in (FIX369.1). */}
-        {profile && (
+            Import menu, admin- or project-manager-only (FIX503.5.1). */}
+        {isAdminOrManager && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
               type="button"
@@ -828,15 +836,16 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             )}
           </div>
         )}
-        {/* FIX503.2.7 <menu-admin>: signed-in only, alongside the other
-            admin affordances. Reuses the same component instantiated on
-            the App home page (FIX410.4.1 / FIX410.4.2). */}
-        {profile && <AdminMenu />}
+        {/* FIX503.2.7 + FIX503.5.1 (.4.1.4) <menu-admin>: admin- or
+            project-manager-only, alongside the other admin affordances.
+            Reuses the same component instantiated on the App home page
+            (FIX410.4.1 / FIX410.4.2). */}
+        {isAdminOrManager && <AdminMenu />}
         {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
-            <button-setup>: Setup icon button, signed-in only. Opens the
-            tabbed general panel (admin: property list + file-explorer
+            <button-setup>: Setup icon button, admin- or project-manager-only.
+            Opens the tabbed general panel (property list + file-explorer
             settings, plus the Showcase tab as a convenience). */}
-        {profile && (
+        {isAdminOrManager && (
           <button
             type="button"
             className="sc-setup-btn"

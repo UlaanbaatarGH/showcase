@@ -7,7 +7,7 @@ import { contactAdmin } from './data/backend.js';
 // message and (when the backend is configured) emails the admin.
 // FIX420.4.1: the same IP gets a 60-second cooldown enforced on the
 // backend; on a 429 we surface the message back into the form.
-export default function ContactPanel({ onClose }) {
+export default function ContactPanel({ onClose, projectId = null }) {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
@@ -31,6 +31,7 @@ export default function ContactPanel({ onClose }) {
         subject: subject.trim(),
         message: message.trim(),
         email: email.trim(),
+        ...(projectId != null ? { project_id: projectId } : {}),
       });
       setSent(true);
     } catch (e2) {

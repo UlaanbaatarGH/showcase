@@ -860,7 +860,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             project-manager-only, alongside the other admin affordances.
             Reuses the same component instantiated on the App home page
             (FIX410.4.1 / FIX410.4.2). */}
-        {isAdminOrManager && <AdminMenu />}
+        {isAdminOrManager && <AdminMenu projectId={data.project?.id ?? null} />}
         {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
             <button-setup>: Setup icon button, admin- or project-manager-only.
             Opens the tabbed general panel (property list + file-explorer
@@ -1564,8 +1564,15 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         />
       )}
       {/* FIX503.3.4 + FIX420 <panel-contact-admin>: anonymous
-          contact form opened from <button-contact-admin>. */}
-      {contactOpen && <ContactPanel onClose={() => setContactOpen(false)} />}
+          contact form opened from <button-contact-admin>. The
+          message is tagged with the current project so
+          <panel-message-list> can filter by project (FIX421). */}
+      {contactOpen && (
+        <ContactPanel
+          onClose={() => setContactOpen(false)}
+          projectId={data.project?.id ?? null}
+        />
+      )}
       {/* FIX520.3.2 + FIX521 <panel-showcase-img-viewer-fullscreen>:
           full-screen image overlay. FIX521.2: same layout as the
           in-page viewer with no sections panel — image fills the

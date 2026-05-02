@@ -91,6 +91,12 @@ export default {
     call('/api/auth/signup-visitor', { method: 'POST', body }),
   // FIX420 <panel-contact-admin>: anonymous Contact form post.
   contactAdmin: (body) => call('/api/contact', { method: 'POST', body }),
+  // FIX421 <panel-message-list>: list contact messages, optionally
+  // filtered by project.
+  listContactMessages: (projectId) =>
+    call(
+      `/api/admin/messages${projectId != null ? `?project_id=${encodeURIComponent(projectId)}` : ''}`,
+    ),
   // FIX351 <panel-project-list>: admin-only project + managers CRUD.
   listAdminProjects: () => call('/api/admin/projects'),
   createAdminProject: (body) =>

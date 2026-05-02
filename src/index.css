@@ -1430,6 +1430,29 @@ body {
   padding: 0.5rem 0.25rem;
 }
 
+/* FIX421 <panel-message-list>: wide modal so the 7 columns fit. */
+.panel-message-list-modal {
+  width: min(1100px, 100%);
+  max-height: min(90vh, 800px);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.panel-message-list-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  margin-top: 0.5rem;
+}
+.panel-message-list-table th,
+.panel-message-list-table td {
+  vertical-align: top;
+}
+.panel-message-list-body {
+  white-space: pre-line;
+  max-width: 320px;
+  word-break: break-word;
+}
+
 /* FIX370: Showcase top bar + Import menu */
 .sc-topbar {
   display: flex;

@@ -25,6 +25,7 @@ export const grantUserProject = impl.grantUserProject;
 export const revokeUserProject = impl.revokeUserProject;
 export const redeemAccount = impl.redeemAccount;
 export const signupVisitor = impl.signupVisitor;
+export const contactAdmin = impl.contactAdmin;
 export const listAdminProjects = impl.listAdminProjects;
 export const createAdminProject = impl.createAdminProject;
 export const updateAdminProject = impl.updateAdminProject;

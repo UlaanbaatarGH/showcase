@@ -1376,6 +1376,60 @@ body {
 }
 .signin-toggle-row .signin-toggle { margin-top: 0; }
 
+/* FIX316.2: <button-new-visitor> info popup. */
+.panel-visitor-info {
+  width: min(360px, 100%);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.panel-visitor-info p { margin: 0; }
+
+/* FIX420 <panel-contact-admin>: line-by-line layout per FIX420.2. */
+.panel-contact-modal {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.panel-contact-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.panel-contact-row input[type="text"],
+.panel-contact-row input[type="email"],
+.panel-contact-row textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.55rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+}
+.panel-contact-row textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+.panel-contact-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.panel-contact-sent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem 0.25rem;
+}
+
 /* FIX370: Showcase top bar + Import menu */
 .sc-topbar {
   display: flex;

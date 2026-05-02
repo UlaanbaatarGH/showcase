@@ -7,6 +7,7 @@ import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
+import ContactPanel from './ContactPanel.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
@@ -117,6 +118,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
@@ -875,8 +877,19 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             ⚙
           </button>
         )}
+        {/* FIX503.2.11 + FIX503.3.4 <button-contact-admin>: opens
+            <panel-contact-admin>. Visible to everyone (anonymous
+            visitors included). */}
+        <button
+          type="button"
+          className="sc-menu-trigger"
+          data-yagu-id="button-contact-admin"
+          onClick={() => setContactOpen(true)}
+        >
+          Contact
+        </button>
         {/* FIX503.2.9 {user}: the signed-in user's name, between
-            Setup and Sign out per the FIX503.2 layout. Only visible
+            Contact and Sign out per the FIX503.2 layout. Only visible
             when signed in. */}
         {profile && (
           <span className="sc-user-label">{profile.login_name}</span>
@@ -1550,6 +1563,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
           onDone={reloadShowcase}
         />
       )}
+      {/* FIX503.3.4 + FIX420 <panel-contact-admin>: anonymous
+          contact form opened from <button-contact-admin>. */}
+      {contactOpen && <ContactPanel onClose={() => setContactOpen(false)} />}
       {/* FIX520.3.2 + FIX521 <panel-showcase-img-viewer-fullscreen>:
           full-screen image overlay. FIX521.2: same layout as the
           in-page viewer with no sections panel — image fills the

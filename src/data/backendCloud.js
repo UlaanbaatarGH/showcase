@@ -89,6 +89,8 @@ export default {
   // code. Creates a fresh visitor app_user + Supabase auth user.
   signupVisitor: (body) =>
     call('/api/auth/signup-visitor', { method: 'POST', body }),
+  // FIX420 <panel-contact-admin>: anonymous Contact form post.
+  contactAdmin: (body) => call('/api/contact', { method: 'POST', body }),
   // FIX351 <panel-project-list>: admin-only project + managers CRUD.
   listAdminProjects: () => call('/api/admin/projects'),
   createAdminProject: (body) =>

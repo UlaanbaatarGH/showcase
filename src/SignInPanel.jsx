@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
 
 // FIX316: the Sign-in popup hosts both the sign-in form and the
-// Create-Account flows. FIX316.2.1 / .2.2: two entry buttons
-// (<button-new-visitor>, <button-new-manager>) swap the form for
-// <panel-create-account>. Visitor flow is self-service (no access
-// code); manager flow requires the admin-issued <user-access-code>.
+// Create-Account flows. FIX316.2.1 / .2.2: two entry buttons.
+// <button-new-manager> swaps the form for <panel-create-account>;
+// <button-new-visitor> shows an info popup since visitor self-signup
+// isn't released yet (FIX316.2 updated).
 export default function SignInPanel({ onClose }) {
-  const { signIn, redeem, signUpVisitor, configured } = useAuth();
-  // 'signin' | 'create-visitor' | 'create-manager'
+  const { signIn, redeem, configured } = useAuth();
+  // 'signin' | 'create-manager'
   const [mode, setMode] = useState('signin');
   const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
@@ -18,6 +18,9 @@ export default function SignInPanel({ onClose }) {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  // FIX316.2: 'New Visitor Access' opens an info popup until the
+  // visitor flow is released.
+  const [visitorInfoOpen, setVisitorInfoOpen] = useState(false);
 
   if (!configured) {
     return (
@@ -31,7 +34,7 @@ export default function SignInPanel({ onClose }) {
     );
   }
 
-  const isCreate = mode === 'create-visitor' || mode === 'create-manager';
+  const isCreate = mode === 'create-manager';
 
   async function submit(e) {
     e.preventDefault();
@@ -57,10 +60,8 @@ export default function SignInPanel({ onClose }) {
     try {
       if (mode === 'signin') {
         await signIn(loginName, password);
-      } else if (mode === 'create-manager') {
-        await redeem({ loginName, accessCode, password, email: email.trim() });
       } else {
-        await signUpVisitor({ loginName, password, email: email.trim() });
+        await redeem({ loginName, accessCode, password, email: email.trim() });
       }
       onClose?.();
     } catch (e2) {
@@ -88,11 +89,7 @@ export default function SignInPanel({ onClose }) {
     setEmail('');
   };
 
-  const title = mode === 'signin'
-    ? 'Sign in'
-    : mode === 'create-visitor'
-    ? 'New Visitor'
-    : 'New Manager';
+  const title = mode === 'signin' ? 'Sign in' : 'New Manager';
 
   return (
     <form
@@ -179,16 +176,17 @@ export default function SignInPanel({ onClose }) {
           {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create'}
         </button>
       </div>
-      {/* FIX316.2.1 + FIX316.2.2: two entry buttons that switch into
-          the create-account flow. FIX316.2 (updated): clicking either
-          turns this panel into <panel-create-account>. */}
+      {/* FIX316.2.1 + FIX316.2.2: two entry buttons. New Manager
+          Access switches into the create-account flow; New Visitor
+          Access opens the info popup until the visitor flow is
+          released (FIX316.2 updated). */}
       {mode === 'signin' ? (
         <div className="signin-toggle-row">
           <button
             type="button"
             className="signin-toggle"
             data-yagu-id="button-new-visitor"
-            onClick={() => switchMode('create-visitor')}
+            onClick={() => setVisitorInfoOpen(true)}
             disabled={busy}
           >
             New Visitor Access
@@ -213,6 +211,32 @@ export default function SignInPanel({ onClose }) {
           Already have an account? Sign in
         </button>
       )}
+      {visitorInfoOpen && (
+        <VisitorInfoPopup onClose={() => setVisitorInfoOpen(false)} />
+      )}
     </form>
+  );
+}
+
+// FIX316.2: clicking <button-new-visitor> shows this small info
+// popup until the visitor self-signup flow is released.
+function VisitorInfoPopup({ onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal panel-visitor-info"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p>
+          Visitor accounts are coming soon. You'll be able to mark
+          items of interest and keep your own private comments.
+        </p>
+        <div className="panel-contact-actions">
+          <button type="button" className="sc-menu-trigger" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

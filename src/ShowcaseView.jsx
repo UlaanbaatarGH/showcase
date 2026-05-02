@@ -80,7 +80,7 @@ function compareValues(a, b) {
 }
 
 export default function ShowcaseView({ slug, onNavigateHome }) {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [data, setData] = useState(null);
   // FIX503.5.1: <menu-import>, <button-item-grouping>, <button-setup>,
   // <menu-admin> are visible only to project Admins/Managers. The
@@ -866,6 +866,19 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             title="Setup"
           >
             ⚙
+          </button>
+        )}
+        {/* FIX503.2 layout (last item) + FIX503.2.6 (Sign out variant)
+            <button-sign-out>: visible only when the caller is signed
+            in (FIX503.2.6.2). */}
+        {profile && (
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            data-yagu-id="button-sign-out"
+            onClick={signOut}
+          >
+            Sign out
           </button>
         )}
       </div>

@@ -1582,8 +1582,10 @@ body {
 }
 .panel-contact-error-text {
   flex: 1;
-  /* FIX420.2.12.1: bright red text colour. */
-  color: #f87171;
+  /* FIX420.2.12.1: bright red text colour — matches the vivid red
+     used by IconDelete so the warning reads as "stop / fix this". */
+  color: #dc2626;
+  font-weight: 600;
   font-size: 0.9rem;
   white-space: pre-wrap;
 }
@@ -1593,8 +1595,8 @@ body {
 /* FIX420.4.2.7: the field the error relates to gets a bright-red
    frame so the visitor sees which input to fix. */
 .panel-contact-input-error {
-  border-color: #f87171 !important;
-  box-shadow: 0 0 0 1px #f87171;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 1px #dc2626;
 }
 .panel-contact-actions {
   display: flex;

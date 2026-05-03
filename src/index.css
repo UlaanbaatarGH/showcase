@@ -155,12 +155,14 @@ body {
 
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left
    cluster. Inline styles set size / colour / weight from the
-   project's settings; this only handles the layout (vertical centre,
-   no margin reset of inherited h1-ish). */
+   project's settings; this only handles the layout. white-space:
+   pre-line preserves the newline that separates a 1-line title from
+   a 2-line one (FIX352.2.7.1.1 / .4.1 — the 1–2-line editor). */
 .sc-project-title-deco {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
   letter-spacing: 0.02em;
+  white-space: pre-line;
+  line-height: 1.2;
 }
 
 /* Setup panel (modal) */
@@ -1846,6 +1848,19 @@ body {
   padding-left: 0.5rem;
 }
 .panel-project-title-size { width: 6rem; }
+/* FIX352.2.7.1.1 + FIX352.2.7.4.1: 1–2-line text editor for the
+   project title fields. Textarea inherits the same look as the
+   inline text inputs in this panel so the form reads consistently. */
+.panel-project-title-textarea {
+  flex: 1;
+  padding: 0.35rem 0.55rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+  resize: vertical;
+}
 .panel-project-row input[type="text"] {
   flex: 1;
   padding: 0.35rem 0.55rem;

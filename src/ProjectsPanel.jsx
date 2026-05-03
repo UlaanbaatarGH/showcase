@@ -706,11 +706,16 @@ function ProjectPanel({
                 FIX503.2.20.1) when title_text is non-empty. */}
             <div className="panel-project-block panel-project-title-block">
               <span className="panel-project-row-label">Title</span>
+              {/* FIX352.2.7.1.1 + FIX352.2.7.4.1: 1–2-line text
+                  editor. Textarea with rows=2 + soft-wrap so the
+                  admin can type a 2-line title, but keeps the field
+                  visually compact. */}
               <div className="panel-project-row">
                 <span className="panel-project-row-sublabel">Long text</span>
-                <input
-                  type="text"
+                <textarea
+                  className="panel-project-title-textarea"
                   data-yagu-id="project-title-long-text"
+                  rows={2}
                   value={titleLongText}
                   onChange={(e) => setTitleLongText(e.target.value)}
                   placeholder="(shown on PC viewports)"
@@ -718,9 +723,10 @@ function ProjectPanel({
               </div>
               <div className="panel-project-row">
                 <span className="panel-project-row-sublabel">Short text</span>
-                <input
-                  type="text"
+                <textarea
+                  className="panel-project-title-textarea"
                   data-yagu-id="project-title-short-text"
+                  rows={2}
                   value={titleShortText}
                   onChange={(e) => setTitleShortText(e.target.value)}
                   placeholder="(shown on smartphone viewports)"

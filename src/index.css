@@ -1808,10 +1808,32 @@ body {
   color: #fff;
 }
 .users-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
-.users-add { color: #4ade80; }
-.users-add:not(:disabled):hover { background: rgba(74, 222, 128, 0.12); }
-.users-remove { color: #f87171; font-size: 1.3rem; }
-.users-remove:not(:disabled):hover { background: rgba(248, 113, 113, 0.12); }
+/* IconAdd / IconDelete: pure icon button, no chrome. The vivid
+   green / red SVG glyphs work better against the surrounding
+   context without a grey browser-default frame — covers both the
+   toolbar use (.users-toolbar) and standalone uses (e.g. inside
+   the LanguageSetupPanel table cells). The double-class selector
+   beats `.users-toolbar button` on specificity so the toolbar's
+   border is dropped too. */
+.users-add,
+.users-remove,
+.users-toolbar .users-add,
+.users-toolbar .users-remove {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.users-add:disabled,
+.users-remove:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Faint coloured halo on hover so the affordance is visible without
+   adding a permanent box. */
+.users-add:not(:disabled):hover { background: rgba(22, 163, 74, 0.12); }
+.users-remove:not(:disabled):hover { background: rgba(220, 38, 38, 0.12); }
 .users-table .users-check { text-align: center; }
 .users-table .users-code { font-family: monospace; letter-spacing: 0.05em; }
 /* FIX311.2.1.5.1: <user-is-admin> ticked with a green sign. */

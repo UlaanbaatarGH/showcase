@@ -443,6 +443,13 @@ function ProjectPanel({
   const [isPublic, setIsPublic] = useState(!!project?.is_public);
   const [frontIntro, setFrontIntro] = useState(project?.front_introduction || '');
   const [intro, setIntro] = useState(project?.introduction || '');
+  // FIX352.2.7 <project-title> section — text + size + colour + bold.
+  const [titleText, setTitleText] = useState(project?.title_text || '');
+  const [titleSize, setTitleSize] = useState(
+    project?.title_size != null ? String(project.title_size) : '',
+  );
+  const [titleColour, setTitleColour] = useState(project?.title_colour || '#ffffff');
+  const [titleIsBold, setTitleIsBold] = useState(!!project?.title_is_bold);
   const [dataManagers, setDataManagers] = useState(
     () => new Set((project?.data_managers || []).map((m) => m.id)),
   );
@@ -574,6 +581,12 @@ function ProjectPanel({
       front_introduction: frontIntro,
       introduction: intro,
       slugs: slugs.map((s) => ({ ...s })),
+      // FIX352.2.7 <project-title> fields. title_size is sent as
+      // a number when filled, null when blank (= use the default).
+      title_text: titleText,
+      title_size: titleSize === '' ? null : Number(titleSize),
+      title_colour: titleColour || null,
+      title_is_bold: titleIsBold,
     };
     if (isAdmin) {
       // FIX352.3.10.11: only admin sends user_managers.
@@ -673,6 +686,52 @@ function ProjectPanel({
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
               />
+            </div>
+            {/* FIX352.2.7 Title section: text + size + colour + bold,
+                rendered on the project page header (FIX503.2.13 +
+                FIX503.2.20.1) when title_text is non-empty. */}
+            <div className="panel-project-block panel-project-title-block">
+              <span className="panel-project-row-label">Title</span>
+              <div className="panel-project-row">
+                <span className="panel-project-row-sublabel">Text</span>
+                <input
+                  type="text"
+                  data-yagu-id="project-title-text"
+                  value={titleText}
+                  onChange={(e) => setTitleText(e.target.value)}
+                  placeholder="(optional decorative title)"
+                />
+              </div>
+              <div className="panel-project-row">
+                <span className="panel-project-row-sublabel">Font size</span>
+                <input
+                  type="number"
+                  min="1"
+                  data-yagu-id="project-title-size"
+                  value={titleSize}
+                  onChange={(e) => setTitleSize(e.target.value)}
+                  className="panel-project-title-size"
+                  placeholder="default"
+                />
+              </div>
+              <div className="panel-project-row">
+                <span className="panel-project-row-sublabel">Colour</span>
+                <input
+                  type="color"
+                  data-yagu-id="project-title-colour"
+                  value={titleColour || '#ffffff'}
+                  onChange={(e) => setTitleColour(e.target.value)}
+                />
+              </div>
+              <div className="panel-project-row">
+                <span className="panel-project-row-sublabel">Bold</span>
+                <input
+                  type="checkbox"
+                  data-yagu-id="project-title-is-bold"
+                  checked={titleIsBold}
+                  onChange={(e) => setTitleIsBold(e.target.checked)}
+                />
+              </div>
             </div>
             {/* FIX352.2.5 <project-front-introduction> — multi-line text. */}
             <div className="panel-project-block">

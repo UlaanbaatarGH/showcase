@@ -838,12 +838,12 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         <h1 className="sc-project-title" data-yagu-id="label-project-name">
           {data.project?.name ?? 'Showcase'}
         </h1>
-        {/* FIX503.2.11 (dup) + FIX503.3.5 + FIX503.5.3 + FIX503.2.20.1
-            <button-project-about>: info '?' icon, left-aligned next to
-            the project name (was right-aligned before FIX503.2.20).
-            Visible only when the project has a non-empty
-            <project-introduction>; clicking opens a layer popup with
-            the introduction text and an Ok button. */}
+        {/* FIX503.2.12 [ex-503.2.11(dup)] + FIX503.3.5 + FIX503.5.3 +
+            FIX503.2.20.1 <button-project-about>: info '?' icon,
+            left-aligned next to the project name. Visible only when
+            the project has a non-empty <project-introduction>;
+            clicking opens a layer popup with the introduction text
+            and an Ok button. */}
         {(data.project?.introduction || '').trim() && (
           <button
             type="button"
@@ -855,6 +855,25 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
           >
             <IconAbout size={22} />
           </button>
+        )}
+        {/* FIX503.2.13 + FIX503.2.20.1 <project-title>: optional
+            decorative label rendered in the left cluster after the
+            About button. Style is driven by the project's
+            title_size / title_colour / title_is_bold settings. */}
+        {(data.project?.title_text || '').trim() && (
+          <span
+            className="sc-project-title-deco"
+            data-yagu-id="project-title"
+            style={{
+              fontSize: data.project.title_size
+                ? `${data.project.title_size}px`
+                : undefined,
+              color: data.project.title_colour || undefined,
+              fontWeight: data.project.title_is_bold ? 700 : 400,
+            }}
+          >
+            {data.project.title_text}
+          </span>
         )}
         {/* FIX503.2.20: spacer pushes the rest of the header to the
             right edge. */}

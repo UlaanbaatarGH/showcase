@@ -144,6 +144,16 @@ body {
    the top bar. */
 .sc-topbar-spacer { flex: 1; }
 
+/* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left
+   cluster. Inline styles set size / colour / weight from the
+   project's settings; this only handles the layout (vertical centre,
+   no margin reset of inherited h1-ish). */
+.sc-project-title-deco {
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0.02em;
+}
+
 /* Setup panel (modal) */
 .setup-overlay {
   position: fixed;
@@ -1794,6 +1804,20 @@ body {
   min-width: 7rem;
   color: var(--color-text-muted);
 }
+/* FIX352.2.7: secondary label inside the Title block — same look as
+   the row label but indented, so the four sub-fields read as a
+   sub-section rather than top-level rows. */
+.panel-project-row-sublabel {
+  min-width: 6rem;
+  margin-left: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+.panel-project-title-block {
+  border-left: 2px solid var(--color-border);
+  padding-left: 0.5rem;
+}
+.panel-project-title-size { width: 6rem; }
 .panel-project-row input[type="text"] {
   flex: 1;
   padding: 0.35rem 0.55rem;

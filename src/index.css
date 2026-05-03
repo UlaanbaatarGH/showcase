@@ -1263,7 +1263,13 @@ body {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  /* FIX400.2.1.2: the list of projects is horizontally centered.
+     Fixed-width columns + justify-content: center => the grid only
+     creates as many cards-wide tracks as fit and centres them in the
+     remaining width. With few projects (the expected case for this
+     site), the cluster sits in the middle of the page. */
+  grid-template-columns: repeat(auto-fit, 220px);
+  justify-content: center;
   gap: 1.5rem;
   width: min(960px, 90vw);
 }

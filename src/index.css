@@ -27,8 +27,10 @@ body {
 
 /* Home view */
 .home {
-  /* FIX400.2: layout = full-width top bar + 'Showcase' title +
-     project list flowing beneath.
+  /* FIX400.2: full-width top bar pinned at the top, then a
+     content area that fills the remaining viewport height. The
+     content area itself centres its children vertically so the
+     title + project grid don't get stuck against the top edge.
      On mobile 100vh is the *largest* viewport (URL bar hidden);
      100dvh tracks the live visible height. vh stays as a fallback
      for ancient browsers that don't grok dvh. */
@@ -36,11 +38,19 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+}
+.home-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem;
 }
 /* FIX400.2.11 + FIX400.2.11.1: 'Showcase' title — centred, big. */
 .home-title {
-  margin: 1rem 0 0;
+  margin: 0;
   font-size: 3rem;
   letter-spacing: 0.02em;
   text-align: center;
@@ -48,7 +58,6 @@ body {
 .home-err {
   color: #f88;
   font-size: 0.9rem;
-  padding: 0 2rem;
 }
 .btn-enter {
   padding: 0.75rem 2.5rem;
@@ -1190,13 +1199,10 @@ body {
 .home-loading, .home-empty {
   color: var(--color-text-muted);
   font-size: 1rem;
-  padding: 0 2rem;
 }
 .home-projects {
   list-style: none;
-  /* FIX400.2: outer .home no longer pads — push the grid in here so
-     cards sit comfortably away from the viewport edge. */
-  padding: 0 2rem 2rem;
+  padding: 0;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

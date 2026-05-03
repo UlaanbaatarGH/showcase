@@ -228,34 +228,40 @@ export default function HomeView({ onOpenProject }) {
         )}
       </div>
 
-      {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred, big. */}
-      <h1 className="home-title">Showcase</h1>
+      {/* Page content sits in its own flex container that grows to
+          fill the remaining viewport height and vertically centres
+          the title + project grid (the topbar above is the only
+          element pinned to the top edge). */}
+      <div className="home-content">
+        {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred, big. */}
+        <h1 className="home-title">Showcase</h1>
 
-      {/* FIX400.2.1: project list — name, image, front-introduction
-          per card. */}
-      {error && <div className="home-err">Backend error: {error}</div>}
+        {/* FIX400.2.1: project list — name, image, front-introduction
+            per card. */}
+        {error && <div className="home-err">Backend error: {error}</div>}
 
-      {projects === null && !error && <div className="home-loading">Loading…</div>}
+        {projects === null && !error && <div className="home-loading">Loading…</div>}
 
-      {projects && projects.length === 0 && (
-        <div className="home-empty">No projects visible yet.</div>
-      )}
+        {projects && projects.length === 0 && (
+          <div className="home-empty">No projects visible yet.</div>
+        )}
 
-      {projects && projects.length > 0 && (
-        <ul className="home-projects">
-          {projects.map((p) => (
-            <HomeProjectCard
-              key={p.id}
-              project={p}
-              editing={editing}
-              draft={drafts[p.id]}
-              onOpen={() => openProject(p)}
-              onNameChange={(v) => setDraftName(p.id, v)}
-              onCoverDrop={(file) => setDraftCover(p.id, file)}
-            />
-          ))}
-        </ul>
-      )}
+        {projects && projects.length > 0 && (
+          <ul className="home-projects">
+            {projects.map((p) => (
+              <HomeProjectCard
+                key={p.id}
+                project={p}
+                editing={editing}
+                draft={drafts[p.id]}
+                onOpen={() => openProject(p)}
+                onNameChange={(v) => setDraftName(p.id, v)}
+                onCoverDrop={(file) => setDraftCover(p.id, file)}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
 
       {signInOpen && (
         <div className="modal-backdrop" onClick={() => setSignInOpen(false)}>

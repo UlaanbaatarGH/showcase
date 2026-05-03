@@ -119,6 +119,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  // FIX503.3.5 <button-project-about>: simple Ok-only popup showing
+  // <project-introduction>.
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
@@ -653,34 +656,35 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   // Grouping Name (FIX373.2.1.1); falls back to the property label
   // for legacy entries that were migrated from the pre-FIX373-update
   // shape and never got a user-entered name.
+  // FIX374.2.1.1: no 'Group by:' label outside the dropdown — when
+  // nothing is selected the dropdown itself shows a ghost 'Group by'
+  // value (placeholder-like, dimmed).
   const groupSelector =
     groups.length > 0 ? (
       <div className="sc-group-selector">
-        <label>
-          Group by:&nbsp;
-          <select
-            value={activeGroupId ?? ''}
-            onChange={(e) => {
-              setActiveGroupId(e.target.value || null);
-              setActiveBucketKey(null);
-            }}
-          >
-            <option value="">(none)</option>
-            {groups.map((g) => {
-              const fallback =
-                g.property_id === 'img'
-                  ? 'Img'
-                  : properties.find((pp) => pp.id === g.property_id)?.label
-                    ?? `Property ${g.property_id}`;
-              const label = (g.name && g.name.trim()) || fallback;
-              return (
-                <option key={g.id} value={g.id}>
-                  {label}
-                </option>
-              );
-            })}
-          </select>
-        </label>
+        <select
+          className={activeGroupId == null ? 'is-placeholder' : ''}
+          value={activeGroupId ?? ''}
+          onChange={(e) => {
+            setActiveGroupId(e.target.value || null);
+            setActiveBucketKey(null);
+          }}
+        >
+          <option value="">Group by</option>
+          {groups.map((g) => {
+            const fallback =
+              g.property_id === 'img'
+                ? 'Img'
+                : properties.find((pp) => pp.id === g.property_id)?.label
+                  ?? `Property ${g.property_id}`;
+            const label = (g.name && g.name.trim()) || fallback;
+            return (
+              <option key={g.id} value={g.id}>
+                {label}
+              </option>
+            );
+          })}
+        </select>
       </div>
     ) : null;
 
@@ -792,18 +796,20 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         <h1 className="sc-project-title" data-yagu-id="label-project-name">
           {data.project?.name ?? 'Showcase'}
         </h1>
-        {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 <button-columns>: opens
-            the standalone <panel-showcase-view-setup> popup. Not listed
-            under FIX503.5.1, so visible to anonymous visitors too: setting
-            columns is a viewer affordance, not admin work. */}
-        <button
-          type="button"
-          className="sc-menu-trigger"
-          data-yagu-id="button-columns"
-          onClick={() => setShowColumns(true)}
-        >
-          Columns
-        </button>
+        {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.5.1.4
+            <button-columns>: opens the standalone
+            <panel-showcase-view-setup> popup. Now gated to admin /
+            project-manager (FIX503.5.1.4 dup). */}
+        {isAdminOrManager && (
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            data-yagu-id="button-columns"
+            onClick={() => setShowColumns(true)}
+          >
+            Columns
+          </button>
+        )}
         {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.5.1 (.4.1.2)
             <button-item-grouping>: opens <panel-item-grouping-setup> in a
             layer popup, admin- or project-manager-only. */}
@@ -888,6 +894,22 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         >
           Contact
         </button>
+        {/* FIX503.2.11 (dup) + FIX503.3.5 + FIX503.5.3 <button-project-about>:
+            '?' icon. Visible only when the project has a non-empty
+            <project-introduction>; clicking opens a layer popup with
+            the introduction text and an Ok button. */}
+        {(data.project?.introduction || '').trim() && (
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            data-yagu-id="button-project-about"
+            onClick={() => setAboutOpen(true)}
+            aria-label="About this project"
+            title="About"
+          >
+            ?
+          </button>
+        )}
         {/* FIX503.2.9 {user}: the signed-in user's name, between
             Contact and Sign out per the FIX503.2 layout. Only visible
             when signed in. */}
@@ -1572,6 +1594,34 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
           onClose={() => setContactOpen(false)}
           projectId={data.project?.id ?? null}
         />
+      )}
+      {/* FIX503.3.5 'About' popup: read-only display of the project
+          introduction with a single Ok button. */}
+      {aboutOpen && (
+        <div className="modal-backdrop" onClick={() => setAboutOpen(false)}>
+          <div
+            className="modal sc-about-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>About</h2>
+            <div
+              className="sc-about-text"
+              data-yagu-id="project-introduction"
+            >
+              {data.project?.introduction}
+            </div>
+            <div className="sc-about-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setAboutOpen(false)}
+                autoFocus
+              >
+                Ok
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {/* FIX520.3.2 + FIX521 <panel-showcase-img-viewer-fullscreen>:
           full-screen image overlay. FIX521.2: same layout as the

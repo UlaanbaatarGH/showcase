@@ -1470,6 +1470,11 @@ body {
   letter-spacing: 0.02em;
   color: var(--color-text);
 }
+/* FIX503.5.2: <label-project-name> hidden on smartphone-sized
+   viewports — it eats too much room from the top bar buttons. */
+@media (max-width: 600px) {
+  .sc-project-title { display: none; }
+}
 .sc-menu { position: relative; }
 .sc-menu-trigger {
   background: transparent;
@@ -2259,4 +2264,29 @@ body {
   border-radius: 4px;
   font: inherit;
   line-height: 1.2;
+}
+/* FIX374.2.1.1: dim the dropdown label so the empty 'Group by'
+   option reads as a placeholder rather than a real value. */
+.sc-group-selector select.is-placeholder { color: #888; font-style: italic; }
+.sc-group-selector select.is-placeholder option { color: #222; font-style: normal; }
+
+/* FIX503.3.5 About popup: small modal showing <project-introduction>. */
+.sc-about-modal {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.sc-about-modal h2 { margin: 0; font-size: 1.1rem; }
+.sc-about-text {
+  white-space: pre-wrap;
+  color: var(--color-text);
+  line-height: 1.4;
+  max-height: 50vh;
+  overflow: auto;
+}
+.sc-about-actions {
+  display: flex;
+  justify-content: flex-end;
 }

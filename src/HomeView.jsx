@@ -10,7 +10,6 @@ import {
 } from './data/backend.js';
 
 // FIX400: Home page.
-// FIX400.2.1 list of projects with name and cover image
 // FIX400.2.2 / FIX400.2.2.0 <button-sign-in>
 // FIX400.2.3/.4/.5 Edit / Cancel / Save buttons (signed-in only)
 // FIX400.3.1 click project opens it (when not in edition)
@@ -20,6 +19,9 @@ import {
 // FIX400.4.1 anon sees public only
 // FIX400.4.2 signed-in sees accessible private + public
 // FIX400.4.3/.4/.5 button visibility rules
+// FIX400.4.7 [ex-400.2.1.1] projects ordered as in <panel-project-list>
+// FIX400.4.8 [ex-400.2.1.2] public projects visible to anyone
+// FIX400.4.9 [ex-400.2.1.3] private projects visible to admin/managers
 export default function HomeView({ onOpenProject }) {
   const { token, profile, signOut, configured } = useAuth();
   const [projects, setProjects] = useState(null);
@@ -296,9 +298,10 @@ function HomeProjectCard({
       onClick={editable ? (e) => { e.stopPropagation(); fileInputRef.current?.click(); } : undefined}
       title={editable ? 'Drop an image or click to pick one' : undefined}
     >
+      {/* FIX350.1.2.0 <project-img>: project cover image. */}
       {displayCoverUrl
-        ? <img src={displayCoverUrl} alt="" />
-        : <div className="home-project-cover-placeholder" />}
+        ? <img src={displayCoverUrl} alt="" data-yagu-id="project-img" />
+        : <div className="home-project-cover-placeholder" data-yagu-id="project-img" />}
       {editable && (
         <>
           <div className="home-project-cover-hint">Drop image</div>
@@ -317,16 +320,21 @@ function HomeProjectCard({
   const body = (
     <>
       {cover}
+      {/* FIX350.1.1.0 <project-name>: editable input in edit mode,
+          read-only label otherwise. */}
       {editable ? (
         <input
           type="text"
           className="home-project-name-input"
+          data-yagu-id="project-name"
           value={displayName}
           onChange={(e) => onNameChange(e.target.value)}
           onClick={(e) => e.stopPropagation()}
         />
       ) : (
-        <div className="home-project-name">{displayName}</div>
+        <div className="home-project-name" data-yagu-id="project-name">
+          {displayName}
+        </div>
       )}
       {!p.is_public && <div className="home-project-badge">private</div>}
     </>

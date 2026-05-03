@@ -15,8 +15,13 @@ async function call(url, opts = {}) {
     headers['Content-Type'] = 'application/json';
     body = JSON.stringify(body);
   }
+  const traceMethod = opts.method || 'GET';
+  console.log(`[backend] ${traceMethod} ${url}`, body ? { body } : '');
+  const t0 = performance.now();
   const r = await fetch(url, { ...opts, headers, body });
   const text = await r.text();
+  const dt = (performance.now() - t0).toFixed(0);
+  console.log(`[backend] <- ${r.status} ${url} (${dt}ms)`, text.slice(0, 300));
   let data = null;
   if (text) {
     try { data = JSON.parse(text); } catch { data = text; }

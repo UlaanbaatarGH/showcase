@@ -106,11 +106,19 @@ export default function LanguageSetupPanel() {
   // so the same English text can carry a different translation in
   // different FIX sections.
   const saveLabel = async (code, section, key, value) => {
+    console.log('[saveLabel] enter', { code, section, key, value });
     const lang = languages.find((l) => l.code === code);
-    if (!lang) return;
+    if (!lang) {
+      console.log('[saveLabel] no language found for code', code, 'languages=', languages);
+      return;
+    }
     const cleaned = String(value || '').trim();
     const stored = (lang.labels || {})[section]?.[key] || '';
-    if (cleaned === stored) return;
+    console.log('[saveLabel] cleaned=', cleaned, 'stored=', stored, 'lang.labels=', lang.labels);
+    if (cleaned === stored) {
+      console.log('[saveLabel] no change, skipping');
+      return;
+    }
     setError(null);
     try {
       const merged = { ...(lang.labels || {}) };
@@ -124,10 +132,16 @@ export default function LanguageSetupPanel() {
       } else {
         merged[section] = sectionLabels;
       }
-      await updateLanguage(code, { labels: merged });
+      console.log('[saveLabel] sending merged=', merged);
+      const t0 = performance.now();
+      const resp = await updateLanguage(code, { labels: merged });
+      const dt = (performance.now() - t0).toFixed(0);
+      console.log(`[saveLabel] PATCH ok in ${dt}ms, response=`, resp);
       notifyLanguageUpdated();
       reload();
+      console.log('[saveLabel] reload triggered');
     } catch (e) {
+      console.error('[saveLabel] ERROR', e);
       setError(e.message || String(e));
     }
   };
@@ -336,7 +350,10 @@ function LabelRow({ section, entryKey, activeCode, storedValue, onSave }) {
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => onSave(activeCode, section, entryKey, draft)}
+          onBlur={() => {
+            console.log('[LabelRow] blur', { section, entryKey, activeCode, draft, storedValue });
+            onSave(activeCode, section, entryKey, draft);
+          }}
           placeholder={entryKey}
         />
       </td>

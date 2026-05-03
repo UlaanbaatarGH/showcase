@@ -147,9 +147,6 @@ export default {
     call(`/api/projects/${projectId}/import-gsheet`, { method: 'POST', body: plan }),
   getExistingImages: (projectId) =>
     call(`/api/projects/${projectId}/existing-images`),
-  // FIX507: total bytes used by the project's images in Supabase Storage.
-  getStorageSize: (projectId) =>
-    call(`/api/projects/${encodeURIComponent(projectId)}/storage-size`),
   signUpload: (body) => call('/api/images/sign-upload', { method: 'POST', body }),
   confirmImage: (body) => call('/api/images/confirm', { method: 'POST', body }),
   // FIX371 orphan cleanup: drop a bucket object that has no image DB row.

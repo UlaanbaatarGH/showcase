@@ -1,14 +1,6 @@
-import { useEffect, useState } from 'react';
-import { saveSetup, getStorageSize } from './data/backend.js';
+import { useState } from 'react';
+import { saveSetup } from './data/backend.js';
 import LanguageSetupPanel from './LanguageSetupPanel.jsx';
-
-function formatBytes(n) {
-  if (n == null || !Number.isFinite(n)) return '?';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 // FIX506.5.3: a property's name field may be either a plain label
 // ("Year") or a definition with a formula ("pageCount = numberOf(pages)").
@@ -31,11 +23,13 @@ function formatPropertyInput(p) {
 // removed (FIX505.2.2(removed)) — the standalone ShowcaseViewSetupPanel
 // replaces it via <button-columns>.
 export default function SetupPanel({ projectId, properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
-  // FIX505.2 (updated): the Setup popup hosts four tabs.
+  // FIX505.2 (updated): the Setup popup hosts three tabs.
   //   - 'General'    → <panel-general-info-setup>  (FIX508)
   //   - 'Properties' → <tab-properties-setup>      (FIX506)
-  //   - 'Sizes'      → <panel-sizes-setup>         (FIX507)
-  //   - 'Language'   → <panel-language-setup>      (FIX509, stub)
+  //   - 'Language'   → <panel-language-setup>      (FIX509)
+  // FIX507 was removed — the standalone Sizes tab is gone; the
+  // per-project image volume now lives only on the project list
+  // (<project-img-volume>, FIX351.2.1.6).
   const [activeTab, setActiveTab] = useState('general');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
@@ -187,7 +181,11 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
   };
 
   return (
-    <div className="setup-overlay" onClick={onCancel}>
+    // Backdrop is no longer click-to-dismiss — clicking outside
+    // was racing async saves (notably the Language tab's per-cell
+    // autosave) and dropping data. Only the Cancel / Save buttons
+    // close the popup.
+    <div className="setup-overlay">
       <div className="setup-panel" onClick={(e) => e.stopPropagation()}>
         {/* FIX505.2.5: title is 'Setup'. */}
         <header className="setup-header">
@@ -213,14 +211,6 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             onClick={() => setActiveTab('properties')}
           >
             Properties
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'sizes' ? 'active' : ''}
-            data-yagu-id="tab-sizes-setup"
-            onClick={() => setActiveTab('sizes')}
-          >
-            Sizes
           </button>
           <button
             type="button"
@@ -462,9 +452,6 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
               </div>
             </section>
           )}
-          {activeTab === 'sizes' && (
-            <SizesTab projectId={projectId} />
-          )}
           {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app
               labels in different languages. */}
           {activeTab === 'language' && <LanguageSetupPanel />}
@@ -612,43 +599,3 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
   );
 }
 
-// FIX507 <panel-sizes-setup>: Image sizes panel — currently exposes one
-// read-only field, the total bytes used in Supabase Storage by all images
-// linked to the current project (FIX507.2.1 / .2.1.1).
-function SizesTab({ projectId }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    if (projectId == null) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    getStorageSize(projectId)
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => { if (!cancelled) setError(String(e.message || e)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [projectId]);
-  return (
-    <section className="setup-section" data-yagu-id="panel-sizes-setup">
-      <h3>Image sizes</h3>
-      {/* FIX507.2.1 / .2.1.1: total bytes for the project's images,
-          read-only. Reads storage.objects.metadata so old uploads are
-          included without any per-image bytes column on our side. */}
-      <label className="setup-inline-row">
-        <span>Size of Project images</span>
-        <input
-          type="text"
-          readOnly
-          value={
-            loading ? 'Loading…'
-            : error ? `Error: ${error}`
-            : data ? `${formatBytes(data.bytes)}  (${data.image_count} image${data.image_count === 1 ? '' : 's'}${data.missing_count ? `, ${data.missing_count} missing` : ''})`
-            : '—'
-          }
-        />
-      </label>
-    </section>
-  );
-}

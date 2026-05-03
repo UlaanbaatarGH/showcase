@@ -12,7 +12,6 @@ export const setAuthToken = impl.setAuthToken;
 export const listProjects = impl.listProjects;
 export const getShowcase = impl.getShowcase;
 export const getFolderImages = impl.getFolderImages;
-export const getStorageSize = impl.getStorageSize;
 export const listVisits = impl.listVisits;
 export const trackVisit = impl.trackVisit;
 export const listIpStats = impl.listIpStats;

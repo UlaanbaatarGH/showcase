@@ -90,6 +90,13 @@ export default function ContactPanel({
         data-yagu-id="panel-contact-admin"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
+        /* Disable browser HTML5 validation popups (which would
+           render in the browser's UI language and bypass our
+           submit handler entirely). The `required` attributes on
+           the inputs stay for screen-reader semantics — they're
+           just no longer rendered as native error tooltips, so
+           our t()-translated messages get a chance to show. */
+        noValidate
       >
         <header className="visits-header">
           <h2>{t('Contact')}</h2>

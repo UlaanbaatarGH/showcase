@@ -26,6 +26,24 @@ async function call(url, opts = {}) {
       (data && typeof data === 'object' && (data.detail || data.error)) ||
       (typeof data === 'string' && data) ||
       `HTTP ${r.status}`;
+    // If the backend rejects the bearer (stale JWT, server-side
+    // session no longer exists, expired, etc.) tell AuthContext to
+    // wipe the local Supabase session so the UI falls back to the
+    // anonymous (and working) state instead of looping on a dead
+    // token. We only fire when a token was attached — a 401 on an
+    // anonymous call is a real authorization error, not a stale
+    // session.
+    if (r.status === 401 && authToken) {
+      // Clear our copy immediately so any in-flight retry stops
+      // attaching the bad token; AuthContext will also clear the
+      // Supabase session (signOut) on receipt of the event.
+      authToken = null;
+      try {
+        window.dispatchEvent(new CustomEvent('auth:invalid', {
+          detail: { reason: String(detail).slice(0, 200) },
+        }));
+      } catch { /* ignore — non-browser env */ }
+    }
     const err = new Error(String(detail).slice(0, 200));
     err.status = r.status;
     throw err;

@@ -233,6 +233,19 @@ export function AuthProvider({ children }) {
     };
   }, [session, signOut]);
 
+  // Auto-recover from a stale Supabase JWT. The data layer dispatches
+  // 'auth:invalid' when any backend call returns 401 while a token is
+  // attached (typically: server-side session no longer exists because
+  // the user signed out from another tab / Supabase rotated keys /
+  // the session was revoked). We respond by clearing the local
+  // session so the UI falls back to the anonymous state and the user
+  // can sign back in.
+  useEffect(() => {
+    const onInvalid = () => { signOut(); };
+    window.addEventListener('auth:invalid', onInvalid);
+    return () => window.removeEventListener('auth:invalid', onInvalid);
+  }, [signOut]);
+
   const value = {
     session,
     profile,

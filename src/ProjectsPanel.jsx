@@ -453,8 +453,11 @@ function ProjectPanel({
   const [isPublic, setIsPublic] = useState(!!project?.is_public);
   const [frontIntro, setFrontIntro] = useState(project?.front_introduction || '');
   const [intro, setIntro] = useState(project?.introduction || '');
-  // FIX352.2.7 <project-title> section — text + size + colour + bold.
-  const [titleText, setTitleText] = useState(project?.title_text || '');
+  // FIX352.2.7 <project-title> section — long + short text + size +
+  // colour + bold. The header picks long or short at render time
+  // based on viewport width (FIX503.5.4).
+  const [titleLongText, setTitleLongText] = useState(project?.title_long_text || '');
+  const [titleShortText, setTitleShortText] = useState(project?.title_short_text || '');
   const [titleSize, setTitleSize] = useState(
     project?.title_size != null ? String(project.title_size) : '',
   );
@@ -593,7 +596,8 @@ function ProjectPanel({
       slugs: slugs.map((s) => ({ ...s })),
       // FIX352.2.7 <project-title> fields. title_size is sent as
       // a number when filled, null when blank (= use the default).
-      title_text: titleText,
+      title_long_text: titleLongText,
+      title_short_text: titleShortText,
       title_size: titleSize === '' ? null : Number(titleSize),
       title_colour: titleColour || null,
       title_is_bold: titleIsBold,
@@ -703,13 +707,23 @@ function ProjectPanel({
             <div className="panel-project-block panel-project-title-block">
               <span className="panel-project-row-label">Title</span>
               <div className="panel-project-row">
-                <span className="panel-project-row-sublabel">Text</span>
+                <span className="panel-project-row-sublabel">Long text</span>
                 <input
                   type="text"
-                  data-yagu-id="project-title-text"
-                  value={titleText}
-                  onChange={(e) => setTitleText(e.target.value)}
-                  placeholder="(optional decorative title)"
+                  data-yagu-id="project-title-long-text"
+                  value={titleLongText}
+                  onChange={(e) => setTitleLongText(e.target.value)}
+                  placeholder="(shown on PC viewports)"
+                />
+              </div>
+              <div className="panel-project-row">
+                <span className="panel-project-row-sublabel">Short text</span>
+                <input
+                  type="text"
+                  data-yagu-id="project-title-short-text"
+                  value={titleShortText}
+                  onChange={(e) => setTitleShortText(e.target.value)}
+                  placeholder="(shown on smartphone viewports)"
                 />
               </div>
               <div className="panel-project-row">

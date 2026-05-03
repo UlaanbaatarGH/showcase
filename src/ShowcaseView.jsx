@@ -22,6 +22,26 @@ import { getShowcase, getFolderImages, trackVisit } from './data/backend.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 
+// Live viewport-size listener; pairs with FIX503.5.4 (long vs short
+// project title pick). Returns `true` when the media query matches
+// and re-renders on resize.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia(query).matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia(query);
+    const handler = (e) => setMatches(e.matches);
+    mq.addEventListener('change', handler);
+    setMatches(mq.matches);
+    return () => mq.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
+
 function romanToInt(s) {
   const m = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
   let total = 0;
@@ -146,6 +166,10 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
+  // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
+  // 600px matches the existing breakpoint used to hide
+  // <label-project-name> on mobile.
+  const isSmallScreen = useMediaQuery('(max-width: 600px)');
   const [listWidth, setListWidth] = useState(() => {
     const saved = Number(localStorage.getItem('sc-list-width'));
     return Number.isFinite(saved) && saved > 200 ? saved : 640;
@@ -857,27 +881,38 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             <IconAbout size={22} />
           </button>
         )}
-        {/* FIX503.2.13 + FIX503.2.20.1 <project-title>: optional
-            decorative label rendered in the left cluster after the
-            About button. Style is driven by the project's
-            title_size / title_colour / title_is_bold settings. */}
-        {(data.project?.title_text || '').trim() && (
-          <span
-            className="sc-project-title-deco"
-            data-yagu-id="project-title"
-            style={{
-              fontSize: data.project.title_size
-                ? `${data.project.title_size}px`
-                : undefined,
-              color: data.project.title_colour || undefined,
-              fontWeight: data.project.title_is_bold ? 700 : 400,
-            }}
-          >
-            {/* FIX352.3.4.4: '{icon-contact}' placeholders are
-                substituted by the inline envelope icon. */}
-            <RichText text={data.project.title_text} />
-          </span>
-        )}
+        {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.5.4
+            <label-project-title>: decorative label rendered in the
+            left cluster after the About button. Long text on PC
+            viewports, short text on smartphone (matched against
+            min/max-width: 600px). When a project only has one of
+            the two, that one is shown on both — keeps existing
+            single-title projects working. */}
+        {(() => {
+          const longTxt = (data.project?.title_long_text || '').trim();
+          const shortTxt = (data.project?.title_short_text || '').trim();
+          const picked = isSmallScreen
+            ? (shortTxt || longTxt)
+            : (longTxt || shortTxt);
+          if (!picked) return null;
+          return (
+            <span
+              className="sc-project-title-deco"
+              data-yagu-id="label-project-title"
+              style={{
+                fontSize: data.project.title_size
+                  ? `${data.project.title_size}px`
+                  : undefined,
+                color: data.project.title_colour || undefined,
+                fontWeight: data.project.title_is_bold ? 700 : 400,
+              }}
+            >
+              {/* FIX352.3.4.4: '{icon-contact}' placeholders are
+                  substituted by the inline envelope icon. */}
+              <RichText text={picked} />
+            </span>
+          );
+        })()}
         {/* FIX503.2.20: spacer pushes the rest of the header to the
             right edge. */}
         <span className="sc-topbar-spacer" />

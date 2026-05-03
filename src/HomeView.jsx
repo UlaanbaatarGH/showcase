@@ -228,8 +228,9 @@ export default function HomeView({ onOpenProject }) {
         )}
       </div>
 
-      <h1>Showcase</h1>
-
+      {/* FIX400.2.1: project list — name, image, front-introduction
+          per card. The 'Showcase' h1 that used to sit here was not in
+          spec and has been dropped; the page header is the topbar. */}
       {error && <div className="home-err">Backend error: {error}</div>}
 
       {projects === null && !error && <div className="home-loading">Loading…</div>}
@@ -353,6 +354,17 @@ function HomeProjectCard({
       ) : (
         <div className="home-project-name" data-yagu-id="project-name">
           {displayName}
+        </div>
+      )}
+      {/* FIX400.2.1 + FIX352.2.5 <project-front-introduction>:
+          per-project blurb shown under the name on the home page.
+          Hidden when empty so cards keep their compact size. */}
+      {(p.front_introduction || '').trim() && (
+        <div
+          className="home-project-front-intro"
+          data-yagu-id="project-front-introduction"
+        >
+          {p.front_introduction}
         </div>
       )}
       {!p.is_public && <div className="home-project-badge">private</div>}

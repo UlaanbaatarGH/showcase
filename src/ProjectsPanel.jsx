@@ -81,10 +81,9 @@ export default function ProjectsPanel({ onClose }) {
     }
   };
 
-  // FIX351.2.3 Clicking <button-move-up-project>: shift the selected
-  // project one slot up in <list-projects>; HomeView reflects the new
-  // order on next reload (FIX400.4.7).
-  // FIX351.2.4 Clicking <button-move-down-project>: same, downwards.
+  // FIX351.2.7 / FIX351.2.8: shift the selected project one slot up
+  // or down in <list-projects>; HomeView reflects the new order on
+  // next reload (FIX400.4.7).
   const move = async (direction) => {
     if (!selectedId) return;
     setBusy(true);
@@ -202,7 +201,7 @@ export default function ProjectsPanel({ onClose }) {
               >
                 <IconDelete size={20} />
               </button>
-              {/* FIX351.2.7 + FIX351.2.3 <button-move-up-project>. */}
+              {/* FIX351.2.7 <button-move-up-project>. */}
               <button
                 type="button"
                 data-yagu-id="button-move-up-project"
@@ -213,7 +212,7 @@ export default function ProjectsPanel({ onClose }) {
               >
                 ↑
               </button>
-              {/* FIX351.2.8 + FIX351.2.4 <button-move-down-project>. */}
+              {/* FIX351.2.8 <button-move-down-project>. */}
               <button
                 type="button"
                 data-yagu-id="button-move-down-project"
@@ -266,6 +265,17 @@ export default function ProjectsPanel({ onClose }) {
                   key={p.id}
                   className={p.id === selectedId ? 'selected' : ''}
                   onClick={() => setSelectedId(p.id)}
+                  /* FIX351.2.4: double-clicking a row opens
+                     <panel-project> for that project — same effect as
+                     clicking <button-edit-project>. Allowed for any
+                     row the caller can edit (admin OR a manager of
+                     that project). */
+                  onDoubleClick={() => {
+                    setSelectedId(p.id);
+                    if (isAdmin || managedProjectIds.has(p.id)) {
+                      setEditProjectId(p.id);
+                    }
+                  }}
                 >
                   <td data-yagu-id="project-name">{p.name}</td>
                   <td data-yagu-id="project-managers">

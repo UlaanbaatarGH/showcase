@@ -8,6 +8,7 @@ import {
   listUsers,
 } from './data/backend.js';
 import { useAuth } from './AuthContext.jsx';
+import { projectSlug } from './router.js';
 
 // FIX351 <panel-project-list>: signed-in projects + managers list.
 // Columns are read-only displays per FIX351.2.1.x; field edits live
@@ -404,13 +405,13 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
   );
 }
 
-// FIX352 <panel-project>: edit a project's Name, Data Managers,
-// Users Managers and Is public. Layout follows FIX352.2 line-by-line:
-//   Name [_______]
-//   Data Managers {project-managers}
-//   Users Managers {project-users-managers}
-//   Is public [x]
-//   [Cancel] [Save]
+// FIX352 <panel-project>: edit a project's details. The spec lays
+// fields out as one long form (FIX352.2); to keep the dialog tidy we
+// split them into two tabs (per user direction):
+//   Main      — Name, Data/User Managers, Is public,
+//               Introduction for front page, Introduction for project page
+//   Technical — List of slugs (FIX352.2.10–.12 / FIX352.3.{2,3,4}),
+//               Image volume (read-only)
 // Each manager value is a clickable text — clicking opens a picker
 // (FIX352.3.1) sourced from <list-users> having this project in
 // their <user-projects>, i.e., the union of the project's existing
@@ -426,14 +427,38 @@ function ProjectPanel({
   onCancel,
   onSubmit,
 }) {
+  const [tab, setTab] = useState('main');
   const [name, setName] = useState(project?.name || '');
   const [isPublic, setIsPublic] = useState(!!project?.is_public);
+  const [frontIntro, setFrontIntro] = useState(project?.front_introduction || '');
+  const [intro, setIntro] = useState(project?.introduction || '');
   const [dataManagers, setDataManagers] = useState(
     () => new Set((project?.data_managers || []).map((m) => m.id)),
   );
   const [userManagers, setUserManagers] = useState(
     () => new Set((project?.user_managers || []).map((m) => m.id)),
   );
+  // FIX352.2.10 slug list. Backend doesn't yet return a slugs[] field;
+  // fall back to a single seeded row that mirrors the implicit slug the
+  // app currently derives from the project name in router.js.
+  const [slugs, setSlugs] = useState(() => {
+    const initial = project?.slugs;
+    if (Array.isArray(initial) && initial.length > 0) {
+      return initial.map((s) => ({
+        label: s.label || '',
+        is_official: !!s.is_official,
+        is_active: !!s.is_active,
+      }));
+    }
+    return [{
+      label: projectSlug(project?.name || ''),
+      is_official: true,
+      is_active: true,
+    }];
+  });
+  const [selectedSlugIdx, setSelectedSlugIdx] = useState(0);
+  // Which row's slug label is being edited inline (null = none).
+  const [editingSlugIdx, setEditingSlugIdx] = useState(null);
   const [err, setErr] = useState(null);
   // Which picker is open: 'data' | 'user' | null.
   const [pickerRole, setPickerRole] = useState(null);
@@ -456,12 +481,78 @@ function ProjectPanel({
     return list.length === 0 ? '(none)' : list.join(', ');
   };
 
+  // FIX352.3.4.1: exactly one slug is official (radio behavior).
+  // FIX352.3.4.2: the official slug is always active.
+  const setOfficial = (idx) => {
+    setSlugs((prev) => prev.map((s, i) => ({
+      ...s,
+      is_official: i === idx,
+      is_active: i === idx ? true : s.is_active,
+    })));
+  };
+
+  const toggleActive = (idx) => {
+    setSlugs((prev) => prev.map((s, i) => {
+      if (i !== idx) return s;
+      // FIX352.3.4.2: official slug cannot be deactivated.
+      if (s.is_official) return s;
+      return { ...s, is_active: !s.is_active };
+    }));
+  };
+
+  const setSlugLabel = (idx, raw) => {
+    const cleaned = projectSlug(raw);
+    setSlugs((prev) => prev.map((s, i) => (i === idx ? { ...s, label: cleaned } : s)));
+  };
+
+  // FIX352.3.3: append a row, inactive and non-official.
+  const onAddSlug = () => {
+    setSlugs((prev) => {
+      const next = [...prev, { label: '', is_official: false, is_active: false }];
+      setSelectedSlugIdx(next.length - 1);
+      setEditingSlugIdx(next.length - 1);
+      return next;
+    });
+  };
+
+  // FIX352.3.2 + FIX352.3.4.3: delete selected after confirm; official is protected.
+  const onDeleteSlug = () => {
+    if (selectedSlugIdx == null) return;
+    const target = slugs[selectedSlugIdx];
+    if (!target) return;
+    if (target.is_official) {
+      setErr('The official slug cannot be deleted.');
+      return;
+    }
+    const ok = window.confirm(`Delete slug "${target.label || '(empty)'}"?`);
+    if (!ok) return;
+    setSlugs((prev) => {
+      const next = prev.filter((_, i) => i !== selectedSlugIdx);
+      setSelectedSlugIdx(Math.max(0, Math.min(selectedSlugIdx, next.length - 1)));
+      return next;
+    });
+    setErr(null);
+  };
+
   const submit = async () => {
     const trimmed = name.trim();
     // FIX352.3.10.1 [ex-351.2.3]: non-blank, unique name.
-    if (!trimmed) { setErr('Name is required.'); return; }
+    if (!trimmed) { setErr('Name is required.'); setTab('main'); return; }
     if (existingNames.has(trimmed.toLowerCase())) {
       setErr('Project name already in use.');
+      setTab('main');
+      return;
+    }
+    // Slug sanity: at least one official, no blank labels.
+    const hasOfficial = slugs.some((s) => s.is_official);
+    if (!hasOfficial) {
+      setErr('One slug must be marked as Official.');
+      setTab('technical');
+      return;
+    }
+    if (slugs.some((s) => !s.label)) {
+      setErr('Slug labels cannot be empty.');
+      setTab('technical');
       return;
     }
     setErr(null);
@@ -469,6 +560,9 @@ function ProjectPanel({
       name: trimmed,
       is_public: isPublic,
       data_managers: [...dataManagers],
+      front_introduction: frontIntro,
+      introduction: intro,
+      slugs: slugs.map((s) => ({ ...s })),
     };
     if (isAdmin) {
       // FIX352.3.10.11: only admin sends user_managers.
@@ -482,6 +576,8 @@ function ProjectPanel({
     }
   };
 
+  const imgMb = ((project.image_bytes || 0) / (1024 * 1024)).toFixed(2);
+
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div
@@ -489,61 +585,227 @@ function ProjectPanel({
         data-yagu-id="panel-project"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* FIX352.2 layout — one row per spec line. */}
-        <div className="panel-project-row">
-          <span className="panel-project-row-label">Name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-        </div>
-        <div className="panel-project-row">
-          <span className="panel-project-row-label">Data Managers</span>
+        <div className="panel-project-tabs" role="tablist">
           <button
             type="button"
-            className="panel-project-value"
-            data-yagu-id="project-managers"
-            onClick={() => setPickerRole('data')}
-            disabled={busy}
-            title="Click to edit data managers"
+            role="tab"
+            aria-selected={tab === 'main'}
+            className={`panel-project-tab ${tab === 'main' ? 'is-active' : ''}`}
+            onClick={() => setTab('main')}
           >
-            {namesFor(dataManagers)}
+            Main
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'technical'}
+            className={`panel-project-tab ${tab === 'technical' ? 'is-active' : ''}`}
+            onClick={() => setTab('technical')}
+          >
+            Technical
           </button>
         </div>
-        <div className="panel-project-row">
-          <span className="panel-project-row-label">Users Managers</span>
-          {isAdmin ? (
-            <button
-              type="button"
-              className="panel-project-value"
-              data-yagu-id="project-user-managers"
-              onClick={() => setPickerRole('user')}
-              disabled={busy}
-              title="Click to edit user managers"
-            >
-              {namesFor(userManagers)}
-            </button>
-          ) : (
-            // FIX352.3.10.11: non-admin callers can see but not edit.
-            <span
-              className="panel-project-value panel-project-value-readonly"
-              data-yagu-id="project-user-managers"
-            >
-              {namesFor(userManagers)}
-            </span>
-          )}
-        </div>
-        <div className="panel-project-row">
-          <span className="panel-project-row-label">Is public</span>
-          <input
-            type="checkbox"
-            data-yagu-id="project-is-public"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-          />
-        </div>
+
+        {tab === 'main' && (
+          <div className="panel-project-tabpanel">
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Name</span>
+              <input
+                type="text"
+                data-yagu-id="project-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Data Managers</span>
+              <button
+                type="button"
+                className="panel-project-value"
+                data-yagu-id="project-managers"
+                onClick={() => setPickerRole('data')}
+                disabled={busy}
+                title="Click to edit data managers"
+              >
+                {namesFor(dataManagers)}
+              </button>
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Users Managers</span>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  className="panel-project-value"
+                  data-yagu-id="project-user-managers"
+                  onClick={() => setPickerRole('user')}
+                  disabled={busy}
+                  title="Click to edit user managers"
+                >
+                  {namesFor(userManagers)}
+                </button>
+              ) : (
+                // FIX352.3.10.11: non-admin callers can see but not edit.
+                <span
+                  className="panel-project-value panel-project-value-readonly"
+                  data-yagu-id="project-user-managers"
+                >
+                  {namesFor(userManagers)}
+                </span>
+              )}
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Is public</span>
+              <input
+                type="checkbox"
+                data-yagu-id="project-is-public"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+            </div>
+            {/* FIX352.2.5 <project-front-introduction> — multi-line text. */}
+            <div className="panel-project-block">
+              <span className="panel-project-row-label">
+                Introduction for front page
+              </span>
+              <textarea
+                className="panel-project-textarea"
+                data-yagu-id="project-front-introduction"
+                rows={4}
+                value={frontIntro}
+                onChange={(e) => setFrontIntro(e.target.value)}
+              />
+            </div>
+            {/* FIX352.2.6 <project-introduction> — multi-line text. */}
+            <div className="panel-project-block">
+              <span className="panel-project-row-label">
+                Introduction for project page
+              </span>
+              <textarea
+                className="panel-project-textarea"
+                data-yagu-id="project-introduction"
+                rows={4}
+                value={intro}
+                onChange={(e) => setIntro(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {tab === 'technical' && (
+          <div className="panel-project-tabpanel">
+            {/* FIX352.2.10 <project-slugs>: editable slug table.
+                FIX352.2.11/12: red × delete + green + add buttons. */}
+            <div className="panel-project-block">
+              <div className="panel-project-slugs-header">
+                <span className="panel-project-row-label">List of slugs</span>
+                <button
+                  type="button"
+                  className="users-remove"
+                  data-yagu-id="button-delete-slug"
+                  onClick={onDeleteSlug}
+                  disabled={busy || slugs.length === 0}
+                  aria-label="Delete slug"
+                  title="Delete selected slug"
+                >
+                  ×
+                </button>
+                <button
+                  type="button"
+                  className="users-add"
+                  data-yagu-id="button-add-slug"
+                  onClick={onAddSlug}
+                  disabled={busy}
+                  aria-label="Add slug"
+                  title="Add slug"
+                >
+                  +
+                </button>
+              </div>
+              <table className="panel-project-slugs-table" data-yagu-id="project-slugs">
+                <thead>
+                  <tr>
+                    <th>Slug</th>
+                    <th>Official</th>
+                    <th>Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {slugs.map((s, i) => (
+                    <tr
+                      key={i}
+                      className={i === selectedSlugIdx ? 'selected' : ''}
+                      onClick={() => setSelectedSlugIdx(i)}
+                    >
+                      <td data-yagu-id="project-slug-label">
+                        {editingSlugIdx === i ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={s.label}
+                            onChange={(e) => setSlugLabel(i, e.target.value)}
+                            onBlur={() => setEditingSlugIdx(null)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === 'Escape') {
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="panel-project-slug-label"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSlugIdx(i);
+                              setEditingSlugIdx(i);
+                            }}
+                            title="Click to edit slug"
+                          >
+                            {s.label || <em className="visits-anon">(empty)</em>}
+                          </button>
+                        )}
+                      </td>
+                      <td className="users-check">
+                        {/* FIX352.3.4.1: radio behavior across rows. */}
+                        <input
+                          type="radio"
+                          name="project-slug-official"
+                          data-yagu-id="project-slug-is-official"
+                          checked={s.is_official}
+                          onChange={() => setOfficial(i)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                      <td className="users-check">
+                        {/* FIX352.3.4.2: official slug is always active and locked. */}
+                        <input
+                          type="checkbox"
+                          data-yagu-id="project-slug-is-active"
+                          checked={s.is_active}
+                          disabled={s.is_official}
+                          onChange={() => toggleActive(i)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Image volume (MB)</span>
+              <span
+                className="panel-project-value panel-project-value-readonly"
+                data-yagu-id="project-img-volume"
+              >
+                {imgMb}
+              </span>
+            </div>
+          </div>
+        )}
+
         {err && <div className="visits-err">{err}</div>}
         <div className="panel-project-actions">
           {/* FIX352.3.10 Cancel / Save. */}

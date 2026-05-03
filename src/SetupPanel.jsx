@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { saveSetup, getStorageSize } from './data/backend.js';
+import LanguageSetupPanel from './LanguageSetupPanel.jsx';
 
 function formatBytes(n) {
   if (n == null || !Number.isFinite(n)) return '?';
@@ -423,20 +424,8 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             <SizesTab projectId={projectId} />
           )}
           {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app
-              labels in different languages. Only the introduction is
-              implemented for now — the actual language-list UI lands
-              in a follow-up. */}
-          {activeTab === 'language' && (
-            <section
-              className="setup-section"
-              data-yagu-id="panel-language-setup"
-            >
-              <h3>Language</h3>
-              <p className="setup-empty">
-                Provide app labels in different languages — coming soon.
-              </p>
-            </section>
-          )}
+              labels in different languages. */}
+          {activeTab === 'language' && <LanguageSetupPanel />}
           {activeTab === 'properties' && (
           /* FIX506.0 <tab-properties-setup>: Properties tab content
              (was <panel-file-explorer-view-setup> pre-FIX506.0). */

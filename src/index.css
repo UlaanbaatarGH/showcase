@@ -316,6 +316,62 @@ body {
   opacity: 0.5;
   font-style: italic;
 }
+.setup-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0.25rem 0;
+}
+.setup-hint code {
+  font-size: 0.85rem;
+}
+.setup-error {
+  color: var(--color-invalid);
+  font-size: 0.9rem;
+  padding: 0.4rem 0;
+}
+
+/* FIX509 <panel-language-setup>: two-column layout — language list
+   on the left, per-key value editor on the right. Stacks on narrow
+   viewports. */
+.panel-language-setup .lang-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(20rem, 1fr) minmax(20rem, 2fr);
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+}
+@media (max-width: 800px) {
+  .panel-language-setup .lang-setup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.lang-setup-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.lang-setup-add {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.lang-setup-add input {
+  padding: 0.35rem 0.55rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+}
+.lang-setup-keys h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+.lang-setup-default-cell {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.lang-setup-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
 .setup-row-actions {
   display: flex;
   gap: 0.25rem;

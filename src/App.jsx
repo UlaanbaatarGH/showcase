@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import HomeView from './HomeView.jsx';
 import ShowcaseView from './ShowcaseView.jsx';
 import { AuthProvider } from './AuthContext.jsx';
+import { LanguageProvider } from './i18n/i18n.jsx';
 import { navigate, parseLocation, projectSlug } from './router.js';
 
 const PhotoModule = lazy(() => import('./photo/PhotoModule.jsx'));
@@ -65,7 +66,9 @@ function AppBody() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppBody />
+      <LanguageProvider>
+        <AppBody />
+      </LanguageProvider>
     </AuthProvider>
   );
 }

@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import AdminMenu from './AdminMenu.jsx';
 import { IconSignIn, IconSignOut, RichText } from './Icons.jsx';
+import { useT } from './i18n/i18n.jsx';
 import {
   listProjects,
   updateProject,
@@ -25,6 +26,10 @@ import {
 // FIX400.4.9 [ex-400.2.1.3] private projects visible to admin/managers
 export default function HomeView({ onOpenProject }) {
   const { token, profile, signOut, configured } = useAuth();
+  // FIX509 demo wiring: 'Showcase' big-title (FIX400.2.11) goes
+  // through the i18n runtime so the Language setup panel can drive
+  // it. Falls back to 'Showcase' when no language is configured.
+  const t = useT();
   const [projects, setProjects] = useState(null);
   const [error, setError] = useState(null);
   const [signInOpen, setSignInOpen] = useState(false);
@@ -233,8 +238,10 @@ export default function HomeView({ onOpenProject }) {
           the title + project grid (the topbar above is the only
           element pinned to the top edge). */}
       <div className="home-content">
-        {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred, big. */}
-        <h1 className="home-title">Showcase</h1>
+        {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred, big.
+            FIX509: title is sourced from the i18n key {app.title} —
+            see src/i18n/keys.js. */}
+        <h1 className="home-title">{t('app.title')}</h1>
 
         {/* FIX400.2.1: project list — name, image, front-introduction
             per card. */}

@@ -33,6 +33,10 @@ export const updateAdminProject = impl.updateAdminProject;
 export const clearProjectManagers = impl.clearProjectManagers;
 export const moveAdminProject = impl.moveAdminProject;
 export const listAppVersions = impl.listAppVersions;
+export const listLanguages = impl.listLanguages;
+export const createLanguage = impl.createLanguage;
+export const updateLanguage = impl.updateLanguage;
+export const deleteLanguage = impl.deleteLanguage;
 
 // Writes
 export const saveSetup = impl.saveSetup;

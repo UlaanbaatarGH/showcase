@@ -117,6 +117,15 @@ export default {
     ),
   // FIX414 <panel-app-versions>: admin-only deploy history.
   listAppVersions: () => call('/api/admin/versions'),
+  // FIX509 <panel-language-setup>: language list (public read,
+  // admin-only writes).
+  listLanguages: () => call('/api/languages'),
+  createLanguage: (body) =>
+    call('/api/admin/languages', { method: 'POST', body }),
+  updateLanguage: (code, body) =>
+    call(`/api/admin/languages/${encodeURIComponent(code)}`, { method: 'PATCH', body }),
+  deleteLanguage: (code) =>
+    call(`/api/admin/languages/${encodeURIComponent(code)}`, { method: 'DELETE' }),
   // FIX351 <panel-project-list>: admin-only project + managers CRUD.
   listAdminProjects: () => call('/api/admin/projects'),
   createAdminProject: (body) =>

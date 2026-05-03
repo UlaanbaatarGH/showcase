@@ -1,18 +1,26 @@
 // FIX509: registry of i18n keys used in the app.
 //
-// Each entry declares one translatable label:
-//   key:         the lookup string (also what shows up as `{key}` in the
-//                spec — see FIX509 conventions)
-//   default:     the English fallback rendered when no language has the key
+// Convention (mirrors the spec):
+//   - The KEY is also the default English label.
+//     `t('Showcase')` returns 'Showcase' until a language overrides it.
+//   - Keys read like displayed phrases (sentence case, spaces).
+//     This is also how they're written in the spec inside `{}`:
+//       `{Subject}`, `{Send}`, `{Email addr for reply}`.
+//     Runtime data placeholders (e.g. `{user}`, `{selected-item1}`)
+//     are visually distinct because they're kebab-case identifiers.
+//
+// Each entry just declares one translatable key:
+//   key:         the lookup string AND the default label
 //   description: optional, helps the admin understand context in
 //                <panel-language-setup>
 //
-// Add a new key here whenever you wire `t('xxx')` somewhere in the UI
-// — the Language setup panel reads this list to know what to surface.
+// Add a new key here whenever you wire `t('...')` somewhere — the
+// Language setup panel reads this list to surface the keys to the
+// admin. (Keys not listed here still work at runtime — they just
+// won't show up as a row in the panel until added.)
 export const I18N_KEYS = [
   {
-    key: 'app.title',
-    default: 'Showcase',
+    key: 'Showcase',
     description: 'Big centred title on the home page (FIX400.2.11)',
   },
 ];

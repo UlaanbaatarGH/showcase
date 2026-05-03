@@ -148,9 +148,10 @@ export default function LanguageSetupPanel() {
       <h3>Languages</h3>
       <p className="setup-hint">
         Translate labels the app exposes via the FIX509 i18n keys
-        (declared in <code>src/i18n/keys.js</code>). A missing entry
-        falls back to the default language, then to the hardcoded
-        English default in code.
+        (declared in <code>src/i18n/keys.js</code>). The key itself is
+        the default English label — leave a translation blank to fall
+        back to the key (or to the default language when set on
+        another language).
       </p>
       {error && <div className="setup-error">{error}</div>}
       <div className="lang-setup-grid">
@@ -281,15 +282,14 @@ export default function LanguageSetupPanel() {
               <table className="setup-items">
                 <thead>
                   <tr>
-                    <th style={{ width: '12rem' }}>Key</th>
+                    <th style={{ width: '14rem' }}>Key</th>
                     <th>Translation</th>
-                    <th style={{ width: '12rem' }}>Default</th>
                   </tr>
                 </thead>
                 <tbody>
                   {I18N_KEYS.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="setup-empty">
+                      <td colSpan={2} className="setup-empty">
                         No translatable key declared yet.
                       </td>
                     </tr>
@@ -316,11 +316,8 @@ export default function LanguageSetupPanel() {
                             onChange={(e) =>
                               setDraftValue(entry.key, e.target.value)
                             }
-                            placeholder={entry.default}
+                            placeholder={entry.key}
                           />
-                        </td>
-                        <td className="lang-setup-default-cell">
-                          {entry.default}
                         </td>
                       </tr>
                     );

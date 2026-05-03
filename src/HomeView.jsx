@@ -239,9 +239,9 @@ export default function HomeView({ onOpenProject }) {
           element pinned to the top edge). */}
       <div className="home-content">
         {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred, big.
-            FIX509: title is sourced from the i18n key {app.title} —
-            see src/i18n/keys.js. */}
-        <h1 className="home-title">{t('app.title')}</h1>
+            FIX509: rendered via the i18n key {Showcase} — the key is
+            the default English label by convention (src/i18n/keys.js). */}
+        <h1 className="home-title">{t('Showcase')}</h1>
 
         {/* FIX400.2.1: project list — name, image, front-introduction
             per card. */}

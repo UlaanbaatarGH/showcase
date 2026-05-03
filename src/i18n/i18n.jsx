@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 import { listLanguages } from '../data/backend.js';
-import { I18N_KEY_INDEX } from './keys.js';
 
 // FIX509 <panel-language-setup> runtime:
 //   - LanguageProvider loads the language list once on mount, picks
@@ -90,15 +89,17 @@ export function LanguageProvider({ children }) {
     [languages],
   );
 
-  // FIX509 resolution order: active → default → hardcoded fallback.
+  // FIX509 resolution order: active → default → key literal.
+  // The key itself is the default label by convention — no need to
+  // hand-populate the default language with `'Showcase'` -> `'Showcase'`.
+  // Pass an explicit second arg only when the desired fallback differs
+  // from the key (rare).
   const t = useCallback((key, fallback) => {
     const a = activeLang?.labels?.[key];
     if (a) return a;
     const d = defaultLang?.labels?.[key];
     if (d) return d;
-    if (typeof fallback === 'string') return fallback;
-    const reg = I18N_KEY_INDEX[key];
-    return reg ? reg.default : key;
+    return typeof fallback === 'string' ? fallback : key;
   }, [activeLang, defaultLang]);
 
   const value = useMemo(() => ({
@@ -119,12 +120,10 @@ export function LanguageProvider({ children }) {
 export function useT() {
   const ctx = useContext(LanguageContext);
   if (!ctx) {
-    // Outside provider: degrade gracefully to the hardcoded default.
-    return (key, fallback) => {
-      if (typeof fallback === 'string') return fallback;
-      const reg = I18N_KEY_INDEX[key];
-      return reg ? reg.default : key;
-    };
+    // Outside provider: degrade gracefully to the key itself (= the
+    // default label by convention).
+    return (key, fallback) =>
+      typeof fallback === 'string' ? fallback : key;
   }
   return ctx.t;
 }

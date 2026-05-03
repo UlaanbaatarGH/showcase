@@ -31,7 +31,7 @@ export default function ContactPanel({
   selectedItems = [],
   defaultEmail = '',
 }) {
-  const t = useT();
+  const t = useT('420. Contact panel');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState(defaultEmail || '');
@@ -230,14 +230,15 @@ export default function ContactPanel({
                 >
                   {t('Cancel')}
                 </button>
-                {/* FIX420.2.11 [Send] — key 'Msg-send' is scoped to
-                    the contact form per the spec. */}
+                {/* FIX420.2.11 [Send] — section-scoped i18n means
+                    this 'Send' is distinct from any future 'Send'
+                    button in another FIX section. */}
                 <button
                   type="submit"
                   className="sc-menu-trigger"
                   disabled={busy}
                 >
-                  {busy ? '…' : t('Msg-send')}
+                  {busy ? '…' : t('Send')}
                 </button>
               </div>
             </div>

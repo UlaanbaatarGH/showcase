@@ -90,23 +90,24 @@ export function LanguageProvider({ children }) {
   );
 
   // FIX509 resolution order: active → default → key literal.
-  // The key itself is the default label by convention — no need to
-  // hand-populate the default language with `'Showcase'` -> `'Showcase'`.
+  // Keys are scoped to a section ('420. Contact panel', …) so the
+  // same English text can carry different translations in different
+  // FIX contexts. Resolution looks up `labels[section][key]`.
   //
-  // Two call shapes:
+  // Three call shapes (after section-binding via useT(section)):
   //   t('Send')                         -> 'Send' (or its translation)
   //   t('Welcome {user}', { user })     -> '{user}' replaced after lookup
   //   t('Send', 'override-fallback')    -> string fallback when no
   //                                        translation exists (rare)
-  const t = useCallback((key, varsOrFallback) => {
+  const t = useCallback((section, key, varsOrFallback) => {
     const isVars =
       varsOrFallback !== null
       && typeof varsOrFallback === 'object';
     const vars = isVars ? varsOrFallback : null;
     const fallback = !isVars ? varsOrFallback : undefined;
 
-    const a = activeLang?.labels?.[key];
-    const d = defaultLang?.labels?.[key];
+    const a = activeLang?.labels?.[section]?.[key];
+    const d = defaultLang?.labels?.[section]?.[key];
     let out = a || d || (typeof fallback === 'string' ? fallback : key);
     if (vars) {
       for (const [name, value] of Object.entries(vars)) {
@@ -131,7 +132,11 @@ export function LanguageProvider({ children }) {
   );
 }
 
-export function useT() {
+// useT(section) returns a t() bound to the given section. Callers do
+//   const t = useT('420. Contact panel');
+//   t('Cancel')                   // ← scoped lookup
+//   t('Welcome {user}', { user }) // ← with placeholder vars
+export function useT(section) {
   const ctx = useContext(LanguageContext);
   if (!ctx) {
     // Outside provider: degrade gracefully — return the key itself
@@ -152,7 +157,10 @@ export function useT() {
       return out;
     };
   }
-  return ctx.t;
+  return useCallback(
+    (key, varsOrFallback) => ctx.t(section, key, varsOrFallback),
+    [ctx, section],
+  );
 }
 
 export function useLanguage() {

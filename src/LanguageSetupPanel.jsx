@@ -101,17 +101,29 @@ export default function LanguageSetupPanel() {
     }
   };
 
-  const saveLabel = async (code, key, value) => {
+  // Section-scoped storage: labels JSONB looks like
+  //   { '420. Contact panel': { 'Cancel': 'Annuler', … }, … }
+  // so the same English text can carry a different translation in
+  // different FIX sections.
+  const saveLabel = async (code, section, key, value) => {
     const lang = languages.find((l) => l.code === code);
     if (!lang) return;
     const cleaned = String(value || '').trim();
-    const stored = (lang.labels || {})[key] || '';
+    const stored = (lang.labels || {})[section]?.[key] || '';
     if (cleaned === stored) return;
     setError(null);
     try {
       const merged = { ...(lang.labels || {}) };
-      if (cleaned === '') delete merged[key];
-      else merged[key] = cleaned;
+      const sectionLabels = { ...(merged[section] || {}) };
+      if (cleaned === '') delete sectionLabels[key];
+      else sectionLabels[key] = cleaned;
+      // Drop the section entirely when it ends up empty — keeps the
+      // JSONB compact and avoids stale section keys forever.
+      if (Object.keys(sectionLabels).length === 0) {
+        delete merged[section];
+      } else {
+        merged[section] = sectionLabels;
+      }
       await updateLanguage(code, { labels: merged });
       notifyLanguageUpdated();
       reload();
@@ -283,9 +295,12 @@ export default function LanguageSetupPanel() {
                       {entries.map((entry) => (
                         <LabelRow
                           key={entry.key}
+                          section={section}
                           entryKey={entry.key}
                           activeCode={activeLang.code}
-                          storedValue={activeLang.labels?.[entry.key] || ''}
+                          storedValue={
+                            activeLang.labels?.[section]?.[entry.key] || ''
+                          }
                           onSave={saveLabel}
                         />
                       ))}
@@ -301,11 +316,14 @@ export default function LanguageSetupPanel() {
   );
 }
 
-function LabelRow({ entryKey, activeCode, storedValue, onSave }) {
+function LabelRow({ section, entryKey, activeCode, storedValue, onSave }) {
   const [draft, setDraft] = useState(storedValue);
-  const [bound, setBound] = useState(activeCode);
-  if (bound !== activeCode) {
-    setBound(activeCode);
+  const [bound, setBound] = useState(`${activeCode}|${section}|${entryKey}`);
+  // Re-sync the draft when the active language, section or key
+  // changes so we never carry stale text into a different cell.
+  const expected = `${activeCode}|${section}|${entryKey}`;
+  if (bound !== expected) {
+    setBound(expected);
     setDraft(storedValue);
   }
   return (
@@ -318,7 +336,7 @@ function LabelRow({ entryKey, activeCode, storedValue, onSave }) {
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => onSave(activeCode, entryKey, draft)}
+          onBlur={() => onSave(activeCode, section, entryKey, draft)}
           placeholder={entryKey}
         />
       </td>

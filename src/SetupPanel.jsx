@@ -72,6 +72,15 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
   const [nextTempId, setNextTempId] = useState(-1);
 
   const handleSave = async () => {
+    // FIX509: every label cell on the Language tab autosaves on
+    // blur, so there's nothing for /api/setup to do. Skip the
+    // round-trip and close immediately — keeps the panel snappy
+    // and avoids "Saving…" sticking around if /api/setup happens
+    // to be slow / cold.
+    if (activeTab === 'language') {
+      onSave({});
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -587,7 +596,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
         {error && <div className="setup-error">{error}</div>}
         {/* FIX505.2.10 + FIX505.2.11 + FIX505.3.10 footer. */}
         <footer className="setup-footer">
-          <button type="button" onClick={onCancel} disabled={saving}>
+          {/* Cancel is intentionally NOT disabled while saving, so a
+              slow / hanging /api/setup never traps the user inside
+              the modal with no way out. */}
+          <button type="button" onClick={onCancel}>
             Cancel
           </button>
           <button type="button" className="primary" onClick={handleSave} disabled={saving}>

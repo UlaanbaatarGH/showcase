@@ -280,8 +280,14 @@ body {
   border: 1px solid #333;
   border-radius: 3px;
 }
+/* Try the same solid orange used by the Showcase item list
+   (.sc-table tr.selected-primary). Translucent orange over the
+   dark theme was reading as muddy brown — solid + dark text gives
+   a clear "this row is picked" signal. Pair `color: #222` so the
+   row text doesn't disappear on the light orange. */
 .setup-items tr.selected td {
-  background: rgba(255, 165, 0, 0.18);
+  background: #ffd39b;
+  color: #222;
 }
 .setup-items tr:not(.selected):hover td {
   background: rgba(255, 255, 255, 0.03);
@@ -2088,8 +2094,11 @@ body {
 .panel-project-slugs-table tbody tr {
   cursor: pointer;
 }
-.panel-project-slugs-table tbody tr.selected {
-  background: var(--color-selected);
+/* Same orange as .sc-table / .setup-items for visual consistency
+   across selectable lists. */
+.panel-project-slugs-table tbody tr.selected td {
+  background: #ffd39b;
+  color: #222;
 }
 .panel-project-slugs-table td.users-check {
   width: 1%;
@@ -2287,8 +2296,11 @@ body {
 .visits-table tbody tr {
   cursor: pointer;
 }
-.visits-table tbody tr.selected {
-  background: rgba(255, 165, 0, 0.18);
+/* Solid orange like .sc-table / .setup-items — translucent orange
+   over the dark theme was reading as muddy brown. */
+.visits-table tbody tr.selected td {
+  background: #ffd39b;
+  color: #222;
 }
 /* FIX413.2.2: 'Query IP' button sits above the table. */
 .ip-stats-toolbar {

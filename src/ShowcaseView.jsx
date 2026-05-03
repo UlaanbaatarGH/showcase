@@ -1085,7 +1085,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
             </section>
           );
         })()}
-        <section className="sc-list-panel">
+        {/* FIX502.2.2 <panel-showcase-list>: the list region of the
+            Showcase view. */}
+        <section className="sc-list-panel" data-yagu-id="panel-showcase-list">
           {groups.length > 0 && !activeGroup && groupSelector}
           <table className="sc-table">
             <thead>
@@ -1140,7 +1142,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
           aria-orientation="vertical"
           title="Drag to resize"
         />
-        <section className="sc-viewer">
+        {/* FIX502.2.3 <panel-showcase-img-viewer>: the image-viewer
+            region (Images + Details tabs share this column). */}
+        <section className="sc-viewer" data-yagu-id="panel-showcase-img-viewer">
           {/* FIX515.2.1: tab strip switches between Images and Details.
               FIX515.2.2 + FIX515.2.2.0 + FIX515.3.2 + FIX515.4.3
               <button-edit>: right-aligned on the tab row, signed-in only,
@@ -1447,7 +1451,8 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
                   return <div className="sc-viewer-empty">No item selected.</div>;
                 }
                 // FIX518.4.4: hide the property used as the deleted-marker.
-                // FIX518.4.2: order follows the File-Explorer setup sort order.
+                // FIX518.4.2: order follows the sort order set in
+                // <tab-properties-setup>.
                 const ordered = [...properties]
                   .filter((p) => p.id !== deletedPropertyId)
                   .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));

@@ -28,14 +28,13 @@ function formatPropertyInput(p) {
 
 // FIX505 <panel-general-setup>: Setup general panel. The Showcase tab was
 // removed (FIX505.2.2(removed)) — the standalone ShowcaseViewSetupPanel
-// replaces it via <button-columns>. What's left is the admin-only
-// Properties tab (FIX505.2.1 + FIX505.2.1.0 <tab-properties-setup>), which
-// binds to <panel-file-explorer-view-setup>.
+// replaces it via <button-columns>.
 export default function SetupPanel({ projectId, properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
-  // FIX505.2 (updated): the Setup popup hosts three tabs.
-  //   - 'General'    → <panel-general-info-setup>         (FIX508)
-  //   - 'Properties' → <panel-file-explorer-view-setup>   (FIX506, .2.1)
-  //   - 'Sizes'      → <panel-image-sizes>                (FIX507)
+  // FIX505.2 (updated): the Setup popup hosts four tabs.
+  //   - 'General'    → <panel-general-info-setup>  (FIX508)
+  //   - 'Properties' → <tab-properties-setup>      (FIX506)
+  //   - 'Sizes'      → <panel-sizes-setup>         (FIX507)
+  //   - 'Language'   → <panel-language-setup>      (FIX509, stub)
   const [activeTab, setActiveTab] = useState('general');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
@@ -188,12 +187,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
         <header className="setup-header">
           <h2>Setup</h2>
         </header>
-        {/* FIX505.2 (updated): tab strip — General + Properties + Sizes. */}
+        {/* FIX505.2 (updated): tab strip — General / Properties /
+            Sizes / Language. Tab buttons themselves carry no
+            data-yagu-id (FIX505.2.1.0[removed] dropped the one on
+            Properties); the *content* sections do, per FIX506.0,
+            FIX507.0, FIX509.0. FIX505.3.{1..5} are the click
+            handlers below. */}
         <div className="setup-tabs">
           <button
             type="button"
             className={activeTab === 'general' ? 'active' : ''}
-            data-yagu-id="tab-general-setup"
             onClick={() => setActiveTab('general')}
           >
             General
@@ -201,7 +204,6 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           <button
             type="button"
             className={activeTab === 'properties' ? 'active' : ''}
-            data-yagu-id="tab-properties-setup"
             onClick={() => setActiveTab('properties')}
           >
             Properties
@@ -213,6 +215,14 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             onClick={() => setActiveTab('sizes')}
           >
             Sizes
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'language' ? 'active' : ''}
+            data-yagu-id="tab-language-setup"
+            onClick={() => setActiveTab('language')}
+          >
+            Language
           </button>
         </div>
         <div className="setup-body">
@@ -412,9 +422,25 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           {activeTab === 'sizes' && (
             <SizesTab projectId={projectId} />
           )}
+          {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app
+              labels in different languages. Only the introduction is
+              implemented for now — the actual language-list UI lands
+              in a follow-up. */}
+          {activeTab === 'language' && (
+            <section
+              className="setup-section"
+              data-yagu-id="panel-language-setup"
+            >
+              <h3>Language</h3>
+              <p className="setup-empty">
+                Provide app labels in different languages — coming soon.
+              </p>
+            </section>
+          )}
           {activeTab === 'properties' && (
-          /* FIX505.2.3 / FIX506 <panel-file-explorer-view-setup>. */
-          <section className="setup-section" data-yagu-id="panel-file-explorer-view-setup">
+          /* FIX506.0 <tab-properties-setup>: Properties tab content
+             (was <panel-file-explorer-view-setup> pre-FIX506.0). */
+          <section className="setup-section" data-yagu-id="tab-properties-setup">
             <h3>List of properties</h3>
             {/* FIX506.2.1.0 / <list-properties> */}
             <table className="setup-items" data-yagu-id="list-properties">
@@ -555,7 +581,7 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
   );
 }
 
-// FIX507 <panel-image-sizes>: Image sizes panel — currently exposes one
+// FIX507 <panel-sizes-setup>: Image sizes panel — currently exposes one
 // read-only field, the total bytes used in Supabase Storage by all images
 // linked to the current project (FIX507.2.1 / .2.1.1).
 function SizesTab({ projectId }) {
@@ -574,7 +600,7 @@ function SizesTab({ projectId }) {
     return () => { cancelled = true; };
   }, [projectId]);
   return (
-    <section className="setup-section" data-yagu-id="panel-image-sizes">
+    <section className="setup-section" data-yagu-id="panel-sizes-setup">
       <h3>Image sizes</h3>
       {/* FIX507.2.1 / .2.1.1: total bytes for the project's images,
           read-only. Reads storage.objects.metadata so old uploads are

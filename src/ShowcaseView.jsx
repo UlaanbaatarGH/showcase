@@ -225,6 +225,26 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     // header's admin affordances.
   }, [slug, profile?.id]);
 
+  // FIX352.3.10.10: re-fetch when admin saves project details (name,
+  // managers, intros, slugs etc.) so the open ShowcaseView reflects
+  // them without a manual reload. Skip when the event is for a
+  // different project.
+  useEffect(() => {
+    const onUpdated = (e) => {
+      const updatedId = e?.detail?.projectId;
+      const currentId = data?.project?.id;
+      if (updatedId != null && currentId != null && updatedId !== currentId) {
+        return;
+      }
+      reloadShowcase();
+    };
+    window.addEventListener('project:updated', onUpdated);
+    return () => window.removeEventListener('project:updated', onUpdated);
+    // reloadShowcase reads `slug` from the closure; rebind whenever
+    // slug or the open project's id changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, data?.project?.id]);
+
   // FIX410.1.1.1.1.1: log a consultation of <panel-project-home>.
   // FIX412.2.1.1.1: tag the visit with the resolved project id so the
   // History tab can render its name. Fire once per project — the

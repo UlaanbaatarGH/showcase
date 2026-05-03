@@ -80,6 +80,10 @@ export default function ProjectsPanel({ onClose }) {
     }
   };
 
+  // FIX351.2.3 Clicking <button-move-up-project>: shift the selected
+  // project one slot up in <list-projects>; HomeView reflects the new
+  // order on next reload (FIX400.4.7).
+  // FIX351.2.4 Clicking <button-move-down-project>: same, downwards.
   const move = async (direction) => {
     if (!selectedId) return;
     setBusy(true);
@@ -128,6 +132,9 @@ export default function ProjectsPanel({ onClose }) {
 
   // FIX352.3.10 Save: persist Name, Data Managers, Is public, and
   // (admin-only per FIX352.3.10.11) User Managers.
+  // FIX352.3.10.10: notify any other view currently showing this
+  // project (HomeView's list, ShowcaseView's header etc.) so they
+  // refresh against the new server state — no manual reload needed.
   // Re-throws on failure so the open ProjectPanel popup can display
   // the error inline (the parent panel's error banner sits behind
   // the popup and would be invisible).
@@ -139,6 +146,9 @@ export default function ProjectsPanel({ onClose }) {
       setProjects(refreshed);
       setEditProjectId(null);
       setError(null);
+      window.dispatchEvent(
+        new CustomEvent('project:updated', { detail: { projectId } }),
+      );
     } finally {
       setBusy(false);
     }
@@ -191,7 +201,7 @@ export default function ProjectsPanel({ onClose }) {
               >
                 ×
               </button>
-              {/* FIX351.2.7 <button-move-up-project>. */}
+              {/* FIX351.2.7 + FIX351.2.3 <button-move-up-project>. */}
               <button
                 type="button"
                 data-yagu-id="button-move-up-project"
@@ -202,7 +212,7 @@ export default function ProjectsPanel({ onClose }) {
               >
                 ↑
               </button>
-              {/* FIX351.2.8 <button-move-down-project>. */}
+              {/* FIX351.2.8 + FIX351.2.4 <button-move-down-project>. */}
               <button
                 type="button"
                 data-yagu-id="button-move-down-project"

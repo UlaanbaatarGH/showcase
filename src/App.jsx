@@ -43,7 +43,12 @@ function AppBody() {
   if (route.view === 'home') {
     return (
       <HomeView
-        onOpenProject={(p) => navigate(`/${projectSlug(p.name)}`)}
+        onOpenProject={(p) =>
+          // FIX352.3.4: prefer the project's official slug from the
+          // server (stable across renames). Fall back to a fresh
+          // slugify of the name for legacy responses without it.
+          navigate(`/${p.official_slug || projectSlug(p.name)}`)
+        }
       />
     );
   }

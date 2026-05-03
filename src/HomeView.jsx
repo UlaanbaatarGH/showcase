@@ -43,6 +43,14 @@ export default function HomeView({ onOpenProject }) {
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
+  // FIX352.3.10.10: refresh the project list when admin saves edits
+  // to any project — the home page is "a web page using them".
+  useEffect(() => {
+    const onUpdated = () => loadProjects();
+    window.addEventListener('project:updated', onUpdated);
+    return () => window.removeEventListener('project:updated', onUpdated);
+  }, [loadProjects]);
+
   // FIX410.1.1.1.1.1: log a consultation of <panel-app-home>.
   useEffect(() => { trackVisit('home'); }, []);
 

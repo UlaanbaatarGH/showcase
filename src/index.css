@@ -336,21 +336,33 @@ body {
   padding: 0.4rem 0;
 }
 
-/* FIX509 <panel-language-setup>: two-column layout — language list
-   on the left, per-key value editor on the right. Stacks on narrow
-   viewports. */
-.panel-language-setup .lang-setup-grid {
-  display: grid;
-  grid-template-columns: minmax(20rem, 1fr) minmax(20rem, 2fr);
-  gap: 1.25rem;
-  margin-top: 0.75rem;
+/* FIX509 <panel-language-setup>: subtab strip (Languages /
+   Translated Labels) + two list shapes that share the full panel
+   width. */
+.panel-language-setup .lang-setup-subtabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+  margin: 0.4rem 0 0.75rem;
 }
-@media (max-width: 800px) {
-  .panel-language-setup .lang-setup-grid {
-    grid-template-columns: 1fr;
-  }
+.panel-language-setup .lang-setup-subtabs button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  font: inherit;
+}
+.panel-language-setup .lang-setup-subtabs button.is-active {
+  color: var(--color-text);
+  background: var(--color-bg-light);
+  border-color: var(--color-border);
 }
 .lang-setup-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.lang-setup-table { width: 100%; }
 .lang-setup-add {
   display: flex;
   gap: 0.4rem;
@@ -364,19 +376,23 @@ body {
   border-radius: 4px;
   font: inherit;
 }
-.lang-setup-keys h4 {
-  margin: 0 0 0.4rem;
-  font-size: 0.95rem;
+/* Labels editor: tight rows, inputs spanning the full cell so the
+   admin gets the maximum typing area. */
+.lang-setup-labels-table th,
+.lang-setup-labels-table td {
+  padding: 0.2rem 0.4rem;
 }
-.lang-setup-default-cell {
-  color: var(--color-text-muted);
-  font-style: italic;
+.lang-setup-labels-table input[type="text"] {
+  width: 100%;
+  padding: 0.25rem 0.45rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
 }
-.lang-setup-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
+.lang-setup-labels-table .lang-setup-key-cell code {
+  font-size: 0.9rem;
 }
 .setup-row-actions {
   display: flex;

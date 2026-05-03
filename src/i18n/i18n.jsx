@@ -106,20 +106,8 @@ export function LanguageProvider({ children }) {
     const vars = isVars ? varsOrFallback : null;
     const fallback = !isVars ? varsOrFallback : undefined;
 
-    // Primary lookup: section-scoped storage.
-    // Fallback to legacy flat top-level keys for languages whose
-    // labels were saved before section-scoping landed (FIX509 v2).
-    // Drop the second branch once migration 032 has run everywhere.
-    const a =
-      activeLang?.labels?.[section]?.[key]
-      ?? (typeof activeLang?.labels?.[key] === 'string'
-        ? activeLang.labels[key]
-        : undefined);
-    const d =
-      defaultLang?.labels?.[section]?.[key]
-      ?? (typeof defaultLang?.labels?.[key] === 'string'
-        ? defaultLang.labels[key]
-        : undefined);
+    const a = activeLang?.labels?.[section]?.[key];
+    const d = defaultLang?.labels?.[section]?.[key];
     let out = a || d || (typeof fallback === 'string' ? fallback : key);
     if (vars) {
       for (const [name, value] of Object.entries(vars)) {

@@ -97,6 +97,8 @@ export default {
     call(
       `/api/admin/messages${projectId != null ? `?project_id=${encodeURIComponent(projectId)}` : ''}`,
     ),
+  // FIX414 <panel-app-versions>: admin-only deploy history.
+  listAppVersions: () => call('/api/admin/versions'),
   // FIX351 <panel-project-list>: admin-only project + managers CRUD.
   listAdminProjects: () => call('/api/admin/projects'),
   createAdminProject: (body) =>

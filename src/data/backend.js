@@ -32,6 +32,7 @@ export const createAdminProject = impl.createAdminProject;
 export const updateAdminProject = impl.updateAdminProject;
 export const clearProjectManagers = impl.clearProjectManagers;
 export const moveAdminProject = impl.moveAdminProject;
+export const listAppVersions = impl.listAppVersions;
 
 // Writes
 export const saveSetup = impl.saveSetup;

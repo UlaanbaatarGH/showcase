@@ -2270,6 +2270,61 @@ body {
 .sc-group-selector select.is-placeholder { color: #888; font-style: italic; }
 .sc-group-selector select.is-placeholder option { color: #222; font-style: normal; }
 
+/* FIX414 <panel-app-versions>: deploy history modal. */
+.versions-panel {
+  width: min(820px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+  max-height: 85vh;
+  overflow: auto;
+}
+.versions-section h3 {
+  margin: 0.5rem 0 0.4rem;
+  font-size: 1rem;
+}
+.versions-note {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+.versions-empty {
+  color: var(--color-text-muted);
+}
+.versions-msg {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.versions-pill {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.versions-pill-live {
+  background: rgba(21, 128, 61, 0.25);
+  border-color: var(--color-valid);
+  color: #86efac;
+}
+.versions-pill-building {
+  background: rgba(91, 155, 213, 0.25);
+  border-color: var(--color-accent);
+  color: #93c5fd;
+}
+.versions-pill-failed {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: var(--color-invalid);
+  color: #fca5a5;
+}
+
 /* FIX503.3.5 About popup: small modal showing <project-introduction>. */
 .sc-about-modal {
   width: min(420px, 100%);

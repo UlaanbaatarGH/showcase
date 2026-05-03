@@ -59,6 +59,18 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
     show_items_with_no_date: initialViewSetup?.show_items_with_no_date !== false,
     select_first_item: !!initialViewSetup?.select_first_item,
   });
+  // FIX508.2.4 <item-short-label>: stack of (property, max_length)
+  // entries. The Contact panel item list (FIX420.2.2) and other
+  // 'one-liner per item' contexts use buildItemShortLabel() to render
+  // the value.
+  const [shortLabelParts, setShortLabelParts] = useState(
+    () => Array.isArray(initialViewSetup?.item_short_label)
+      ? initialViewSetup.item_short_label.map((p) => ({
+          property_id: p.property_id ?? null,
+          max_length: Number(p.max_length) || 0,
+        }))
+      : [],
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
@@ -105,6 +117,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           // FIX508.2.3 / <setup-select-first-item>: when false, the
           // Showcase view opens with no item selected.
           select_first_item: generalSetup.select_first_item,
+          // FIX508.2.4 / <item-short-label>: persist the stack only
+          // with parts pointing at known properties (drop orphans
+          // pointing at deleted properties).
+          item_short_label: shortLabelParts
+            .filter((p) => p.property_id != null
+              && properties.some((pp) => pp.id === p.property_id))
+            .map((p) => ({
+              property_id: p.property_id,
+              max_length: Number(p.max_length) || 0,
+            })),
         },
       });
       onSave(data);
@@ -249,6 +271,142 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                 />
                 Select first item by default
               </label>
+              {/* FIX508.2.4 + FIX508.2.4.2 + FIX508.5.1 <item-short-label>:
+                  ordered stack of (property, max length) entries that
+                  buildItemShortLabel() collapses into a one-line item
+                  label. Empty values are skipped, longer values are
+                  hard-truncated to max length, and a trailing '...'
+                  is appended when any part was truncated.
+                  max length = 0 means no truncation. */}
+              <div
+                className="setup-short-label"
+                data-yagu-id="item-short-label"
+              >
+                <h3 className="setup-short-label-title">Item short label</h3>
+                <table className="setup-items">
+                  <thead>
+                    <tr>
+                      <th>Property</th>
+                      <th style={{ width: '8rem' }}>Max length</th>
+                      <th style={{ width: '4rem' }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shortLabelParts.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="setup-empty">
+                          No part defined yet — add one to enable a short label.
+                        </td>
+                      </tr>
+                    )}
+                    {shortLabelParts.map((part, i) => (
+                      <tr key={i}>
+                        <td>
+                          <select
+                            value={part.property_id ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value === ''
+                                ? null
+                                : Number(e.target.value);
+                              setShortLabelParts((prev) =>
+                                prev.map((p, idx) =>
+                                  idx === i ? { ...p, property_id: v } : p,
+                                ),
+                              );
+                            }}
+                          >
+                            <option value="">— pick a property —</option>
+                            {properties
+                              .filter((p) => (p.label ?? '').trim())
+                              .map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.label}
+                                </option>
+                              ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            value={part.max_length}
+                            onChange={(e) => {
+                              const v = Number(e.target.value) || 0;
+                              setShortLabelParts((prev) =>
+                                prev.map((p, idx) =>
+                                  idx === i ? { ...p, max_length: v } : p,
+                                ),
+                              );
+                            }}
+                            title="0 = no truncation"
+                          />
+                        </td>
+                        <td className="setup-row-actions">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShortLabelParts((prev) =>
+                                prev.map((p, idx) =>
+                                  idx === i - 1
+                                    ? prev[i]
+                                    : idx === i
+                                    ? prev[i - 1]
+                                    : p,
+                                ),
+                              )
+                            }
+                            disabled={i === 0}
+                            aria-label="Move up"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShortLabelParts((prev) =>
+                                prev.map((p, idx) =>
+                                  idx === i + 1
+                                    ? prev[i]
+                                    : idx === i
+                                    ? prev[i + 1]
+                                    : p,
+                                ),
+                              )
+                            }
+                            disabled={i === shortLabelParts.length - 1}
+                            aria-label="Move down"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShortLabelParts((prev) =>
+                                prev.filter((_, idx) => idx !== i),
+                              )
+                            }
+                            aria-label="Remove"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button
+                  type="button"
+                  className="setup-add-btn"
+                  onClick={() =>
+                    setShortLabelParts((prev) => [
+                      ...prev,
+                      { property_id: null, max_length: 0 },
+                    ])
+                  }
+                >
+                  + Add part
+                </button>
+              </div>
             </section>
           )}
           {activeTab === 'sizes' && (

@@ -19,6 +19,7 @@ import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages, trackVisit } from './data/backend.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
+import { buildItemShortLabel } from './properties/itemShortLabel.js';
 
 function romanToInt(s) {
   const m = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
@@ -94,7 +95,20 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   // backend computes per-project membership and returns the flag on
   // /api/showcase.
   const isAdminOrManager = !!data?.project?.is_admin_or_manager;
-  const [selectedFolderId, setSelectedFolderId] = useState(null);
+  // FIX510.2.1.11: Ctrl-click adds rows to the selection. The order
+  // matters because FIX510.5.3 says the *first* selected row drives
+  // what the right-hand Item Panel renders.
+  // Single-select callers keep working via `selectedFolderId`, which
+  // is derived as the head of this list.
+  const [selectedFolderIds, setSelectedFolderIds] = useState([]);
+  const selectedFolderId = selectedFolderIds[0] ?? null;
+  const selectOnly = (id) =>
+    setSelectedFolderIds(id == null ? [] : [id]);
+  const toggleSelected = (id) => {
+    setSelectedFolderIds((prev) => (
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    ));
+  };
   // FIX515: Item Details panel — two tabs sharing the right column.
   // FIX515.4.1: tab persists when the selected item changes (state lives
   // here, not reset by selection). FIX515.4.2: 'Images' is the default.
@@ -222,7 +236,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
 
   useEffect(() => {
     setData(null);
-    setSelectedFolderId(null);
+    selectOnly(null);
     getShowcase(slug)
       .then(setData)
       .catch((e) => setError(e.message || String(e)));
@@ -530,7 +544,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     if (displayedFolders.length === 0) return;
     const stillVisible = displayedFolders.some((f) => f.id === selectedFolderId);
     if (stillVisible) return;
-    setSelectedFolderId(displayedFolders[0].id);
+    selectOnly(displayedFolders[0].id);
   }, [data, displayedFolders, selectedFolderId]);
 
   const handleHeaderClick = (key, ctrl) => {
@@ -650,7 +664,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         const next = e.key === 'ArrowDown'
           ? Math.min(displayedFolders.length - 1, idx < 0 ? 0 : idx + 1)
           : Math.max(0, idx < 0 ? 0 : idx - 1);
-        setSelectedFolderId(displayedFolders[next].id);
+        // Keyboard nav stays single-select — Ctrl-arrow isn't a
+        // multi-select gesture in this UI.
+        selectOnly(displayedFolders[next].id);
       } else if (e.key === 'ArrowLeft') {
         if (!images.length) return;
         e.preventDefault();
@@ -1057,16 +1073,34 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
               </tr>
             </thead>
             <tbody>
-              {displayedFolders.map((f) => (
-                <tr
-                  key={f.id}
-                  ref={f.id === selectedFolderId ? selectedRowRef : null}
-                  className={f.id === selectedFolderId ? 'selected' : ''}
-                  onClick={() => setSelectedFolderId(f.id)}
-                >
-                  {configuredColumns.map((col) => renderBodyCell(f, col))}
-                </tr>
-              ))}
+              {displayedFolders.map((f) => {
+                const isSelected = selectedFolderIds.includes(f.id);
+                const isPrimary = f.id === selectedFolderId;
+                return (
+                  <tr
+                    key={f.id}
+                    ref={isPrimary ? selectedRowRef : null}
+                    /* FIX510.5.3: the *first* selected row carries an
+                       extra 'primary' class so the existing styling
+                       (highlight + Item-Panel-target) keeps working. */
+                    className={
+                      [
+                        isSelected ? 'selected' : '',
+                        isPrimary ? 'selected-primary' : '',
+                      ].filter(Boolean).join(' ')
+                    }
+                    onClick={(e) => {
+                      // FIX510.2.1.11: Ctrl/Cmd-click toggles the row
+                      // in the multi-selection. Plain click resets to
+                      // a single-row selection.
+                      if (e.ctrlKey || e.metaKey) toggleSelected(f.id);
+                      else selectOnly(f.id);
+                    }}
+                  >
+                    {configuredColumns.map((col) => renderBodyCell(f, col))}
+                  </tr>
+                );
+              })}
               {displayedFolders.length === 0 && (
                 <tr>
                   <td colSpan={configuredColumns.length || 1} className="sc-empty">
@@ -1625,12 +1659,31 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
           contact form opened from <button-contact-admin>. The
           message is tagged with the current project so
           <panel-message-list> can filter by project (FIX421). */}
-      {contactOpen && (
-        <ContactPanel
-          onClose={() => setContactOpen(false)}
-          projectId={data.project?.id ?? null}
-        />
-      )}
+      {contactOpen && (() => {
+        // FIX420.2.2 + FIX420.4.2.4: build the {id, label} list for the
+        // currently-selected items in display order. Empty when nothing
+        // is selected — the contact form just hides the section.
+        const labelParts = viewSetup.item_short_label;
+        const idsSet = new Set(selectedFolderIds);
+        const itemsForContact = (displayedFolders || [])
+          .filter((f) => idsSet.has(f.id))
+          .map((f) => ({
+            id: f.id,
+            label: buildItemShortLabel(
+              f, labelParts, properties, propertiesByLabel,
+            ) || f.name || `Item ${f.id}`,
+          }));
+        return (
+          <ContactPanel
+            onClose={() => setContactOpen(false)}
+            projectId={data.project?.id ?? null}
+            selectedItems={itemsForContact}
+            // FIX420.4.2.5: pre-fill the reply-addr with the signed-in
+            // visitor's email when one is on file.
+            defaultEmail={profile?.email || ''}
+          />
+        );
+      })()}
       {/* FIX503.3.5 'About' popup: read-only display of the project
           introduction with a single Ok button. */}
       {aboutOpen && (

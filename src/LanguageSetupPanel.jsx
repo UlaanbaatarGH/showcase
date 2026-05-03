@@ -122,7 +122,19 @@ export default function LanguageSetupPanel() {
     setError(null);
     try {
       const merged = { ...(lang.labels || {}) };
-      const sectionLabels = { ...(merged[section] || {}) };
+      // Defensive: if a section value is somehow not an object
+      // (e.g. legacy Python-repr string from the old save bug),
+      // start fresh instead of spreading the string into a bag of
+      // single-char keys. Migration 033 should normally have
+      // cleaned this; this is a belt-and-braces against further
+      // corruption layering.
+      const existingSection = merged[section];
+      const sectionLabels =
+        existingSection !== null
+        && typeof existingSection === 'object'
+        && !Array.isArray(existingSection)
+          ? { ...existingSection }
+          : {};
       if (cleaned === '') delete sectionLabels[key];
       else sectionLabels[key] = cleaned;
       // Drop the section entirely when it ends up empty — keeps the

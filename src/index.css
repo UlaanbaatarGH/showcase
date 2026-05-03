@@ -188,13 +188,17 @@ body {
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
+/* (21) Setup popup chrome — squeezed to leave more room for the
+   tab content. Smaller h2, tighter button padding on both
+   first-level (.setup-tabs) and second-level (.lang-setup-subtabs)
+   tab strips. */
 .setup-header {
-  padding: 1rem 1.5rem;
+  padding: 0.45rem 1rem;
   border-bottom: 1px solid #333;
 }
 .setup-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
 }
 .setup-tabs {
   display: flex;
@@ -202,12 +206,13 @@ body {
 }
 .setup-tabs button {
   flex: 1;
-  padding: 0.75rem 1rem;
+  padding: 0.4rem 0.9rem;
   background: none;
   border: none;
   color: #aaa;
   cursor: pointer;
   font: inherit;
+  font-size: 0.95rem;
   border-bottom: 2px solid transparent;
 }
 .setup-tabs button.active {
@@ -219,7 +224,7 @@ body {
   background: #232338;
 }
 .setup-body {
-  padding: 1.25rem 1.5rem;
+  padding: 0.75rem 1rem;
   overflow-y: auto;
   flex: 1;
 }
@@ -343,18 +348,19 @@ body {
   display: flex;
   gap: 0.25rem;
   border-bottom: 1px solid var(--color-border);
-  margin: 0.4rem 0 0.75rem;
+  margin: 0.25rem 0 0.4rem;
 }
 .panel-language-setup .lang-setup-subtabs button {
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
   color: var(--color-text-muted);
-  padding: 0.35rem 0.9rem;
+  padding: 0.2rem 0.7rem;
   cursor: pointer;
   border-top-left-radius: 4px;
   border-top-right-radius: 4px;
   font: inherit;
+  font-size: 0.9rem;
 }
 .panel-language-setup .lang-setup-subtabs button.is-active {
   color: var(--color-text);
@@ -412,6 +418,16 @@ body {
 .lang-setup-labels-table th,
 .lang-setup-labels-table td {
   padding: 0.2rem 0.4rem;
+}
+/* (20) The wrapper .lang-setup-tabpanel is the scroll container.
+   Pin the table header at the top so it stays visible while the
+   key list scrolls underneath. Background must be opaque so
+   scrolled-up rows don't bleed through the header. */
+.lang-setup-labels-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+  z-index: 1;
 }
 .lang-setup-labels-table input[type="text"] {
   width: 100%;

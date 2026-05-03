@@ -120,6 +120,30 @@ body {
   border-color: #666;
 }
 
+/* FIX503.2.20 + FIX400.2.{2,3,8}.1: shared style for the line-art
+   icon buttons in the top bars (Home / About / Contact / Sign in /
+   Sign out). Transparent, no border, big enough hit-area for fingers
+   on mobile. The icon inherits the surrounding text colour via
+   currentColor so the SVGs theme automatically. */
+.sc-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  padding: 0.35rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.sc-icon-btn:hover { background: var(--color-bg-lighter); }
+.sc-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* FIX503.2.20: pushes the right-cluster items to the right edge of
+   the top bar. */
+.sc-topbar-spacer { flex: 1; }
+
 /* Setup panel (modal) */
 .setup-overlay {
   position: fixed;
@@ -1464,7 +1488,10 @@ body {
   min-height: 2.5rem;
 }
 .sc-project-title {
-  margin: 0 auto 0 0;
+  /* FIX503.2.20: title sits in the left cluster — the right edge is
+     pushed away by the explicit .sc-topbar-spacer, not by an auto
+     margin here, so the About button can sit immediately after. */
+  margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: 0.02em;

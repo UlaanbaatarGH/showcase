@@ -8,6 +8,12 @@ import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
 import ContactPanel from './ContactPanel.jsx';
+import {
+  IconHome,
+  IconAbout,
+  IconContact,
+  IconSignOut,
+} from './Icons.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
@@ -796,26 +802,47 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   return (
     <div className="sc-layout" data-yagu-id="panel-project-home">
       {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel.
-          FIX503.2.10.1 left: <button-home>, <label-project-name>.
-          FIX503.2.10.2 right: <button-columns>, <button-item-grouping>,
-          <menu-import>, <button-setup>. */}
+          FIX503.2.20.1 [ex-503.2.10.1] left: <button-home>,
+            <label-project-name>, <button-project-about>.
+          All other elements are right-aligned (FIX503.2.20). */}
       <div className="sc-topbar" data-yagu-id="panel-showcase-header">
         {/* FIX503.2.1 + FIX503.2.1.0 + FIX503.2.1.1 + FIX503.3.1
             <button-home>: icon button, navigates to the home page. */}
         <button
           type="button"
-          className="sc-home-btn"
+          className="sc-icon-btn"
           data-yagu-id="button-home"
           onClick={() => onNavigateHome?.()}
           aria-label="Home"
           title="Home"
         >
-          ⌂
+          <IconHome size={22} />
         </button>
         {/* FIX503.2.2 + FIX503.2.2.0 <label-project-name>. */}
         <h1 className="sc-project-title" data-yagu-id="label-project-name">
           {data.project?.name ?? 'Showcase'}
         </h1>
+        {/* FIX503.2.11 (dup) + FIX503.3.5 + FIX503.5.3 + FIX503.2.20.1
+            <button-project-about>: info '?' icon, left-aligned next to
+            the project name (was right-aligned before FIX503.2.20).
+            Visible only when the project has a non-empty
+            <project-introduction>; clicking opens a layer popup with
+            the introduction text and an Ok button. */}
+        {(data.project?.introduction || '').trim() && (
+          <button
+            type="button"
+            className="sc-icon-btn"
+            data-yagu-id="button-project-about"
+            onClick={() => setAboutOpen(true)}
+            aria-label="About this project"
+            title="About"
+          >
+            <IconAbout size={22} />
+          </button>
+        )}
+        {/* FIX503.2.20: spacer pushes the rest of the header to the
+            right edge. */}
+        <span className="sc-topbar-spacer" />
         {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.5.1.4
             <button-columns>: opens the standalone
             <panel-showcase-view-setup> popup. Now gated to admin /
@@ -905,48 +932,37 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         )}
         {/* FIX503.2.11 + FIX503.3.4 <button-contact-admin>: opens
             <panel-contact-admin>. Visible to everyone (anonymous
-            visitors included). */}
+            visitors included). Now an icon button (envelope). */}
         <button
           type="button"
-          className="sc-menu-trigger"
+          className="sc-icon-btn"
           data-yagu-id="button-contact-admin"
           onClick={() => setContactOpen(true)}
+          aria-label="Contact"
+          title="Contact"
         >
-          Contact
+          <IconContact size={22} />
         </button>
-        {/* FIX503.2.11 (dup) + FIX503.3.5 + FIX503.5.3 <button-project-about>:
-            '?' icon. Visible only when the project has a non-empty
-            <project-introduction>; clicking opens a layer popup with
-            the introduction text and an Ok button. */}
-        {(data.project?.introduction || '').trim() && (
-          <button
-            type="button"
-            className="sc-menu-trigger"
-            data-yagu-id="button-project-about"
-            onClick={() => setAboutOpen(true)}
-            aria-label="About this project"
-            title="About"
-          >
-            ?
-          </button>
-        )}
         {/* FIX503.2.9 {user}: the signed-in user's name, between
             Contact and Sign out per the FIX503.2 layout. Only visible
             when signed in. */}
         {profile && (
           <span className="sc-user-label">{profile.login_name}</span>
         )}
-        {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6]
-            <button-sign-out>: visible only when the caller is signed
-            in (FIX503.2.8.2). */}
+        {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6] +
+            FIX503.2.8.1 (the spec's typo'd FIX400.2.8.1) +
+            FIX400.4.10 <button-sign-out>: icon button, visible only
+            when the caller is signed in (FIX503.2.8.2). */}
         {profile && (
           <button
             type="button"
-            className="sc-menu-trigger"
+            className="sc-icon-btn"
             data-yagu-id="button-sign-out"
             onClick={signOut}
+            aria-label="Sign out"
+            title="Sign out"
           >
-            Sign out
+            <IconSignOut size={22} />
           </button>
         )}
       </div>

@@ -8,6 +8,7 @@ import {
   grantUserProject,
   revokeUserProject,
 } from './data/backend.js';
+import { IconAdd, IconDelete } from './Icons.jsx';
 import { useAuth } from './AuthContext.jsx';
 
 // FIX311 <panel-users-list>: admin user-list management. Lists every
@@ -199,7 +200,7 @@ export default function UsersPanel({ onClose }) {
                   aria-label="Add user"
                   title="Add user"
                 >
-                  +
+                  <IconAdd size={20} />
                 </button>
                 {/* FIX311.2.3 + FIX311.2.3.0 <admin-remove-user>: red cross icon. */}
                 <button
@@ -211,7 +212,7 @@ export default function UsersPanel({ onClose }) {
                   aria-label="Remove user"
                   title="Remove user"
                 >
-                  ×
+                  <IconDelete size={20} />
                 </button>
               </>
             )}

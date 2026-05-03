@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { saveSetup } from '../data/backend.js';
 import { normalizeGroups, freshGroupId } from './groups.js';
+import { IconAdd, IconDelete } from '../Icons.jsx';
 
 // FIX373 <panel-item-grouping-setup>: Item Grouping setup panel.
 //
@@ -127,18 +128,24 @@ export default function GroupingPanel({ projectId, properties, viewSetup, onCanc
             <div className="grouping-toolbar">
               <button
                 type="button"
+                className="users-add"
                 data-yagu-id="button-add-grouping"
                 onClick={addRow}
+                aria-label="Add grouping"
+                title="Add grouping"
               >
-                + Add
+                <IconAdd size={20} />
               </button>
               <button
                 type="button"
+                className="users-remove"
                 data-yagu-id="button-remove-grouping"
                 onClick={removeRow}
                 disabled={!selectedId || rows.length === 0}
+                aria-label="Remove grouping"
+                title="Remove grouping"
               >
-                − Remove
+                <IconDelete size={20} />
               </button>
             </div>
             <table className="setup-items">

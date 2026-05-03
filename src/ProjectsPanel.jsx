@@ -9,6 +9,7 @@ import {
 } from './data/backend.js';
 import { useAuth } from './AuthContext.jsx';
 import { projectSlug } from './router.js';
+import { IconAdd, IconDelete } from './Icons.jsx';
 
 // FIX351 <panel-project-list>: signed-in projects + managers list.
 // Columns are read-only displays per FIX351.2.1.x; field edits live
@@ -187,7 +188,7 @@ export default function ProjectsPanel({ onClose }) {
                 }
                 aria-label="Add project"
               >
-                +
+                <IconAdd size={20} />
               </button>
               {/* FIX351.2.6 <button-remove-project>: red '×' (clears managers). */}
               <button
@@ -199,7 +200,7 @@ export default function ProjectsPanel({ onClose }) {
                 aria-label="Remove project managers"
                 title="Clear managers of the selected project"
               >
-                ×
+                <IconDelete size={20} />
               </button>
               {/* FIX351.2.7 + FIX351.2.3 <button-move-up-project>. */}
               <button
@@ -718,7 +719,7 @@ function ProjectPanel({
                   aria-label="Delete slug"
                   title="Delete selected slug"
                 >
-                  ×
+                  <IconDelete size={20} />
                 </button>
                 <button
                   type="button"
@@ -729,7 +730,7 @@ function ProjectPanel({
                   aria-label="Add slug"
                   title="Add slug"
                 >
-                  +
+                  <IconAdd size={20} />
                 </button>
               </div>
               <table className="panel-project-slugs-table" data-yagu-id="project-slugs">

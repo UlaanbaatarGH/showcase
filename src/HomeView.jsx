@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import AdminMenu from './AdminMenu.jsx';
+import { IconSignIn, IconSignOut } from './Icons.jsx';
 import {
   listProjects,
   updateProject,
@@ -194,25 +195,35 @@ export default function HomeView({ onOpenProject }) {
             {/* FIX400.2.7 {user}: the signed-in user's name, between
                 Admin and Sign in/out. Only visible when signed in. */}
             <span className="home-user">{profile.login_name}</span>
+            {/* FIX400.2.3 + FIX400.2.3.0 + FIX400.2.3.1 + FIX400.4.10
+                <button-sign-out>: icon button, only visible when a
+                user has signed in. */}
             <button
               type="button"
-              className="sc-menu-trigger"
+              className="sc-icon-btn"
+              data-yagu-id="button-sign-out"
               onClick={signOut}
               disabled={editing}
+              aria-label="Sign out"
+              title="Sign out"
             >
-              Sign out
+              <IconSignOut size={22} />
             </button>
           </>
         ) : (
+          /* FIX400.2.2 + FIX400.2.2.0 + FIX400.2.2.1 + FIX400.4.10
+             <button-sign-in>: icon button, only visible when no user
+             is signed in. */
           <button
             type="button"
-            className="sc-menu-trigger"
+            className="sc-icon-btn"
             data-yagu-id="button-sign-in"
             onClick={() => setSignInOpen(true)}
             disabled={!configured}
-            title={configured ? '' : 'Sign-in not configured'}
+            aria-label="Sign in"
+            title={configured ? 'Sign in' : 'Sign-in not configured'}
           >
-            Sign in
+            <IconSignIn size={22} />
           </button>
         )}
       </div>

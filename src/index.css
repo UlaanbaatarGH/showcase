@@ -2324,6 +2324,13 @@ body {
   border-color: var(--color-invalid);
   color: #fca5a5;
 }
+/* 'succeeded' = a past deploy that ran successfully and was later
+   superseded — neutral grey to distinguish from the current 'live'
+   row without misreading as a failure. */
+.versions-pill-succeeded {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted);
+}
 
 /* FIX503.3.5 About popup: small modal showing <project-introduction>. */
 .sc-about-modal {

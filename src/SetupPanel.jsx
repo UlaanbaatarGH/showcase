@@ -68,6 +68,8 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
       ? initialViewSetup.item_short_label.map((p) => ({
           property_id: p.property_id ?? null,
           max_length: Number(p.max_length) || 0,
+          prefix: p.prefix || '',
+          suffix: p.suffix || '',
         }))
       : [],
   );
@@ -119,13 +121,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           select_first_item: generalSetup.select_first_item,
           // FIX508.2.4 / <item-short-label>: persist the stack only
           // with parts pointing at known properties (drop orphans
-          // pointing at deleted properties).
+          // pointing at deleted properties). FIX508.2.4.2: optional
+          // prefix / suffix per part; both default to ''.
           item_short_label: shortLabelParts
             .filter((p) => p.property_id != null
               && properties.some((pp) => pp.id === p.property_id))
             .map((p) => ({
               property_id: p.property_id,
               max_length: Number(p.max_length) || 0,
+              prefix: p.prefix || '',
+              suffix: p.suffix || '',
             })),
         },
       });
@@ -282,13 +287,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                 />
                 Select first item by default
               </label>
-              {/* FIX508.2.4 + FIX508.2.4.2 + FIX508.5.1 <item-short-label>:
-                  ordered stack of (property, max length) entries that
+              {/* FIX508.2.4 + FIX508.2.4.2 + FIX508.2.4.3 + FIX508.5.1
+                  <item-short-label>: ordered stack of
+                  (property, prefix, suffix, max length) entries that
                   buildItemShortLabel() collapses into a one-line item
-                  label. Empty values are skipped, longer values are
-                  hard-truncated to max length, and a trailing '...'
-                  is appended when any part was truncated.
-                  max length = 0 means no truncation. */}
+                  label. Empty values skip the whole entry (no
+                  prefix/suffix either). Longer values are hard-
+                  truncated to max length, and a trailing '...' is
+                  appended when any part was truncated. max length = 0
+                  means no truncation. Prefix / suffix are optional
+                  wrapper text added around the (truncated) value. */}
               <div
                 className="setup-short-label"
                 data-yagu-id="item-short-label"
@@ -298,14 +306,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                   <thead>
                     <tr>
                       <th>Property</th>
-                      <th style={{ width: '8rem' }}>Max length</th>
+                      <th style={{ width: '6rem' }}>Prefix</th>
+                      <th style={{ width: '6rem' }}>Suffix</th>
+                      <th style={{ width: '7rem' }}>Max length</th>
                       <th style={{ width: '4rem' }} />
                     </tr>
                   </thead>
                   <tbody>
                     {shortLabelParts.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="setup-empty">
+                        <td colSpan={5} className="setup-empty">
                           No part defined yet — add one to enable a short label.
                         </td>
                       </tr>
@@ -335,6 +345,38 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                                 </option>
                               ))}
                           </select>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={part.prefix}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setShortLabelParts((prev) =>
+                                prev.map((p, idx) =>
+                                  idx === i ? { ...p, prefix: v } : p,
+                                ),
+                              );
+                            }}
+                            placeholder="e.g. ["
+                            title="Text inserted before the value (only when value is non-empty)"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            value={part.suffix}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setShortLabelParts((prev) =>
+                                prev.map((p, idx) =>
+                                  idx === i ? { ...p, suffix: v } : p,
+                                ),
+                              );
+                            }}
+                            placeholder="e.g. ]"
+                            title="Text inserted after the value (only when value is non-empty)"
+                          />
                         </td>
                         <td>
                           <input
@@ -411,7 +453,7 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                   onClick={() =>
                     setShortLabelParts((prev) => [
                       ...prev,
-                      { property_id: null, max_length: 0 },
+                      { property_id: null, max_length: 0, prefix: '', suffix: '' },
                     ])
                   }
                 >

@@ -13,6 +13,7 @@ import {
   IconAbout,
   IconContact,
   IconSignOut,
+  RichText,
 } from './Icons.jsx';
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
@@ -872,7 +873,9 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
               fontWeight: data.project.title_is_bold ? 700 : 400,
             }}
           >
-            {data.project.title_text}
+            {/* FIX352.3.4.4: '{icon-contact}' placeholders are
+                substituted by the inline envelope icon. */}
+            <RichText text={data.project.title_text} />
           </span>
         )}
         {/* FIX503.2.20: spacer pushes the rest of the header to the
@@ -1716,7 +1719,8 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
               className="sc-about-text"
               data-yagu-id="project-introduction"
             >
-              {data.project?.introduction}
+              {/* FIX352.3.4.4 */}
+              <RichText text={data.project?.introduction} />
             </div>
             <div className="sc-about-actions">
               <button

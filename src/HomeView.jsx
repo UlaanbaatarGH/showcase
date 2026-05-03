@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import AdminMenu from './AdminMenu.jsx';
-import { IconSignIn, IconSignOut } from './Icons.jsx';
+import { IconSignIn, IconSignOut, RichText } from './Icons.jsx';
 import {
   listProjects,
   updateProject,
@@ -364,7 +364,9 @@ function HomeProjectCard({
           className="home-project-front-intro"
           data-yagu-id="project-front-introduction"
         >
-          {p.front_introduction}
+          {/* FIX352.3.4.4: '{icon-contact}' placeholders are
+              substituted by the inline envelope icon. */}
+          <RichText text={p.front_introduction} />
         </div>
       )}
       {!p.is_public && <div className="home-project-badge">private</div>}

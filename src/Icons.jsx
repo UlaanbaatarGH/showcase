@@ -1,3 +1,32 @@
+import { Fragment } from 'react';
+
+// FIX352.3.4.4: render admin-entered text, expanding the literal
+// '{icon-contact}' placeholder into the inline contact icon used
+// elsewhere in the app. Newlines are preserved by CSS at the call
+// site (white-space: pre-wrap on the surrounding element).
+// iconSize defaults to '1em' so the glyph scales with the
+// surrounding font size; pass a number for a fixed pixel size.
+export function RichText({ text, iconSize = '1em' }) {
+  if (!text) return null;
+  if (!text.includes('{icon-contact}')) return text;
+  const parts = text.split('{icon-contact}');
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 && (
+            <IconContact
+              size={iconSize}
+              style={{ verticalAlign: '-0.15em' }}
+            />
+          )}
+          {part}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 // Consistent line-art icon set for the Showcase app. All icons:
 //   - 24x24 viewBox, 2px stroke
 //   - stroke="currentColor" / fill="none" so they inherit text colour

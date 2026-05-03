@@ -263,7 +263,8 @@ function VisitsHistoryTab({ ipNames }) {
               <td>{userCell}</td>
               <td>{ipLabel(v.ip)}</td>
               <td>{pageLabel(v)}</td>
-              <td>{fmt(v.ts)}</td>
+              {/* FIX412.2.1.1.1: dd/mm/yyyy hh:mm on one line. */}
+              <td className="visits-when">{fmt(v.ts)}</td>
             </tr>
           );
         })}

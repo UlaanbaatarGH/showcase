@@ -2106,6 +2106,14 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* FIX413.2.1.6.1 + FIX412.2.1.1.1: the dd/mm/yyyy hh:mm timestamp
+   must stay on one line. Without this nowrap a vertical scrollbar
+   on the panel narrows the column just enough for the space between
+   date and time to break, doubling every row's height. */
+.visits-table td[data-yagu-id="ip-action-when"],
+.visits-table td.visits-when {
+  white-space: nowrap;
+}
 /* FIX412.2.2 + FIX412.2.3: Export + Refresh toolbar above the
    visits history table. Same shape as .ip-stats-toolbar. */
 .visits-toolbar {

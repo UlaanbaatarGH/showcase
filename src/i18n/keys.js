@@ -22,9 +22,6 @@
 // admin sees related labels together. Within each section the panel
 // sorts keys alphabetically.
 export const I18N_KEYS = [
-  // Home page (FIX400)
-  { key: 'Showcase', section: 'Home page' },
-
   // Contact panel (FIX420.2)
   { key: 'Cancel',                    section: 'Contact panel' },
   { key: 'Contact',                   section: 'Contact panel' },

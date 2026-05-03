@@ -361,12 +361,15 @@ body {
   background: var(--color-bg-light);
   border-color: var(--color-border);
 }
-/* (10) Both subtab panels share the same min-height — switching
-   between Languages and Translated Labels never resizes the parent
-   Setup popup. The value matches roughly the labels-tab content
-   so the language-tab tab just has spare room below. */
+/* (10) Stable popup size — both subtabs occupy the EXACT same
+   vertical space (height, not min-height; min-height only adds
+   floor space, which lets the bigger tab still push the popup
+   taller). The labels editor scrolls inside this fixed area when
+   the key list grows. The languages tab simply has spare room
+   below — that's fine per the user's direction. */
 .panel-language-setup .lang-setup-tabpanel {
-  min-height: 28rem;
+  height: 28rem;
+  overflow: auto;
 }
 .lang-setup-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .lang-setup-table { width: 100%; }

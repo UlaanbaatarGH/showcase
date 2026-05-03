@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createLanguage,
   updateLanguage,
@@ -330,16 +330,68 @@ export default function LanguageSetupPanel() {
   );
 }
 
+// Per-cell autosave: debounced on typing (1s after last keystroke),
+// also flushed on blur and on unmount. The user just types and
+// pauses — no need to click away to commit.
+const SAVE_DEBOUNCE_MS = 1000;
+
 function LabelRow({ section, entryKey, activeCode, storedValue, onSave }) {
   const [draft, setDraft] = useState(storedValue);
   const [bound, setBound] = useState(`${activeCode}|${section}|${entryKey}`);
+  const expected = `${activeCode}|${section}|${entryKey}`;
+
+  // Pending-timer ref + latest-draft ref so the cleanup handlers
+  // can flush whatever the user typed last without stale closures.
+  const timerRef = useRef(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const latestOnSaveRef = useRef(onSave);
+  latestOnSaveRef.current = onSave;
+
   // Re-sync the draft when the active language, section or key
   // changes so we never carry stale text into a different cell.
-  const expected = `${activeCode}|${section}|${entryKey}`;
+  // Clear any pending timer for the OLD cell — its draft no longer
+  // applies to the new identity.
   if (bound !== expected) {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     setBound(expected);
     setDraft(storedValue);
   }
+
+  const flushSave = (value) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    console.log('[LabelRow] flushSave', { section, entryKey, activeCode, value });
+    latestOnSaveRef.current(activeCode, section, entryKey, value);
+  };
+
+  const scheduleSave = (value) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      console.log('[LabelRow] debounce fire', { section, entryKey, activeCode, value });
+      latestOnSaveRef.current(activeCode, section, entryKey, value);
+    }, SAVE_DEBOUNCE_MS);
+  };
+
+  // On unmount (popup close, panel re-render with different keys),
+  // flush whatever the user typed last so it isn't dropped on the
+  // floor.
+  useEffect(() => () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+      console.log('[LabelRow] unmount flush', { section, entryKey, activeCode, draft: draftRef.current });
+      latestOnSaveRef.current(activeCode, section, entryKey, draftRef.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <tr>
       <td className="lang-setup-key-cell">
@@ -349,11 +401,12 @@ function LabelRow({ section, entryKey, activeCode, storedValue, onSave }) {
         <input
           type="text"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => {
-            console.log('[LabelRow] blur', { section, entryKey, activeCode, draft, storedValue });
-            onSave(activeCode, section, entryKey, draft);
+          onChange={(e) => {
+            const v = e.target.value;
+            setDraft(v);
+            scheduleSave(v);
           }}
+          onBlur={() => flushSave(draft)}
           placeholder={entryKey}
         />
       </td>

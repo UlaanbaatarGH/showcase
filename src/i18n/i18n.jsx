@@ -92,14 +92,28 @@ export function LanguageProvider({ children }) {
   // FIX509 resolution order: active → default → key literal.
   // The key itself is the default label by convention — no need to
   // hand-populate the default language with `'Showcase'` -> `'Showcase'`.
-  // Pass an explicit second arg only when the desired fallback differs
-  // from the key (rare).
-  const t = useCallback((key, fallback) => {
+  //
+  // Two call shapes:
+  //   t('Send')                         -> 'Send' (or its translation)
+  //   t('Welcome {user}', { user })     -> '{user}' replaced after lookup
+  //   t('Send', 'override-fallback')    -> string fallback when no
+  //                                        translation exists (rare)
+  const t = useCallback((key, varsOrFallback) => {
+    const isVars =
+      varsOrFallback !== null
+      && typeof varsOrFallback === 'object';
+    const vars = isVars ? varsOrFallback : null;
+    const fallback = !isVars ? varsOrFallback : undefined;
+
     const a = activeLang?.labels?.[key];
-    if (a) return a;
     const d = defaultLang?.labels?.[key];
-    if (d) return d;
-    return typeof fallback === 'string' ? fallback : key;
+    let out = a || d || (typeof fallback === 'string' ? fallback : key);
+    if (vars) {
+      for (const [name, value] of Object.entries(vars)) {
+        out = out.split(`{${name}}`).join(value == null ? '' : String(value));
+      }
+    }
+    return out;
   }, [activeLang, defaultLang]);
 
   const value = useMemo(() => ({
@@ -120,10 +134,23 @@ export function LanguageProvider({ children }) {
 export function useT() {
   const ctx = useContext(LanguageContext);
   if (!ctx) {
-    // Outside provider: degrade gracefully to the key itself (= the
-    // default label by convention).
-    return (key, fallback) =>
-      typeof fallback === 'string' ? fallback : key;
+    // Outside provider: degrade gracefully — return the key itself
+    // (= the default label by convention) with optional {placeholder}
+    // substitution still applied so callers don't crash.
+    return (key, varsOrFallback) => {
+      const isVars =
+        varsOrFallback !== null
+        && typeof varsOrFallback === 'object';
+      const vars = isVars ? varsOrFallback : null;
+      const fallback = !isVars ? varsOrFallback : undefined;
+      let out = typeof fallback === 'string' ? fallback : key;
+      if (vars) {
+        for (const [name, value] of Object.entries(vars)) {
+          out = out.split(`{${name}}`).join(value == null ? '' : String(value));
+        }
+      }
+      return out;
+    };
   }
   return ctx.t;
 }

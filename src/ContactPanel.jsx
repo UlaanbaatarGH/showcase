@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { contactAdmin } from './data/backend.js';
+import { useT } from './i18n/i18n.jsx';
 
 // FIX420 <panel-contact-admin>: anonymous Contact form.
 // Layout per the updated FIX420.2:
@@ -27,6 +28,7 @@ export default function ContactPanel({
   selectedItems = [],
   defaultEmail = '',
 }) {
+  const t = useT();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState(defaultEmail || '');
@@ -52,10 +54,10 @@ export default function ContactPanel({
     e.preventDefault();
     setErr(null);
     // FIX420.3.1.1: non-blank fields. FIX420.3.1.2: email shape check.
-    if (!subject.trim()) { setErr('Subject is required.'); return; }
-    if (!message.trim()) { setErr('Message is required.'); return; }
+    if (!subject.trim()) { setErr(t('Subject is required.')); return; }
+    if (!message.trim()) { setErr(t('Message is required.')); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-      setErr('Email is not valid.');
+      setErr(t('Email is not valid.'));
       return;
     }
     setBusy(true);
@@ -90,17 +92,17 @@ export default function ContactPanel({
         onSubmit={submit}
       >
         <header className="visits-header">
-          <h2>Contact</h2>
+          <h2>{t('Contact')}</h2>
           <button type="button" className="btn-link" onClick={onClose}>
-            Close
+            {t('Close')}
           </button>
         </header>
         {sent ? (
           <div className="panel-contact-sent">
-            Message sent. Thanks — we'll reply to {email}.
+            {t('Message sent. Thanks — we will reply to {email}.', { email })}
             <div className="panel-contact-actions">
               <button type="button" className="sc-menu-trigger" onClick={onClose}>
-                Close
+                {t('Close')}
               </button>
             </div>
           </div>
@@ -108,7 +110,7 @@ export default function ContactPanel({
           <>
             {/* FIX420.2.1 Field 'Subject', as <msg-subject>. */}
             <label className="panel-contact-row">
-              <span>Subject</span>
+              <span>{t('Subject')}</span>
               <input
                 type="text"
                 data-yagu-id="msg-subject"
@@ -142,7 +144,7 @@ export default function ContactPanel({
             )}
             {/* FIX420.2.3 Field 'Message', as <msg-message>. */}
             <label className="panel-contact-row panel-contact-row-textarea">
-              <span>Message</span>
+              <span>{t('Message')}</span>
               <textarea
                 data-yagu-id="msg-message"
                 value={message}
@@ -155,7 +157,7 @@ export default function ContactPanel({
                 FIX420.4.2.5: pre-filled with the signed-in user's email
                 when one is known. */}
             <label className="panel-contact-row">
-              <span>Email addr for reply</span>
+              <span>{t('Email addr for reply')}</span>
               <input
                 type="email"
                 data-yagu-id="msg-reply-addr"
@@ -174,7 +176,7 @@ export default function ContactPanel({
                 onClick={onClose}
                 disabled={busy}
               >
-                Cancel
+                {t('Cancel')}
               </button>
               {/* FIX420.2.11 [Send] */}
               <button
@@ -182,7 +184,7 @@ export default function ContactPanel({
                 className="sc-menu-trigger"
                 disabled={busy}
               >
-                {busy ? '…' : 'Send'}
+                {busy ? '…' : t('Send')}
               </button>
             </div>
           </>

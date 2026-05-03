@@ -104,6 +104,9 @@ export default function ContactPanel({
         ...(items.length > 0 ? { items } : {}),
       });
       setSent(true);
+      // (14) Auto-close the popup ~2s after the success message
+      // appears, so we don't need a Close button on the success state.
+      setTimeout(() => onClose(), 2000);
     } catch (e2) {
       setErr(e2.message || String(e2));
     } finally {
@@ -132,20 +135,15 @@ export default function ContactPanel({
            submit handler entirely). */
         noValidate
       >
+        {/* (14) No 'Close' link in the header — the panel exposes
+            only Cancel / Send. After a successful Send the popup
+            auto-closes. */}
         <header className="visits-header">
           <h2>{t('Contact')}</h2>
-          <button type="button" className="btn-link" onClick={onClose}>
-            {t('Close')}
-          </button>
         </header>
         {sent ? (
           <div className="panel-contact-sent">
             {t('Message sent. Thanks — we will reply to {email}.', { email })}
-            <div className="panel-contact-actions">
-              <button type="button" className="sc-menu-trigger" onClick={onClose}>
-                {t('Close')}
-              </button>
-            </div>
           </div>
         ) : (
           <>

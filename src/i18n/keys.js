@@ -18,29 +18,25 @@
 // Language setup panel reads this list to surface the keys to the
 // admin. (Keys not listed here still work at runtime — they just
 // won't show up as a row in the panel until added.)
+// `section` groups the key in the Translated Labels editor so the
+// admin sees related labels together. Within each section the panel
+// sorts keys alphabetically.
 export const I18N_KEYS = [
-  {
-    key: 'Showcase',
-    description: 'Big centred title on the home page (FIX400.2.11)',
-  },
+  // Home page (FIX400)
+  { key: 'Showcase', section: 'Home page' },
 
-  // FIX420.2 <panel-contact-admin>
-  { key: 'Contact', description: 'Contact panel header + Contact button title' },
-  { key: 'Close',   description: 'Close link in modal headers' },
-  { key: 'Subject', description: 'FIX420.2.1 contact form subject field label' },
-  { key: 'Message', description: 'FIX420.2.3 contact form message field label' },
-  { key: 'Email addr for reply', description: 'FIX420.2.4 reply-address field label' },
-  { key: 'Cancel',  description: 'FIX420.2.10 / generic cancel button' },
-  // FIX420.2.11: send button uses 'Msg-send' as a scoped key so it
-  // doesn't collide with other 'Send' buttons that may appear later.
-  { key: 'Msg-send', description: 'FIX420.2.11 contact send button' },
-  { key: 'Subject is required.', description: 'FIX420.3.1.1 validation' },
-  { key: 'Message is required.', description: 'FIX420.3.1.1 validation' },
-  { key: 'Email is not valid.',  description: 'FIX420.3.1.2 validation' },
-  {
-    key: 'Message sent. Thanks — we will reply to {email}.',
-    description: 'FIX420 contact send confirmation',
-  },
+  // Contact panel (FIX420.2)
+  { key: 'Cancel',                    section: 'Contact panel' },
+  { key: 'Contact',                   section: 'Contact panel' },
+  { key: 'Email addr for reply',      section: 'Contact panel' },
+  { key: 'Email is not valid.',       section: 'Contact panel' },
+  { key: 'Message',                   section: 'Contact panel' },
+  { key: 'Message is required.',      section: 'Contact panel' },
+  { key: 'Message sent. Thanks — we will reply to {email}.', section: 'Contact panel' },
+  // FIX420.2.11: scoped key — won't collide with a future generic 'Send'.
+  { key: 'Msg-send',                  section: 'Contact panel' },
+  { key: 'Subject',                   section: 'Contact panel' },
+  { key: 'Subject is required.',      section: 'Contact panel' },
 ];
 
 export const I18N_KEY_INDEX = Object.fromEntries(

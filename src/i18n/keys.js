@@ -30,4 +30,17 @@ export const I18N_KEYS = [
   { key: 'Send',                      section: '420. Contact panel' },
   { key: 'Subject',                   section: '420. Contact panel' },
   { key: 'Subject is required.',      section: '420. Contact panel' },
+
+  // FIX422 Automatic message reply (auto-reply email content).
+  // The keys carry their own runtime placeholders ({project-name},
+  // {date-time-ddd-dd-hh-mm}) which the backend substitutes after
+  // the per-language lookup.
+  { key: 'Thank you for your message',
+    section: '422. Automatic message reply' },
+  { key: 'Thank you for your message about "{project-name}" on {date-time-ddd-dd-hh-mm}.',
+    section: '422. Automatic message reply' },
+  { key: 'We will reply soon.',
+    section: '422. Automatic message reply' },
+  { key: '(This is an automated acknowledgement; please do not reply to this address.)',
+    section: '422. Automatic message reply' },
 ];

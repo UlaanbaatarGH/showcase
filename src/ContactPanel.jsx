@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { contactAdmin } from './data/backend.js';
-import { useT } from './i18n/i18n.jsx';
+import { useT, useLanguage } from './i18n/i18n.jsx';
 
 // FIX420 <panel-contact-admin>: anonymous Contact form.
 // Layout per the updated FIX420.2:
@@ -32,6 +32,9 @@ export default function ContactPanel({
   defaultEmail = '',
 }) {
   const t = useT('420. Contact panel');
+  // FIX422: send the active language code so the backend can pick
+  // the right translations for the auto-reply email.
+  const { activeCode } = useLanguage();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState(defaultEmail || '');
@@ -102,6 +105,9 @@ export default function ContactPanel({
         email: email.trim(),
         ...(projectId != null ? { project_id: projectId } : {}),
         ...(items.length > 0 ? { items } : {}),
+        // FIX422: visitor's chosen UI language. Drives the
+        // translation lookup for the auto-reply (subject + body).
+        ...(activeCode ? { lang: activeCode } : {}),
       });
       setSent(true);
       // (14) Auto-close the popup ~2s after the success message

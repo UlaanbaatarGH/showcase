@@ -27,9 +27,8 @@ body {
 
 /* Home view */
 .home {
-  /* FIX400.2: layout = full-width top bar + project list flowing
-     beneath. No vertical centring (the old hero-style centred
-     layout drifted from the spec).
+  /* FIX400.2: layout = full-width top bar + 'Showcase' title +
+     project list flowing beneath.
      On mobile 100vh is the *largest* viewport (URL bar hidden);
      100dvh tracks the live visible height. vh stays as a fallback
      for ancient browsers that don't grok dvh. */
@@ -38,6 +37,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+/* FIX400.2.11 + FIX400.2.11.1: 'Showcase' title — centred, big. */
+.home-title {
+  margin: 1rem 0 0;
+  font-size: 3rem;
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 .home-err {
   color: #f88;

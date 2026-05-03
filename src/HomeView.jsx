@@ -228,9 +228,11 @@ export default function HomeView({ onOpenProject }) {
         )}
       </div>
 
+      {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred, big. */}
+      <h1 className="home-title">Showcase</h1>
+
       {/* FIX400.2.1: project list — name, image, front-introduction
-          per card. The 'Showcase' h1 that used to sit here was not in
-          spec and has been dropped; the page header is the topbar. */}
+          per card. */}
       {error && <div className="home-err">Backend error: {error}</div>}
 
       {projects === null && !error && <div className="home-loading">Loading…</div>}

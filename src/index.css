@@ -1571,6 +1571,31 @@ body {
   cursor: pointer;
 }
 .panel-contact-item-row input[type="checkbox"] { margin: 0; }
+
+/* FIX420.2.12 + FIX420.4.2.6 <label-error-text>: bright-red message
+   that sits on the same row as the action buttons. */
+.panel-contact-action-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.4rem;
+}
+.panel-contact-error-text {
+  flex: 1;
+  /* FIX420.2.12.1: bright red text colour. */
+  color: #f87171;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+.panel-contact-action-row .panel-contact-actions {
+  margin-top: 0;
+}
+/* FIX420.4.2.7: the field the error relates to gets a bright-red
+   frame so the visitor sees which input to fix. */
+.panel-contact-input-error {
+  border-color: #f87171 !important;
+  box-shadow: 0 0 0 1px #f87171;
+}
 .panel-contact-actions {
   display: flex;
   justify-content: flex-end;

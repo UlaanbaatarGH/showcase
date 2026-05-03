@@ -4,12 +4,15 @@ import { useT } from './i18n/i18n.jsx';
 
 // FIX420 <panel-contact-admin>: anonymous Contact form.
 // Layout per the updated FIX420.2:
-//   Subject [______]
+//   {Subject} [______]
 //   [x] {selected-item1}
 //   [x] {selected-item2} ...
-//   Message [______]
-//   Email addr for reply [______]
-//   [Cancel][Send]
+//   {Message} [______]
+//   {Email addr for reply} [______]
+//   {error-text} [Cancel][Send]
+//
+// FIX420.2.20 — only the buttons close the popup (the backdrop is
+// no longer click-to-dismiss).
 // FIX420.4.1: same IP gets a 60-second cooldown enforced on the
 // backend; on a 429 we surface the message back into the form.
 //
@@ -38,7 +41,11 @@ export default function ContactPanel({
     () => new Set(selectedItems.map((it) => it.id)),
   );
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
+  // FIX420.4.2.6 <label-error-text> + FIX420.4.2.7 errField:
+  // remember which input the current error relates to so we can
+  // frame it in red.
+  const [err, setErr] = useState('');
+  const [errField, setErrField] = useState(null); // 'subject' | 'message' | 'email' | null
   const [sent, setSent] = useState(false);
 
   const toggleItem = (id) => {
@@ -50,14 +57,35 @@ export default function ContactPanel({
     });
   };
 
+  // FIX420.4.2.8: clicking anywhere in the panel clears the error
+  // text and the red frame. Wired on mousedown so it fires *before*
+  // the Send button's click handler — if validation then re-fails,
+  // the new error is set after this clear, so it stays visible.
+  const clearError = () => {
+    if (err || errField) {
+      setErr('');
+      setErrField(null);
+    }
+  };
+
   async function submit(e) {
     e.preventDefault();
-    setErr(null);
+    setErr('');
+    setErrField(null);
     // FIX420.3.1.1: non-blank fields. FIX420.3.1.2: email shape check.
-    if (!subject.trim()) { setErr(t('Subject is required.')); return; }
-    if (!message.trim()) { setErr(t('Message is required.')); return; }
+    if (!subject.trim()) {
+      setErr(t('Subject is required.'));
+      setErrField('subject');
+      return;
+    }
+    if (!message.trim()) {
+      setErr(t('Message is required.'));
+      setErrField('message');
+      return;
+    }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
       setErr(t('Email is not valid.'));
+      setErrField('email');
       return;
     }
     setBusy(true);
@@ -83,19 +111,25 @@ export default function ContactPanel({
     }
   }
 
+  const errorClass = (field) =>
+    errField === field ? 'panel-contact-input-error' : '';
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    /* FIX420.2.20: backdrop no longer dismisses the popup — only
+       the explicit Cancel / Close buttons do. */
+    <div className="modal-backdrop">
       <form
         className="modal panel-contact-modal"
         data-yagu-id="panel-contact-admin"
-        onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
+        /* FIX420.4.2.8: clicking anywhere in the panel clears the
+           current error. mousedown fires before the Send-button
+           click → submit, so a freshly-set validation error is
+           NOT wiped by this handler when the user clicks Send. */
+        onMouseDown={clearError}
         /* Disable browser HTML5 validation popups (which would
            render in the browser's UI language and bypass our
-           submit handler entirely). The `required` attributes on
-           the inputs stay for screen-reader semantics — they're
-           just no longer rendered as native error tooltips, so
-           our t()-translated messages get a chance to show. */
+           submit handler entirely). */
         noValidate
       >
         <header className="visits-header">
@@ -121,6 +155,7 @@ export default function ContactPanel({
               <input
                 type="text"
                 data-yagu-id="msg-subject"
+                className={errorClass('subject')}
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 autoFocus
@@ -154,6 +189,7 @@ export default function ContactPanel({
               <span>{t('Message')}</span>
               <textarea
                 data-yagu-id="msg-message"
+                className={errorClass('message')}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={6}
@@ -168,31 +204,44 @@ export default function ContactPanel({
               <input
                 type="email"
                 data-yagu-id="msg-reply-addr"
+                className={errorClass('email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
             </label>
-            {err && <div className="visits-err">{err}</div>}
-            <div className="panel-contact-actions">
-              {/* FIX420.2.10 [Cancel] */}
-              <button
-                type="button"
-                className="sc-menu-trigger"
-                onClick={onClose}
-                disabled={busy}
+            {/* FIX420.2.12 + FIX420.2.12.0 + FIX420.2.12.1 +
+                FIX420.4.2.6 <label-error-text>: bright-red error
+                message that sits next to the action buttons; empty
+                when there's no error. */}
+            <div className="panel-contact-action-row">
+              <span
+                className="panel-contact-error-text"
+                data-yagu-id="label-error-text"
               >
-                {t('Cancel')}
-              </button>
-              {/* FIX420.2.11 [Send] */}
-              <button
-                type="submit"
-                className="sc-menu-trigger"
-                disabled={busy}
-              >
-                {busy ? '…' : t('Send')}
-              </button>
+                {err}
+              </span>
+              <div className="panel-contact-actions">
+                {/* FIX420.2.10 [Cancel] */}
+                <button
+                  type="button"
+                  className="sc-menu-trigger"
+                  onClick={onClose}
+                  disabled={busy}
+                >
+                  {t('Cancel')}
+                </button>
+                {/* FIX420.2.11 [Send] — key 'Msg-send' is scoped to
+                    the contact form per the spec. */}
+                <button
+                  type="submit"
+                  className="sc-menu-trigger"
+                  disabled={busy}
+                >
+                  {busy ? '…' : t('Msg-send')}
+                </button>
+              </div>
             </div>
           </>
         )}

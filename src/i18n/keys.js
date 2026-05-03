@@ -31,7 +31,9 @@ export const I18N_KEYS = [
   { key: 'Message', description: 'FIX420.2.3 contact form message field label' },
   { key: 'Email addr for reply', description: 'FIX420.2.4 reply-address field label' },
   { key: 'Cancel',  description: 'FIX420.2.10 / generic cancel button' },
-  { key: 'Send',    description: 'FIX420.2.11 contact send button' },
+  // FIX420.2.11: send button uses 'Msg-send' as a scoped key so it
+  // doesn't collide with other 'Send' buttons that may appear later.
+  { key: 'Msg-send', description: 'FIX420.2.11 contact send button' },
   { key: 'Subject is required.', description: 'FIX420.3.1.1 validation' },
   { key: 'Message is required.', description: 'FIX420.3.1.1 validation' },
   { key: 'Email is not valid.',  description: 'FIX420.3.1.2 validation' },

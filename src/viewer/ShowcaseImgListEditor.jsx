@@ -122,10 +122,14 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, dimsByUrl]);
 
-  // FIX521.2.1.1.7: viewport width captured when the page opens. Disp. Ratio
-  // is image-width / viewport-width (source pixels per viewport pixel).
-  const [viewportWidth] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth : 0,
+  // FIX521.2.1.1.7 (updated): the reference is the size the image takes when
+  // displayed FULL in the browser page (fullscreen contain-fit), captured when
+  // the page opens. Disp. ratio = natural pixels / fullscreen-displayed pixels.
+  // The image scales uniformly, so that factor is max(w/winW, h/winH).
+  const [viewport] = useState(() =>
+    typeof window !== 'undefined'
+      ? { w: window.innerWidth, h: window.innerHeight }
+      : { w: 0, h: 0 },
   );
 
   const draftForCurrent =
@@ -506,8 +510,8 @@ export default function ShowcaseImgListEditor({
               <th title="Main image of the item">Main</th>
               {/* FIX521.2.1.1.6: pixel width × height, read-only. */}
               <th>Resolution</th>
-              {/* FIX521.2.1.1.7: image width ÷ viewport width, read-only. */}
-              <th title="Image width ÷ viewport width (at page open)">Disp. Ratio</th>
+              {/* FIX521.2.1.1.7: image pixels ÷ pixels when shown full, read-only. */}
+              <th title="Image pixels ÷ pixels when shown fullscreen (at page open)">Disp. ratio</th>
             </tr>
           </thead>
           <tbody>
@@ -561,10 +565,13 @@ export default function ShowcaseImgListEditor({
                       ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
                       : '…'}
                   </td>
-                  {/* FIX521.2.1.1.7: Disp. Ratio (read-only) */}
+                  {/* FIX521.2.1.1.7: Disp. ratio (read-only) — vs fullscreen display */}
                   <td className="filesize">
-                    {dimsByUrl[im.url] && viewportWidth
-                      ? (dimsByUrl[im.url].w / viewportWidth).toFixed(2)
+                    {dimsByUrl[im.url] && viewport.w && viewport.h
+                      ? Math.max(
+                          dimsByUrl[im.url].w / viewport.w,
+                          dimsByUrl[im.url].h / viewport.h,
+                        ).toFixed(2)
                       : '…'}
                   </td>
                 </tr>

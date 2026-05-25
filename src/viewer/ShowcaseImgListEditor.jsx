@@ -13,7 +13,7 @@ function formatBytes(n) {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-// FIX521.2.1.1.7: Disp. ratio = img-resolution-width / img-full-page-width,
+// FIX521.2.1.1.7: Zoom ratio = img-resolution-width / img-full-page-width,
 // where img-full-page-width is the width the image takes when displayed
 // full-page (contain-fit, proportions kept) in the browser window `win`.
 function dispRatio(dims, win) {
@@ -110,7 +110,7 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, sizesByUrl]);
 
-  // FIX521.2.1.1.6 (Resolution) / FIX521.2.1.1.7 (Disp. Ratio): natural pixel
+  // FIX521.2.1.1.6 (Resolution) / FIX521.2.1.1.7 (Zoom ratio): natural pixel
   // dimensions per image, probed once per URL. Reading dimensions doesn't
   // taint anything, so no crossOrigin needed. Value: { w, h } or null.
   const [dimsByUrl, setDimsByUrl] = useState({});
@@ -136,7 +136,7 @@ export default function ShowcaseImgListEditor({
   }, [images, dimsByUrl]);
 
   // FIX521.2.1.1.7: window size captured when the Image list is displayed; used
-  // to derive the image's full-page (contain-fit) width for the Disp. ratio.
+  // to derive the image's full-page (contain-fit) width for the Zoom ratio.
   const [viewport] = useState(() =>
     typeof window !== 'undefined'
       ? { w: window.innerWidth, h: window.innerHeight }
@@ -568,7 +568,7 @@ export default function ShowcaseImgListEditor({
           <thead>
             <tr>
               {/* FIX521.2.1.12: column order — Section, Caption, Main, File name,
-                  File size, Resolution, Disp. ratio. */}
+                  File size, Resolution, Zoom ratio. */}
               <th>Section</th>
               <th>Caption</th>
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
@@ -579,7 +579,7 @@ export default function ShowcaseImgListEditor({
               {/* FIX521.2.1.1.6: pixel width × height, read-only. */}
               <th>Resolution</th>
               {/* FIX521.2.1.1.7: image pixels ÷ pixels when shown full, read-only. */}
-              <th title="Image pixels ÷ pixels when shown fullscreen (at page open)">Disp. ratio</th>
+              <th title="Image width ÷ full-page display width (at page open)">Zoom ratio</th>
             </tr>
           </thead>
           <tbody>
@@ -593,7 +593,7 @@ export default function ShowcaseImgListEditor({
                   onClick={(e) => onRowClick(e, idx)}
                 >
                   {/* FIX521.2.1.12: order — Section, Caption, Main, File name,
-                      File size, Resolution, Disp. ratio. */}
+                      File size, Resolution, Zoom ratio. */}
                   <td>
                     <input
                       type="text"
@@ -636,7 +636,7 @@ export default function ShowcaseImgListEditor({
                       ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
                       : '…'}
                   </td>
-                  {/* FIX521.2.1.1.7: Disp. ratio (read-only) — img width / full-page width */}
+                  {/* FIX521.2.1.1.7: Zoom ratio (read-only) — img width / full-page width */}
                   <td className="filesize">
                     {dispR == null ? '…' : dispR.toFixed(2)}
                   </td>

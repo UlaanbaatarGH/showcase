@@ -97,6 +97,37 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, sizesByUrl]);
 
+  // FIX521.2.1.1.6 (Resolution) / FIX521.2.1.1.7 (Disp. Ratio): natural pixel
+  // dimensions per image, probed once per URL. Reading dimensions doesn't
+  // taint anything, so no crossOrigin needed. Value: { w, h } or null.
+  const [dimsByUrl, setDimsByUrl] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    const pending = images.map((im) => im.url).filter((u) => u && !(u in dimsByUrl));
+    if (pending.length === 0) return undefined;
+    for (const url of pending) {
+      const probe = new Image();
+      probe.onload = () => {
+        if (cancelled) return;
+        setDimsByUrl((prev) =>
+          url in prev ? prev : { ...prev, [url]: { w: probe.naturalWidth, h: probe.naturalHeight } },
+        );
+      };
+      probe.onerror = () => {
+        if (cancelled) return;
+        setDimsByUrl((prev) => (url in prev ? prev : { ...prev, [url]: null }));
+      };
+      probe.src = url;
+    }
+    return () => { cancelled = true; };
+  }, [images, dimsByUrl]);
+
+  // FIX521.2.1.1.7: viewport width captured when the page opens. Disp. Ratio
+  // is image-width / viewport-width (source pixels per viewport pixel).
+  const [viewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 0,
+  );
+
   const draftForCurrent =
     imageDraft && draftForId === currentImage?.id ? imageDraft : null;
   const hasPendingImageEdit = !!draftForCurrent;
@@ -473,6 +504,10 @@ export default function ShowcaseImgListEditor({
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
                   At most one is set per item (FIX521.5.6). */}
               <th title="Main image of the item">Main</th>
+              {/* FIX521.2.1.1.6: pixel width × height, read-only. */}
+              <th>Resolution</th>
+              {/* FIX521.2.1.1.7: image width ÷ viewport width, read-only. */}
+              <th title="Image width ÷ viewport width (at page open)">Disp. Ratio</th>
             </tr>
           </thead>
           <tbody>
@@ -520,12 +555,24 @@ export default function ShowcaseImgListEditor({
                       title="Use as the item's main image"
                     />
                   </td>
+                  {/* FIX521.2.1.1.6: Resolution (read-only) */}
+                  <td className="filesize">
+                    {dimsByUrl[im.url]
+                      ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
+                      : '…'}
+                  </td>
+                  {/* FIX521.2.1.1.7: Disp. Ratio (read-only) */}
+                  <td className="filesize">
+                    {dimsByUrl[im.url] && viewportWidth
+                      ? (dimsByUrl[im.url].w / viewportWidth).toFixed(2)
+                      : '…'}
+                  </td>
                 </tr>
               );
             })}
             {images.length === 0 && (
               <tr>
-                <td colSpan={5} className="empty">No images in this item.</td>
+                <td colSpan={7} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

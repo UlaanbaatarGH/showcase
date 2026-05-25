@@ -1184,9 +1184,14 @@ body {
   min-height: 0;
   overflow: auto;
 }
+/* FIX521.2.1.11: the table sizes to its content (max-content) and the
+   wrapper (.sc-img-list-scroll, overflow:auto) shows a horizontal scrollbar
+   when the columns need more room than the pane (capped < 50% of the editor).
+   min-width:100% keeps it filling the pane when the content is narrower. */
 .sc-img-list-table {
   border-collapse: collapse;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   font-size: 0.875rem;
 }
 /* FIX521.2.1.1.11: per-th sticky (more reliable across browsers than

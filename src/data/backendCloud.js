@@ -167,6 +167,10 @@ export default {
   // deletes the old object. Returns { storage_key, url, bytes }.
   replaceImageBytes: (imageId, body) =>
     call(`/api/images/${encodeURIComponent(imageId)}/replace-bytes`, { method: 'POST', body }),
+  // FIX521.5.8.0 / FIX521.5.8.1: persist an item's Zoom Factor (max ZF of its
+  // images), recomputed by the client whenever the item's images change.
+  setFolderZoomFactor: (folderId, zoomFactor) =>
+    call(`/api/folders/${encodeURIComponent(folderId)}/zoom-factor`, { method: 'POST', body: { zoom_factor: zoomFactor } }),
   // FIX521: update caption / section / sort_order on the folder_image row.
   // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
   updateFolderImage: (folderImageId, patch) =>

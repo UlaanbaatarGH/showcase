@@ -46,6 +46,7 @@ export const confirmImage = impl.confirmImage;
 export const deleteOrphanImage = impl.deleteOrphanImage;
 export const updateImage = impl.updateImage;
 export const replaceImageBytes = impl.replaceImageBytes;
+export const setFolderZoomFactor = impl.setFolderZoomFactor;
 export const updateFolderImage = impl.updateFolderImage;
 export const deleteFolderImage = impl.deleteFolderImage;
 export const updateProject = impl.updateProject;

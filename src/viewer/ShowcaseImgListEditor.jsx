@@ -38,6 +38,7 @@ export default function ShowcaseImgListEditor({
   setImages,
   onExitEdit,
   onItemBytesChange, // FIX521.3.5.4: report the item's new total image bytes
+  onItemZoomChange,  // FIX521.5.8.1: report the item's Zoom Factor (max ZF)
 }) {
   const currentImage = images[selectedIdx] ?? null;
 
@@ -126,6 +127,24 @@ export default function ShowcaseImgListEditor({
       probe.src = url;
     }
     return () => { cancelled = true; };
+  }, [images, dimsByUrl]);
+
+  // FIX521.5.8 / FIX521.5.8.1: report the item's Zoom Factor (max ZF of its
+  // images) once every image is measured. Fires on open (backfill) and on any
+  // add / update / delete, so the parent can persist it for the item list.
+  // onItemZoomChange is intentionally left out of the deps to avoid re-running
+  // (and re-persisting) on every parent render; the selection is stable per edit.
+  useEffect(() => {
+    if (!images.length) { onItemZoomChange?.(null); return; }
+    let zf = 0;
+    for (const im of images) {
+      const d = dimsByUrl[im.url];
+      if (!d) return; // wait until every image is measured
+      const z = zoomFactor(d.w, d.h);
+      if (z != null) zf = Math.max(zf, z);
+    }
+    onItemZoomChange?.(zf || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images, dimsByUrl]);
 
   // FIX521.5.7: Zoom Factor uses the hardcoded Reference Viewport (src/zoom.js),

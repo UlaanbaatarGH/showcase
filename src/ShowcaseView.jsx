@@ -18,8 +18,7 @@ import {
 import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
-import { getShowcase, getFolderImages, trackVisit } from './data/backend.js';
-import { zoomFactor } from './zoom.js';
+import { getShowcase, getFolderImages, trackVisit, setFolderZoomFactor } from './data/backend.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 
@@ -96,6 +95,8 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
   if (col.type === 'img') return folder.has_image ? 'x' : '';
   // FIX500.2.3.2.1.2.2.4 <Image size>
   if (col.type === 'img_size') return formatImageSize(folder.image_bytes);
+  // FIX500.2.3.2.1.2.2.5 <Img zoom factor>: stored item Zoom Factor.
+  if (col.type === 'img_zoom') return folder.zoom_factor == null ? '' : folder.zoom_factor.toFixed(2);
   if (col.type === 'property') {
     const prop = propertiesById?.get(col.property_id);
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
@@ -124,10 +125,6 @@ function compareValues(a, b) {
 export default function ShowcaseView({ slug, onNavigateHome }) {
   const { profile, signOut } = useAuth();
   const [data, setData] = useState(null);
-  // FIX500.2.3.2.1.2.2.5 / FIX521.5.8: item Zoom Factor (max ZF of its images),
-  // measured client-side. zoomDoneRef tracks which folders are processed.
-  const [zoomByFolder, setZoomByFolder] = useState({});
-  const zoomDoneRef = useRef(new Set());
   // FIX503.5.1: <menu-import>, <button-item-grouping>, <button-setup>,
   // <menu-admin> are visible only to project Admins/Managers. The
   // backend computes per-project membership and returns the flag on
@@ -400,43 +397,6 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   const configuredColumns = (showcaseCfg.columns ?? []).filter(
     (c) => c.type !== 'main_image_icon',
   );
-  // FIX500.2.3.2.1.2.2.5 / FIX521.5.8: when the 'Img zoom factor' column is
-  // shown, measure each item's images (fetch them, read each one's pixel size)
-  // and cache the item's max zoom factor. Only runs when the column is present;
-  // cached per item for the session (re-measured if invalidated after a shrink).
-  const showZoomCol = configuredColumns.some((c) => c.type === 'img_zoom');
-  useEffect(() => {
-    if (!showZoomCol || !data?.folders) return undefined;
-    let cancelled = false;
-    const loadDims = (url) =>
-      new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => resolve(null);
-        img.src = url;
-      });
-    (async () => {
-      for (const f of data.folders) {
-        if (cancelled) return;
-        if (!f.has_image || zoomDoneRef.current.has(f.id)) continue;
-        zoomDoneRef.current.add(f.id);
-        try {
-          const imgs = await getFolderImages(f.id);
-          let maxZf = 0;
-          for (const im of imgs) {
-            if (cancelled) return;
-            const d = await loadDims(im.url);
-            const z = d ? zoomFactor(d.w, d.h) : null;
-            if (z != null) maxZf = Math.max(maxZf, z);
-          }
-          if (!cancelled) setZoomByFolder((prev) => ({ ...prev, [f.id]: maxZf || null }));
-        } catch {
-          zoomDoneRef.current.delete(f.id);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [data, showZoomCol]);
   const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
   // FIX373 (updated): groups carry their own id + name. normalizeGroups
@@ -886,19 +846,11 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         </td>
       );
     }
-    // FIX500.2.3.2.1.2.2.5 <Img zoom factor>: item's max image zoom factor.
+    // FIX500.2.3.2.1.2.2.5 <Img zoom factor>: stored item Zoom Factor.
     if (col.type === 'img_zoom') {
-      const z = zoomByFolder[folder.id];
-      const text = !folder.has_image
-        ? ''
-        : z === undefined
-          ? '…'
-          : z == null
-            ? ''
-            : z.toFixed(2);
       return (
         <td key={key} className="sc-td-img-size" style={cellStyle}>
-          {text}
+          {folder.zoom_factor == null ? '' : folder.zoom_factor.toFixed(2)}
         </td>
       );
     }
@@ -1320,7 +1272,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
                 setSelectedIdx={setCurrentImageIdx}
                 setImages={setImages}
                 onExitEdit={() => setEditionMode(false)}
-                onItemBytesChange={(bytes) => {
+                onItemBytesChange={(bytes) =>
                   setData((prev) =>
                     prev
                       ? {
@@ -1330,15 +1282,22 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
                           ),
                         }
                       : prev,
+                  )
+                }
+                onItemZoomChange={(zf) => {
+                  if (selectedFolderId == null) return;
+                  setData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          folders: prev.folders.map((f) =>
+                            f.id === selectedFolderId ? { ...f, zoom_factor: zf } : f,
+                          ),
+                        }
+                      : prev,
                   );
-                  // FIX521.3.5.5: shrink changed the item's images — drop the
-                  // cached zoom factor so it's re-measured for the column.
-                  zoomDoneRef.current.delete(selectedFolderId);
-                  setZoomByFolder((prev) => {
-                    const next = { ...prev };
-                    delete next[selectedFolderId];
-                    return next;
-                  });
+                  // FIX521.5.8.1: persist the recomputed item Zoom Factor.
+                  setFolderZoomFactor(selectedFolderId, zf).catch(() => {});
                 }}
               />
             ) : (() => {

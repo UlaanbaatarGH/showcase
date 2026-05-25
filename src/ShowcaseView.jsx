@@ -69,6 +69,16 @@ function columnKey(col) {
   return col.type;
 }
 
+// FIX500.2.3.2.1.2.2.4 <Image size>: human-readable total bytes of an item's
+// images. Empty string when the item has no images (or zero bytes).
+function formatImageSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n <= 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 // FIX500.2.3.2.1.2.1.1 / .1.1: width sample is free text; column width = the
 // text's character count, expressed in `ch` units. FIX500.2.3.2.1.2.1.1.1:
 // when the text is *just* a number n, treat it as n characters (i.e. 'n zeros').
@@ -83,6 +93,8 @@ function widthCss(width) {
 function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
   if (col.type === 'folder_name') return folder.name ?? '';
   if (col.type === 'img') return folder.has_image ? 'x' : '';
+  // FIX500.2.3.2.1.2.2.4 <Image size>
+  if (col.type === 'img_size') return formatImageSize(folder.image_bytes);
   if (col.type === 'property') {
     const prop = propertiesById?.get(col.property_id);
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
@@ -776,6 +788,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   const columnHeaderLabel = (col) => {
     if (col.type === 'folder_name') return folderColumnName;
     if (col.type === 'img') return 'Img';
+    if (col.type === 'img_size') return 'Image size'; // FIX500.2.3.2.1.2.2.4
     const prop = properties.find((p) => p.id === col.property_id);
     if (!prop) return '(missing)';
     return (prop.short_label && prop.short_label.trim()) || prop.label;
@@ -815,6 +828,14 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
       return (
         <td key={key} className="sc-td-img" style={cellStyle}>
           {folder.main_image_url ? 'x' : ''}
+        </td>
+      );
+    }
+    // FIX500.2.3.2.1.2.2.4 <Image size>
+    if (col.type === 'img_size') {
+      return (
+        <td key={key} className="sc-td-img-size" style={cellStyle}>
+          {formatImageSize(folder.image_bytes)}
         </td>
       );
     }

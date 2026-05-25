@@ -132,8 +132,15 @@
 }
 
 /* FIX501.4.5: Image canvas area */
+/* FIX501.4.3.1.1.2.2 / FIX501.4.3.1.1.3.2: padding keeps a clickable margin on all
+   four sides — the image is centered and capped at 100%, so without padding it touches
+   the area edge on the fitting dimension and a click just outside falls off the div
+   (never firing handleAreaClick). The margin lets a slightly-outside click register and
+   clamp to the image edge. */
 .image-editor-canvas-area {
   flex: 1;
+  box-sizing: border-box;
+  padding: 24px;
   position: relative;
   overflow: hidden;
   display: flex;

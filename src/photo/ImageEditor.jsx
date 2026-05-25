@@ -327,12 +327,12 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
   // FIX501.4.3.1.1: Mouse tracking during crop mode
   // Step 1: crosshair follows mouse before first click
   // Step 2: preview rectangle follows mouse after first click
-  // FIX501.4.3.1.1.2.2 / FIX501.4.3.1.1.3.2: only update cropMousePos while the cursor is
-  // inside the image; when it leaves, keep the last in-image position so a click outside
-  // can fall back to it.
+  // FIX501.4.3.1.1.2.2 / FIX501.4.3.1.1.3.2: keep tracking the cursor even once it
+  // leaves the image — mouseToImageCoords clamps to the image edge, so the dotted
+  // guides follow the cursor to the edge it quit through (and a click just outside
+  // lands on that edge).
   const handleAreaMouseMove = (e) => {
     if (!cropClicking) return;
-    if (!isInsideCanvas(e)) return;
     const pos = mouseToImageCoords(e);
     if (pos) setCropMousePos(pos);
   };
@@ -371,8 +371,9 @@ export default function ImageEditor({ imagePath, onRefresh, moveToNext = false, 
   // Click during two-click crop — accepts clicks anywhere in the canvas area
   const handleAreaClick = (e) => {
     if (!cropClicking) return;
-    // FIX501.4.3.1.1.2.2 / FIX501.4.3.1.1.3.2: outside image → use last tracked in-image position
-    const pos = isInsideCanvas(e) ? mouseToImageCoords(e) : cropMousePos;
+    // FIX501.4.3.1.1.2.2 / FIX501.4.3.1.1.3.2: a click outside the image is accepted —
+    // mouseToImageCoords clamps it to the nearest image edge (the edge the cursor quit through).
+    const pos = mouseToImageCoords(e);
     if (!pos) return;
 
     if (!cropClickCorner) {

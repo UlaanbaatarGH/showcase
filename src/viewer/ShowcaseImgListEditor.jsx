@@ -141,6 +141,28 @@ export default function ShowcaseImgListEditor({
       : { w: 0, h: 0 },
   );
 
+  // FIX521.2.1.11 / FIX521.2.1.11.3: draggable vertical splitter between the
+  // image list (left) and the image editor (right). Default 50/50 (.11.3); the
+  // table h-scrolls when squeezed (.11.1) and the image pane resizes with it (.11.2).
+  const [listPct, setListPct] = useState(50);
+  const editorRef = useRef(null);
+  const onSplitterDown = (e) => {
+    e.preventDefault();
+    const container = editorRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const onMove = (ev) => {
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      setListPct(Math.max(15, Math.min(85, pct)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   const draftForCurrent =
     imageDraft && draftForId === currentImage?.id ? imageDraft : null;
   const hasPendingImageEdit = !!draftForCurrent;
@@ -442,7 +464,11 @@ export default function ShowcaseImgListEditor({
   };
 
   return (
-    <div className="sc-img-list-editor">
+    <div
+      className="sc-img-list-editor"
+      ref={editorRef}
+      style={{ '--list-pct': `${listPct}%` }}
+    >
       <div
         className="sc-img-list-pane"
         ref={tableRef}
@@ -595,6 +621,14 @@ export default function ShowcaseImgListEditor({
         </table>
         </div>
       </div>
+
+      {/* FIX521.2.1.11 / FIX521.2.1.11.2: drag to resize; the image pane (and
+          the image inside it) squeezes/expands with the splitter. */}
+      <div
+        className="sc-img-list-splitter"
+        onMouseDown={onSplitterDown}
+        title="Drag to resize"
+      />
 
       <div className="sc-img-list-editor-pane">
         {currentImage ? (

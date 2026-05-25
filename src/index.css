@@ -614,6 +614,10 @@ body {
   .sc-img-list-editor {
     flex-direction: column;
   }
+  /* FIX521.2.1.11: the splitter only applies to the side-by-side layout. */
+  .sc-img-list-splitter {
+    display: none;
+  }
   .sc-img-list-pane {
     flex: 0 0 auto;
     max-height: 40vh;
@@ -1166,15 +1170,26 @@ body {
   overflow: hidden;
 }
 .sc-img-list-pane {
-  flex: 0 0 44%;
+  /* FIX521.2.1.11: width is splitter-controlled via --list-pct (set inline). */
+  flex: 0 0 var(--list-pct, 44%);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--color-border);
   min-height: 0;
+  min-width: 0;
   outline: none;
 }
 .sc-img-list-pane:focus {
   background: var(--color-bg-light);
+}
+/* FIX521.2.1.11: draggable vertical splitter between the list and the editor. */
+.sc-img-list-splitter {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--color-border);
+}
+.sc-img-list-splitter:hover {
+  background: var(--color-bg-lighter);
 }
 /* FIX521.2.1.1.12: scrolling wrapper around the table. <table> itself
    doesn't honor overflow reliably, so we move the flex+overflow here
@@ -1307,6 +1322,7 @@ body {
 }
 .sc-img-list-editor-pane {
   flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;

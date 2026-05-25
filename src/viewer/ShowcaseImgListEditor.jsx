@@ -501,13 +501,15 @@ export default function ShowcaseImgListEditor({
         <table className="sc-img-list-table" data-yagu-id="table-item-img-info">
           <thead>
             <tr>
-              <th>File name</th>
-              <th>File Size</th>
-              <th>Caption</th>
+              {/* FIX521.2.1.12: column order — Section, Caption, Main, File name,
+                  File size, Resolution, Disp. ratio. */}
               <th>Section</th>
+              <th>Caption</th>
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
                   At most one is set per item (FIX521.5.6). */}
               <th title="Main image of the item">Main</th>
+              <th>File name</th>
+              <th>File Size</th>
               {/* FIX521.2.1.1.6: pixel width × height, read-only. */}
               <th>Resolution</th>
               {/* FIX521.2.1.1.7: image pixels ÷ pixels when shown full, read-only. */}
@@ -523,21 +525,8 @@ export default function ShowcaseImgListEditor({
                   className={isSelected ? 'selected' : ''}
                   onClick={(e) => onRowClick(e, idx)}
                 >
-                  <td className="filename" title={im.filename}>
-                    {im.filename ?? ''}
-                  </td>
-                  <td className="filesize">{formatBytes(sizesByUrl[im.url])}</td>
-                  <td>
-                    <input
-                      type="text"
-                      value={im.caption ?? ''}
-                      onChange={(e) => onCaptionChange(im.id, e.target.value)}
-                      onBlur={(e) =>
-                        patchFolderImage(im.id, { caption: e.target.value || null })
-                      }
-                      onFocus={() => trySelect(idx)}
-                    />
-                  </td>
+                  {/* FIX521.2.1.12: order — Section, Caption, Main, File name,
+                      File size, Resolution, Disp. ratio. */}
                   <td>
                     <input
                       type="text"
@@ -545,6 +534,17 @@ export default function ShowcaseImgListEditor({
                       onChange={(e) => onSectionChange(im.id, e.target.value)}
                       onBlur={(e) =>
                         patchFolderImage(im.id, { section: e.target.value || null })
+                      }
+                      onFocus={() => trySelect(idx)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={im.caption ?? ''}
+                      onChange={(e) => onCaptionChange(im.id, e.target.value)}
+                      onBlur={(e) =>
+                        patchFolderImage(im.id, { caption: e.target.value || null })
                       }
                       onFocus={() => trySelect(idx)}
                     />
@@ -559,6 +559,10 @@ export default function ShowcaseImgListEditor({
                       title="Use as the item's main image"
                     />
                   </td>
+                  <td className="filename" title={im.filename}>
+                    {im.filename ?? ''}
+                  </td>
+                  <td className="filesize">{formatBytes(sizesByUrl[im.url])}</td>
                   {/* FIX521.2.1.1.6: Resolution (read-only) */}
                   <td className="filesize">
                     {dimsByUrl[im.url]

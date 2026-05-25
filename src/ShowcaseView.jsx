@@ -19,6 +19,7 @@ import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grou
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages, trackVisit, setFolderZoomFactor } from './data/backend.js';
+import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 
@@ -779,7 +780,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         onClick={(e) => handleHeaderClick(key, e.ctrlKey || e.metaKey)}
         title={
           col.type === 'img_zoom'
-            ? 'Max zoom factor of all the item images' // FIX521.3.5.5
+            ? `Max zoom factor of all the item images based on ${REFERENCE_VIEWPORT.w}×${REFERENCE_VIEWPORT.h}` // FIX521.3.5.5
             : 'Click to sort. Ctrl-click to add a secondary sort key.'
         }
       >

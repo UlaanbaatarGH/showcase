@@ -1208,6 +1208,33 @@ body {
 .sc-img-list-table tbody tr {
   height: 2rem;
 }
+/* FIX521.3.5 <button-shrink-image-list> popups: small modal box that reuses
+   the .setup-overlay backdrop. */
+.sc-shrink-box {
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border, #444);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  min-width: 18rem;
+  max-width: 90vw;
+  color: var(--color-text);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+.sc-shrink-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.sc-shrink-row input {
+  width: 6rem;
+}
+.sc-shrink-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
 .sc-img-list-table td {
   padding: 0.2rem 0.5rem;
   border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));

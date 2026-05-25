@@ -162,6 +162,11 @@ export default {
   // unchanged). Returns { id, rotation, crop }.
   updateImage: (imageId, patch) =>
     call(`/api/images/${encodeURIComponent(imageId)}`, { method: 'PATCH', body: patch }),
+  // FIX521.3.5.2: replace an image's stored bytes with a client-shrunk
+  // version. Backend writes a new versioned key, repoints the row, and
+  // deletes the old object. Returns { storage_key, url, bytes }.
+  replaceImageBytes: (imageId, body) =>
+    call(`/api/images/${encodeURIComponent(imageId)}/replace-bytes`, { method: 'POST', body }),
   // FIX521: update caption / section / sort_order on the folder_image row.
   // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
   updateFolderImage: (folderImageId, patch) =>

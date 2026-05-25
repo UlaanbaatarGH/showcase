@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
-import { updateImage, updateFolderImage, deleteFolderImage } from '../data/backend.js';
+import { updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes } from '../data/backend.js';
 
 // FIX521.2.1.1.2 File Size column. Size isn't stored in the DB — fetch
 // it via HEAD request to the public Supabase URL. Cached in-memory by
@@ -44,6 +44,29 @@ export default function ShowcaseImgListEditor({
   const [cropMode, setCropMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [error, setError] = useState(null);
+
+  // FIX521.2.1.9: multi-selection for the Shrink action. selectedIdx (owned by
+  // the parent) stays the *primary* row that drives the right-hand editor;
+  // selIdxs holds every selected row (always includes the primary). anchor is
+  // the Shift-click pivot.
+  const [selIdxs, setSelIdxs] = useState(() => new Set([selectedIdx]));
+  const [anchor, setAnchor] = useState(selectedIdx);
+
+  // FIX521.3.5: Shrink flow. stage: 'input' (size %), 'confirm' (cannot be
+  // undone), 'running' (progress). pct is the target size percentage.
+  const [shrinkStage, setShrinkStage] = useState(null);
+  const [shrinkPct, setShrinkPct] = useState('80');
+  const [shrinkProgress, setShrinkProgress] = useState(null);
+
+  // Keep the multi-selection valid as the list grows/shrinks (e.g. after a
+  // Remove). Always leave at least one row selected (FIX521.2.1.1.10).
+  useEffect(() => {
+    setSelIdxs((prev) => {
+      const next = new Set([...prev].filter((i) => i >= 0 && i < images.length));
+      if (next.size === 0 && images.length > 0) next.add(0);
+      return next;
+    });
+  }, [images.length]);
 
   // FIX521.2.1.1.2 file sizes: HEAD-fetched from the public Supabase URL.
   // Keyed by URL so the map is stable across re-renders / selection
@@ -159,10 +182,38 @@ export default function ShowcaseImgListEditor({
   };
 
   // Row selection — blocked while the image editor has pending changes.
+  // Single-selects: collapses any multi-selection to this one row.
   const trySelect = (nextIdx) => {
     if (hasPendingImageEdit) return;
     if (nextIdx < 0 || nextIdx >= images.length) return;
     setSelectedIdx(nextIdx);
+    setSelIdxs(new Set([nextIdx]));
+    setAnchor(nextIdx);
+  };
+
+  // FIX521.2.1.9: plain click selects one; Ctrl/Cmd-click toggles a row;
+  // Shift-click selects the range from the anchor. The clicked row becomes the
+  // primary (drives the editor). Blocked while an image edit is pending.
+  const onRowClick = (e, idx) => {
+    if (hasPendingImageEdit) return;
+    if (e.shiftKey) {
+      const lo = Math.min(anchor, idx);
+      const hi = Math.max(anchor, idx);
+      const s = new Set();
+      for (let i = lo; i <= hi; i++) s.add(i);
+      setSelIdxs(s);
+      setSelectedIdx(idx);
+    } else if (e.ctrlKey || e.metaKey) {
+      const s = new Set(selIdxs);
+      if (s.has(idx)) s.delete(idx);
+      else s.add(idx);
+      if (s.size === 0) s.add(idx); // one row always selected (FIX521.2.1.1.10)
+      setSelIdxs(s);
+      setAnchor(idx);
+      setSelectedIdx(idx);
+    } else {
+      trySelect(idx);
+    }
   };
 
   // Reorder: swap sort_order between selected row and its neighbour,
@@ -180,6 +231,8 @@ export default function ShowcaseImgListEditor({
     swapped[j] = { ...a, sort_order: b.sort_order };
     setImages(swapped);
     setSelectedIdx(j);
+    setSelIdxs(new Set([j]));
+    setAnchor(j);
     try {
       await Promise.all([
         updateFolderImage(a.id, { sort_order: b.sort_order }),
@@ -263,13 +316,84 @@ export default function ShowcaseImgListEditor({
       // (FIX521.2.1.1.10).
       const next = images.filter((_, idx) => idx !== selectedIdx);
       setImages(next);
-      if (next.length === 0) {
-        setSelectedIdx(0);
-      } else if (selectedIdx >= next.length) {
-        setSelectedIdx(next.length - 1);
-      }
+      let newIdx = selectedIdx;
+      if (next.length === 0) newIdx = 0;
+      else if (selectedIdx >= next.length) newIdx = next.length - 1;
+      setSelectedIdx(newIdx);
+      setSelIdxs(new Set(next.length ? [newIdx] : []));
+      setAnchor(newIdx);
     } catch (e) {
       setError(e.message || String(e));
+    }
+  };
+
+  // FIX521.3.5.2: re-encode an image to roughly `pct`% of its byte size. JPEG
+  // size scales ~ with pixel area, so scaling each side by sqrt(pct/100)
+  // targets pct% of the bytes while keeping good quality.
+  const reencodeToPercent = (url, pct) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const linear = Math.sqrt(Math.max(1, Math.min(100, pct)) / 100);
+        const w = Math.max(1, Math.round(img.naturalWidth * linear));
+        const h = Math.max(1, Math.round(img.naturalHeight * linear));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error('Could not encode image')); return; }
+            const fr = new FileReader();
+            fr.onload = () => resolve({ base64: String(fr.result).split(',')[1], bytes: blob.size });
+            fr.onerror = () => reject(fr.error);
+            fr.readAsDataURL(blob);
+          },
+          'image/jpeg',
+          0.9,
+        );
+      };
+      img.onerror = () => reject(new Error('Could not load image for shrinking'));
+      img.src = url;
+    });
+
+  // FIX521.3.5.2 / FIX521.3.5.3: shrink every selected image, repoint each to
+  // its new bytes, and refresh the displayed sizes.
+  const runShrink = async () => {
+    const pct = Number(shrinkPct);
+    const targets = [...selIdxs].sort((a, b) => a - b).map((i) => images[i]).filter(Boolean);
+    setShrinkStage('running');
+    setShrinkProgress({ done: 0, total: targets.length });
+    const updates = {}; // image_id -> { url, bytes }
+    try {
+      for (let k = 0; k < targets.length; k++) {
+        const im = targets[k];
+        const { base64 } = await reencodeToPercent(im.url, pct);
+        const res = await replaceImageBytes(im.image_id, {
+          data_base64: base64,
+          content_type: 'image/jpeg',
+        });
+        updates[im.image_id] = { url: res.url, bytes: res.bytes };
+        setShrinkProgress({ done: k + 1, total: targets.length });
+      }
+      setImages((prev) =>
+        prev.map((im) =>
+          updates[im.image_id] ? { ...im, url: updates[im.image_id].url } : im,
+        ),
+      );
+      // FIX521.3.5.3: reflect the new sizes in the list immediately.
+      setSizesByUrl((prev) => {
+        const next = { ...prev };
+        for (const u of Object.values(updates)) next[u.url] = u.bytes;
+        return next;
+      });
+      setShrinkStage(null);
+      setShrinkProgress(null);
+    } catch (e) {
+      setError(e.message || String(e));
+      setShrinkStage(null);
+      setShrinkProgress(null);
     }
   };
 
@@ -311,6 +435,17 @@ export default function ShowcaseImgListEditor({
           >
             Remove
           </button>
+          {/* FIX521.2.1.5 <button-shrink-image-list>: shrink selected image(s).
+              Enabled when 1+ rows are selected (FIX521.2.1.5.1). */}
+          <button
+            type="button"
+            data-yagu-id="button-shrink-image-list"
+            onClick={() => { setShrinkPct('80'); setShrinkStage('input'); }}
+            disabled={hasPendingImageEdit || selIdxs.size === 0}
+            title="Shrink selected image(s)"
+          >
+            Shrink
+          </button>
           <button
             type="button"
             className="sc-img-list-done"
@@ -342,12 +477,12 @@ export default function ShowcaseImgListEditor({
           </thead>
           <tbody>
             {images.map((im, idx) => {
-              const isSelected = idx === selectedIdx;
+              const isSelected = selIdxs.has(idx);
               return (
                 <tr
                   key={im.id}
                   className={isSelected ? 'selected' : ''}
-                  onClick={() => trySelect(idx)}
+                  onClick={(e) => onRowClick(e, idx)}
                 >
                   <td className="filename" title={im.filename}>
                     {im.filename ?? ''}
@@ -492,6 +627,55 @@ export default function ShowcaseImgListEditor({
         )}
         {error && <div className="sc-viewer-err">{error}</div>}
       </div>
+
+      {/* FIX521.3.5: size-% prompt */}
+      {shrinkStage === 'input' && (
+        <div className="setup-overlay" onMouseDown={() => setShrinkStage(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <label className="sc-shrink-row">
+              Image size %
+              <input
+                type="text"
+                autoFocus
+                value={shrinkPct}
+                onChange={(e) => setShrinkPct(e.target.value)}
+              />
+            </label>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setShrinkStage(null)}>Cancel</button>
+              <button
+                type="button"
+                className="primary"
+                disabled={!(Number(shrinkPct) > 0 && Number(shrinkPct) <= 100)}
+                onClick={() => setShrinkStage('confirm')}
+              >
+                Ok
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FIX521.3.5.1: cannot-be-undone confirmation */}
+      {shrinkStage === 'confirm' && (
+        <div className="setup-overlay" onMouseDown={() => setShrinkStage(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Beware, shrinking images cannot be undone.</p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setShrinkStage(null)}>Cancel</button>
+              <button type="button" className="primary" onClick={runShrink}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shrinkStage === 'running' && (
+        <div className="setup-overlay">
+          <div className="sc-shrink-box">
+            <p>Shrinking… {shrinkProgress?.done ?? 0}/{shrinkProgress?.total ?? 0}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

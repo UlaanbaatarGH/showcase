@@ -40,7 +40,7 @@ export default function ShowcaseViewSetupPanel({
   const displayedColumnName = (col) => {
     if (col.type === 'folder_name') return '#';
     if (col.type === 'img') return 'Img';
-    if (col.type === 'img_size') return 'Image size'; // FIX500.2.3.2.1.2.2.4
+    if (col.type === 'img_size') return 'Img size'; // FIX500.2.3.2.1.2.2.4
     if (col.type === 'property') {
       const p = (properties ?? []).find((pp) => pp.id === col.property_id);
       return p?.label || '(missing property)';
@@ -61,7 +61,7 @@ export default function ShowcaseViewSetupPanel({
     // FIX500.2.3.2.1.2.2.4 <Image size>: predefined column = total size of all
     // the item's images.
     if (!used.has('img_size'))
-      options.push({ key: 'img_size', label: 'Image size', create: () => ({ type: 'img_size' }) });
+      options.push({ key: 'img_size', label: 'Img size', create: () => ({ type: 'img_size' }) });
     for (const p of properties ?? []) {
       if ((p.label ?? '').trim() && !used.has(`prop_${p.id}`)) {
         options.push({

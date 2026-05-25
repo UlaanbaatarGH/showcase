@@ -788,7 +788,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
   const columnHeaderLabel = (col) => {
     if (col.type === 'folder_name') return folderColumnName;
     if (col.type === 'img') return 'Img';
-    if (col.type === 'img_size') return 'Image size'; // FIX500.2.3.2.1.2.2.4
+    if (col.type === 'img_size') return 'Img size'; // FIX500.2.3.2.1.2.2.4
     const prop = properties.find((p) => p.id === col.property_id);
     if (!prop) return '(missing)';
     return (prop.short_label && prop.short_label.trim()) || prop.label;

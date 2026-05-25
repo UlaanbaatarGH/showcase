@@ -63,10 +63,11 @@ export default function ShowcaseImgListEditor({
   const [selIdxs, setSelIdxs] = useState(() => new Set([selectedIdx]));
   const [anchor, setAnchor] = useState(selectedIdx);
 
-  // FIX521.3.5: Shrink flow. stage: 'input' (size %), 'confirm' (cannot be
-  // undone), 'running' (progress). pct is the target size percentage.
+  // FIX521.3.5: Shrink flow. stage: 'input' ('Image new ratio'), 'confirm'
+  // (cannot be undone), 'running' (progress). shrinkRatio is the target Disp.
+  // ratio entered by the user; blank by default.
   const [shrinkStage, setShrinkStage] = useState(null);
-  const [shrinkPct, setShrinkPct] = useState('80');
+  const [shrinkRatio, setShrinkRatio] = useState('');
   const [shrinkProgress, setShrinkProgress] = useState(null);
 
   // Keep the multi-selection valid as the list grows/shrinks (e.g. after a
@@ -393,17 +394,15 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX521.3.5.2: re-encode an image to roughly `pct`% of its byte size. JPEG
-  // size scales ~ with pixel area, so scaling each side by sqrt(pct/100)
-  // targets pct% of the bytes while keeping good quality.
-  const reencodeToPercent = (url, pct) =>
+  // FIX521.3.5.2: re-encode an image at a uniform scale factor f (new dims =
+  // natural dims × f), keeping good JPEG quality.
+  const reencodeByFactor = (url, f) =>
     new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const linear = Math.sqrt(Math.max(1, Math.min(100, pct)) / 100);
-        const w = Math.max(1, Math.round(img.naturalWidth * linear));
-        const h = Math.max(1, Math.round(img.naturalHeight * linear));
+        const w = Math.max(1, Math.round(img.naturalWidth * f));
+        const h = Math.max(1, Math.round(img.naturalHeight * f));
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
@@ -424,10 +423,11 @@ export default function ShowcaseImgListEditor({
       img.src = url;
     });
 
-  // FIX521.3.5.2 / FIX521.3.5.3: shrink every selected image, repoint each to
-  // its new bytes, and refresh the displayed sizes.
+  // FIX521.3.5.2 / FIX521.3.5.3: reduce each selected image to the entered
+  // display ratio. New ratio = f × current ratio, so f = target / current.
+  // Images already at or below the target ratio are left unchanged.
   const runShrink = async () => {
-    const pct = Number(shrinkPct);
+    const target = Number(shrinkRatio);
     const targets = [...selIdxs].sort((a, b) => a - b).map((i) => images[i]).filter(Boolean);
     setShrinkStage('running');
     setShrinkProgress({ done: 0, total: targets.length });
@@ -435,12 +435,16 @@ export default function ShowcaseImgListEditor({
     try {
       for (let k = 0; k < targets.length; k++) {
         const im = targets[k];
-        const { base64 } = await reencodeToPercent(im.url, pct);
-        const res = await replaceImageBytes(im.image_id, {
-          data_base64: base64,
-          content_type: 'image/jpeg',
-        });
-        updates[im.image_id] = { url: res.url, bytes: res.bytes };
+        const current = dispRatio(dimsByUrl[im.url], viewport);
+        if (current != null && current > target) {
+          const f = target / current;
+          const { base64 } = await reencodeByFactor(im.url, f);
+          const res = await replaceImageBytes(im.image_id, {
+            data_base64: base64,
+            content_type: 'image/jpeg',
+          });
+          updates[im.image_id] = { url: res.url, bytes: res.bytes };
+        }
         setShrinkProgress({ done: k + 1, total: targets.length });
       }
       setImages((prev) =>
@@ -462,6 +466,21 @@ export default function ShowcaseImgListEditor({
       setShrinkProgress(null);
     }
   };
+
+  // FIX521.3.5.1: entered ratio must be between 1 and the current ratio; for a
+  // multi-selection, bound by the largest current ratio among the selected.
+  const selectedRatios = [...selIdxs]
+    .map((i) => images[i])
+    .filter(Boolean)
+    .map((im) => dispRatio(dimsByUrl[im.url], viewport))
+    .filter((r) => r != null);
+  const maxSelRatio = selectedRatios.length ? Math.max(...selectedRatios) : null;
+  const shrinkValid =
+    shrinkRatio.trim() !== '' &&
+    Number.isFinite(Number(shrinkRatio)) &&
+    Number(shrinkRatio) >= 1 &&
+    maxSelRatio != null &&
+    Number(shrinkRatio) <= maxSelRatio;
 
   return (
     <div
@@ -510,7 +529,7 @@ export default function ShowcaseImgListEditor({
           <button
             type="button"
             data-yagu-id="button-shrink-image-list"
-            onClick={() => { setShrinkPct('80'); setShrinkStage('input'); }}
+            onClick={() => { setShrinkRatio(''); setShrinkStage('input'); }}
             disabled={hasPendingImageEdit || selIdxs.size === 0}
             title="Shrink selected image(s)"
           >
@@ -725,17 +744,18 @@ export default function ShowcaseImgListEditor({
         {error && <div className="sc-viewer-err">{error}</div>}
       </div>
 
-      {/* FIX521.3.5: size-% prompt */}
+      {/* FIX521.3.5: 'Image new ratio' prompt */}
       {shrinkStage === 'input' && (
         <div className="setup-overlay" onMouseDown={() => setShrinkStage(null)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
             <label className="sc-shrink-row">
-              Image size %
+              Image new ratio
               <input
                 type="text"
                 autoFocus
-                value={shrinkPct}
-                onChange={(e) => setShrinkPct(e.target.value)}
+                value={shrinkRatio}
+                placeholder={maxSelRatio ? `1 – ${maxSelRatio.toFixed(2)}` : ''}
+                onChange={(e) => setShrinkRatio(e.target.value)}
               />
             </label>
             <div className="sc-shrink-actions">
@@ -743,7 +763,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 className="primary"
-                disabled={!(Number(shrinkPct) > 0 && Number(shrinkPct) <= 100)}
+                disabled={!shrinkValid}
                 onClick={() => setShrinkStage('confirm')}
               >
                 Ok

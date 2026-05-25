@@ -13,6 +13,17 @@ function formatBytes(n) {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+// FIX521.2.1.1.7: Disp. ratio = img-resolution-width / img-full-page-width,
+// where img-full-page-width is the width the image takes when displayed
+// full-page (contain-fit, proportions kept) in the browser window `win`.
+function dispRatio(dims, win) {
+  if (!dims || !win.w || !win.h) return null;
+  const scale = Math.min(win.w / dims.w, win.h / dims.h);
+  const fullPageWidth = dims.w * scale;
+  if (!fullPageWidth) return null;
+  return dims.w / fullPageWidth;
+}
+
 // FIX521 <panel-showcase-img-list-editor>: replaces the image viewer when
 // the user clicks <button-edit> on the Images tab (FIX515.3.2.1).
 //
@@ -122,9 +133,8 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, dimsByUrl]);
 
-  // FIX521.2.1.1.7: per spec, Disp. ratio is the LOWER of the two axis ratios:
-  // min(img-width / viewport-width, img-height / viewport-height), with the
-  // viewport captured when the page opens (image fully displayed).
+  // FIX521.2.1.1.7: window size captured when the Image list is displayed; used
+  // to derive the image's full-page (contain-fit) width for the Disp. ratio.
   const [viewport] = useState(() =>
     typeof window !== 'undefined'
       ? { w: window.innerWidth, h: window.innerHeight }
@@ -518,6 +528,7 @@ export default function ShowcaseImgListEditor({
           <tbody>
             {images.map((im, idx) => {
               const isSelected = selIdxs.has(idx);
+              const dispR = dispRatio(dimsByUrl[im.url], viewport); // FIX521.2.1.1.7
               return (
                 <tr
                   key={im.id}
@@ -568,14 +579,9 @@ export default function ShowcaseImgListEditor({
                       ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
                       : '…'}
                   </td>
-                  {/* FIX521.2.1.1.7: Disp. ratio (read-only) — lower of the two axis ratios */}
+                  {/* FIX521.2.1.1.7: Disp. ratio (read-only) — img width / full-page width */}
                   <td className="filesize">
-                    {dimsByUrl[im.url] && viewport.w && viewport.h
-                      ? Math.min(
-                          dimsByUrl[im.url].w / viewport.w,
-                          dimsByUrl[im.url].h / viewport.h,
-                        ).toFixed(2)
-                      : '…'}
+                    {dispR == null ? '…' : dispR.toFixed(2)}
                   </td>
                 </tr>
               );

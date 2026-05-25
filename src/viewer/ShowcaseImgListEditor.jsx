@@ -122,9 +122,10 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, dimsByUrl]);
 
-  // FIX521.2.1.1.7 (updated): reference is the image fully displayed in the
-  // browser page, captured at page open. Per spec, Disp. ratio is the LOWER of
-  // the two axis ratios: min(w / winW, h / winH).
+  // FIX521.2.1.1.7 (updated): reference is the image fully displayed (contain-
+  // fit) in the browser page, captured at page open. Disp. ratio = source
+  // pixels per on-screen pixel = the ratio on the side that fills the screen =
+  // max(w / winW, h / winH). Same value read off either axis (uniform scaling).
   const [viewport] = useState(() =>
     typeof window !== 'undefined'
       ? { w: window.innerWidth, h: window.innerHeight }
@@ -568,10 +569,11 @@ export default function ShowcaseImgListEditor({
                       ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
                       : '…'}
                   </td>
-                  {/* FIX521.2.1.1.7: Disp. ratio (read-only) — lower of the two axis ratios */}
+                  {/* FIX521.2.1.1.7: Disp. ratio (read-only) — the screen-filling
+                      side = source pixels per on-screen pixel at fullscreen. */}
                   <td className="filesize">
                     {dimsByUrl[im.url] && viewport.w && viewport.h
-                      ? Math.min(
+                      ? Math.max(
                           dimsByUrl[im.url].w / viewport.w,
                           dimsByUrl[im.url].h / viewport.h,
                         ).toFixed(2)

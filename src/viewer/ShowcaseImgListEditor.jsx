@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
 import { updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes } from '../data/backend.js';
+import { zoomFactor } from '../zoom.js';
 
 // FIX521.2.1.1.2 File Size column. Size isn't stored in the DB — fetch
 // it via HEAD request to the public Supabase URL. Cached in-memory by
@@ -13,16 +14,8 @@ function formatBytes(n) {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-// FIX521.2.1.1.7: Zoom ratio = img-resolution-width / img-full-page-width,
-// where img-full-page-width is the width the image takes when displayed
-// full-page (contain-fit, proportions kept) in the browser window `win`.
-function dispRatio(dims, win) {
-  if (!dims || !win.w || !win.h) return null;
-  const scale = Math.min(win.w / dims.w, win.h / dims.h);
-  const fullPageWidth = dims.w * scale;
-  if (!fullPageWidth) return null;
-  return dims.w / fullPageWidth;
-}
+// FIX521.2.1.1.7 / FIX521.5.7: the per-image Zoom Factor uses the shared
+// zoomFactor() against the hardcoded Reference Viewport (see src/zoom.js).
 
 // FIX521 <panel-showcase-img-list-editor>: replaces the image viewer when
 // the user clicks <button-edit> on the Images tab (FIX515.3.2.1).
@@ -110,7 +103,7 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, sizesByUrl]);
 
-  // FIX521.2.1.1.6 (Resolution) / FIX521.2.1.1.7 (Zoom ratio): natural pixel
+  // FIX521.2.1.1.6 (Resolution) / FIX521.2.1.1.7 (Zoom factor): natural pixel
   // dimensions per image, probed once per URL. Reading dimensions doesn't
   // taint anything, so no crossOrigin needed. Value: { w, h } or null.
   const [dimsByUrl, setDimsByUrl] = useState({});
@@ -135,13 +128,8 @@ export default function ShowcaseImgListEditor({
     return () => { cancelled = true; };
   }, [images, dimsByUrl]);
 
-  // FIX521.2.1.1.7: window size captured when the Image list is displayed; used
-  // to derive the image's full-page (contain-fit) width for the Zoom ratio.
-  const [viewport] = useState(() =>
-    typeof window !== 'undefined'
-      ? { w: window.innerWidth, h: window.innerHeight }
-      : { w: 0, h: 0 },
-  );
+  // FIX521.5.7: Zoom Factor uses the hardcoded Reference Viewport (src/zoom.js),
+  // not the live browser window.
 
   // FIX521.2.1.11 / FIX521.2.1.11.3: draggable vertical splitter between the
   // image list (left) and the image editor (right). Default 50/50 (.11.3); the
@@ -436,7 +424,8 @@ export default function ShowcaseImgListEditor({
     try {
       for (let k = 0; k < targets.length; k++) {
         const im = targets[k];
-        const current = dispRatio(dimsByUrl[im.url], viewport);
+        const cd = dimsByUrl[im.url];
+        const current = cd ? zoomFactor(cd.w, cd.h) : null;
         if (current != null && current > target) {
           const f = target / current;
           const { base64 } = await reencodeByFactor(im.url, f);
@@ -484,7 +473,7 @@ export default function ShowcaseImgListEditor({
   const selectedRatios = [...selIdxs]
     .map((i) => images[i])
     .filter(Boolean)
-    .map((im) => dispRatio(dimsByUrl[im.url], viewport))
+    .map((im) => { const d = dimsByUrl[im.url]; return d ? zoomFactor(d.w, d.h) : null; })
     .filter((r) => r != null);
   const maxSelRatio = selectedRatios.length ? Math.max(...selectedRatios) : null;
   const shrinkValid =
@@ -568,7 +557,7 @@ export default function ShowcaseImgListEditor({
           <thead>
             <tr>
               {/* FIX521.2.1.12: column order — Section, Caption, Main, File name,
-                  File size, Resolution, Zoom ratio. */}
+                  File size, Resolution, Zoom factor. */}
               <th>Section</th>
               <th>Caption</th>
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
@@ -579,13 +568,14 @@ export default function ShowcaseImgListEditor({
               {/* FIX521.2.1.1.6: pixel width × height, read-only. */}
               <th>Resolution</th>
               {/* FIX521.2.1.1.7: image pixels ÷ pixels when shown full, read-only. */}
-              <th title="Image width ÷ full-page display width (at page open)">Zoom ratio</th>
+              <th title="Image resolution ÷ its size in the reference viewport">Zoom factor</th>
             </tr>
           </thead>
           <tbody>
             {images.map((im, idx) => {
               const isSelected = selIdxs.has(idx);
-              const dispR = dispRatio(dimsByUrl[im.url], viewport); // FIX521.2.1.1.7
+              const dimsZ = dimsByUrl[im.url];
+              const zf = dimsZ ? zoomFactor(dimsZ.w, dimsZ.h) : null; // FIX521.2.1.1.7
               return (
                 <tr
                   key={im.id}
@@ -593,7 +583,7 @@ export default function ShowcaseImgListEditor({
                   onClick={(e) => onRowClick(e, idx)}
                 >
                   {/* FIX521.2.1.12: order — Section, Caption, Main, File name,
-                      File size, Resolution, Zoom ratio. */}
+                      File size, Resolution, Zoom factor. */}
                   <td>
                     <input
                       type="text"
@@ -636,9 +626,9 @@ export default function ShowcaseImgListEditor({
                       ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
                       : '…'}
                   </td>
-                  {/* FIX521.2.1.1.7: Zoom ratio (read-only) — img width / full-page width */}
+                  {/* FIX521.2.1.1.7: Zoom factor (read-only) — vs Reference Viewport */}
                   <td className="filesize">
-                    {dispR == null ? '…' : dispR.toFixed(2)}
+                    {zf == null ? '…' : zf.toFixed(2)}
                   </td>
                 </tr>
               );

@@ -41,6 +41,7 @@ export default function ShowcaseViewSetupPanel({
     if (col.type === 'folder_name') return '#';
     if (col.type === 'img') return 'Img';
     if (col.type === 'img_size') return 'Img size'; // FIX500.2.3.2.1.2.2.4
+    if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX500.2.3.2.1.2.2.5
     if (col.type === 'property') {
       const p = (properties ?? []).find((pp) => pp.id === col.property_id);
       return p?.label || '(missing property)';
@@ -62,6 +63,9 @@ export default function ShowcaseViewSetupPanel({
     // the item's images.
     if (!used.has('img_size'))
       options.push({ key: 'img_size', label: 'Img size', create: () => ({ type: 'img_size' }) });
+    // FIX500.2.3.2.1.2.2.5: predefined column = the item's max image zoom factor.
+    if (!used.has('img_zoom'))
+      options.push({ key: 'img_zoom', label: 'Img zoom factor', create: () => ({ type: 'img_zoom' }) });
     for (const p of properties ?? []) {
       if ((p.label ?? '').trim() && !used.has(`prop_${p.id}`)) {
         options.push({

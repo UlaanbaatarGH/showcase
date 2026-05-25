@@ -1257,6 +1257,18 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
                 setSelectedIdx={setCurrentImageIdx}
                 setImages={setImages}
                 onExitEdit={() => setEditionMode(false)}
+                onItemBytesChange={(bytes) =>
+                  setData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          folders: prev.folders.map((f) =>
+                            f.id === selectedFolderId ? { ...f, image_bytes: bytes } : f,
+                          ),
+                        }
+                      : prev,
+                  )
+                }
               />
             ) : (() => {
               // FIX520.2: Showcase Image viewer (read-only). New layout:

@@ -44,6 +44,7 @@ export default function ShowcaseImgListEditor({
   setSelectedIdx,
   setImages,
   onExitEdit,
+  onItemBytesChange, // FIX521.3.5.4: report the item's new total image bytes
 }) {
   const currentImage = images[selectedIdx] ?? null;
 
@@ -458,6 +459,17 @@ export default function ShowcaseImgListEditor({
         for (const u of Object.values(updates)) next[u.url] = u.bytes;
         return next;
       });
+      // FIX521.3.5.4: report the item's new total image bytes so the item
+      // list's 'Image size' column updates (when that column is shown).
+      let total = 0;
+      let allKnown = true;
+      for (const im of images) {
+        const u = updates[im.image_id];
+        const b = u ? u.bytes : sizesByUrl[im.url];
+        if (b == null) { allKnown = false; break; }
+        total += b;
+      }
+      if (allKnown) onItemBytesChange?.(total);
       setShrinkStage(null);
       setShrinkProgress(null);
     } catch (e) {

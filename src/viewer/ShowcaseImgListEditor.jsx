@@ -420,7 +420,9 @@ export default function ShowcaseImgListEditor({
           (blob) => {
             if (!blob) { reject(new Error('Could not encode image')); return; }
             const fr = new FileReader();
-            fr.onload = () => resolve({ base64: String(fr.result).split(',')[1], bytes: blob.size });
+            // Return the new pixel dims too, so the caller can store the
+            // image's recomputed ZF (FIX521.5.8.1 <img-zoom-factor>).
+            fr.onload = () => resolve({ base64: String(fr.result).split(',')[1], bytes: blob.size, w, h });
             fr.onerror = () => reject(fr.error);
             fr.readAsDataURL(blob);
           },
@@ -450,10 +452,12 @@ export default function ShowcaseImgListEditor({
         const current = cd ? zoomFactor(cd.w, cd.h) : null;
         if (current != null && current > target) {
           const f = target / current;
-          const { base64 } = await reencodeByFactor(im.url, f);
+          const { base64, w, h } = await reencodeByFactor(im.url, f);
           const res = await replaceImageBytes(im.image_id, {
             data_base64: base64,
             content_type: 'image/jpeg',
+            // FIX521.5.8.1: store the shrunk image's recomputed ZF.
+            zoom_factor: zoomFactor(w, h),
           });
           updates[im.image_id] = { url: res.url, bytes: res.bytes };
         }

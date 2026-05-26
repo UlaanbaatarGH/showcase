@@ -93,17 +93,19 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
           throw new Error(`Supabase upload ${putRes.status}: ${await putRes.text().catch(() => '')}`.slice(0, 200));
         }
         bucketUploaded = true;
+        // FIX371.6.3 / FIX521.5.8.1: compute this image's ZF <img-zoom-factor>
+        // before confirming so it's stored on the image row. Failure to measure
+        // must not abort the import — a null ZF is simply not stored.
+        const zf = await measureZoomFactor(u.file);
         await confirmImage({
           project_id: project.id,
           item_name: u.itemName,
           storage_key: storageKey,
           sort_order: sort_order++,
           replaces_image_id: u.replaces_image_id ?? null,
+          zoom_factor: zf,
         });
-        // FIX371.6.3: compute this image's ZF <img-zoom-factor> and fold it
-        // into its item's running max (FIX371.6.4). Failure to measure must
-        // not abort the import, so a null ZF is simply skipped.
-        const zf = await measureZoomFactor(u.file);
+        // FIX371.6.4: fold this image's ZF into its item's running max.
         if (zf != null) {
           itemMaxZf[u.itemName] = Math.max(itemMaxZf[u.itemName] ?? 0, zf);
         }

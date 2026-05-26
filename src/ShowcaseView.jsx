@@ -274,6 +274,36 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
       .then((d) => setData(d))
       .catch((e) => setError(e.message || String(e)));
 
+  // FIX371.6: after an image import, reload the view (FIX371.6.5) and store
+  // each affected item's max image ZF <item-img-zoom-factor> (FIX371.6.4 /
+  // FIX521.5.8.1). itemMaxZf maps item name (folder #) -> max ZF among the
+  // images uploaded in that run. Since adding images can only raise an item's
+  // max ZF, the new value is max(previously stored, just-imported). Persisting
+  // each image's own ZF (also required by FIX521.5.8.1) needs a per-image
+  // backend field/endpoint that does not exist yet — only the item ZF is stored.
+  const handleImportDone = async (itemMaxZf) => {
+    let d;
+    try {
+      d = await getShowcase(slug);
+    } catch (e) {
+      setError(e.message || String(e));
+      return;
+    }
+    const pending = [];
+    const folders = (d.folders || []).map((f) => {
+      const measured = itemMaxZf?.[f.name];
+      if (measured == null) return f;
+      const merged = Math.max(f.zoom_factor ?? 0, measured);
+      if (merged === (f.zoom_factor ?? 0)) return f;
+      pending.push([f.id, merged]);
+      return { ...f, zoom_factor: merged };
+    });
+    setData({ ...d, folders });
+    // FIX371.6.6: the 'Img zoom factor' derived column reads folder.zoom_factor,
+    // so updating it above refreshes the property; persist to the backend too.
+    for (const [id, zf] of pending) setFolderZoomFactor(id, zf).catch(() => {});
+  };
+
   useEffect(() => {
     setData(null);
     selectOnly(null);
@@ -1778,7 +1808,7 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
         <ImportImagesDialog
           project={{ id: data.project.id, name: data.project.name }}
           onClose={() => setImportImagesOpen(false)}
-          onDone={reloadShowcase}
+          onDone={handleImportDone}
         />
       )}
       {/* FIX503.3.4 + FIX420 <panel-contact-admin>: anonymous

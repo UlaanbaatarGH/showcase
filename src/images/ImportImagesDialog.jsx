@@ -6,6 +6,26 @@ import {
   deleteOrphanImage,
 } from '../data/backend.js';
 import { scanFiles, buildImportPlan } from './importImages.js';
+import { zoomFactor } from '../zoom.js';
+
+// FIX371.6.3: compute an image's ZF <img-zoom-factor> from its natural pixel
+// dimensions, measured client-side from the local File before upload. Resolves
+// to a number, or null when the file can't be decoded.
+function measureZoomFactor(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(zoomFactor(img.naturalWidth, img.naturalHeight));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
 
 // FIX371: image import dialog. Stages: 'pick' → 'scanning' → 'recap' →
 // 'uploading' → 'done' | 'errors'.
@@ -49,6 +69,9 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
     let done = 0;
     let sort_order = 0;
     let stopReason = null;
+    // FIX371.6.3 / FIX371.6.4: per-item max image ZF, accumulated from the
+    // images uploaded in this run. Keyed by item name (the folder #).
+    const itemMaxZf = {};
     for (const u of toUpload) {
       // Track per-file progress so we know whether we need to clean up
       // an orphan in the bucket (PUT succeeded but confirm didn't).
@@ -77,6 +100,13 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
           sort_order: sort_order++,
           replaces_image_id: u.replaces_image_id ?? null,
         });
+        // FIX371.6.3: compute this image's ZF <img-zoom-factor> and fold it
+        // into its item's running max (FIX371.6.4). Failure to measure must
+        // not abort the import, so a null ZF is simply skipped.
+        const zf = await measureZoomFactor(u.file);
+        if (zf != null) {
+          itemMaxZf[u.itemName] = Math.max(itemMaxZf[u.itemName] ?? 0, zf);
+        }
         done += 1;
         setProgress({ done, total: toUpload.length });
       } catch (ex) {
@@ -108,8 +138,10 @@ export default function ImportImagesDialog({ project, onClose, onDone }) {
       total: toUpload.length,
       stopReason,
     });
-    // FIX371.6.3: refresh current view so new images show up.
-    onDone?.();
+    // FIX371.6.5 (ex-371.6.3): refresh current view so new images show up.
+    // FIX371.6.4: hand each item's max image ZF to the parent so it can store
+    // <item-img-zoom-factor> and refresh the derived property (FIX371.6.6).
+    onDone?.(itemMaxZf);
     setStage('done');
   }
 

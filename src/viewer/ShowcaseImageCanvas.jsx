@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-// FIX520.2 / FIX520.2.10: canvas-based viewer that honors image.rotation
+// FIX520.2 / FIX501.4.4.10: canvas-based viewer that honors image.rotation
 // and image.crop (both set non-destructively via PATCH /api/images/:id).
 //
 // Crop coords are in rotated-image space — same convention as the photo

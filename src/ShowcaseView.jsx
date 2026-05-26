@@ -625,19 +625,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     selectOnly(displayedFolders[0].id);
   }, [data, displayedFolders, selectedFolderId]);
 
-  // FIX404: direct item access via <app-url>/{id}. Once the folders load and
-  // only when the project is public (FIX404.1.1), open the item whose id
-  // (folder name) matches the URL — no group selected, the item shown on the
-  // right (FIX404.1.2). Runs after the select-first-item effect above so this
-  // selection wins; re-fires only when the URL item id actually changes.
-  const deepLinkedFor = useRef(null);
+  // FIX404: direct item access via <app-url>/{id}. When the project is public
+  // (FIX404.1.1), open the item whose id (folder name) matches the URL — no
+  // group selected, item on the right (FIX404.1.2). Runs after the
+  // select-first-item effect so this selection wins, and re-applies on each
+  // (re)fetch — e.g. the auth-triggered reload (FIX503.5.1) replaces `data`,
+  // and we must re-select rather than fall back to the default — until the
+  // user picks a row themselves (userPickedRef).
+  const userPickedRef = useRef(false);
   useEffect(() => {
-    if (!initialItemId || !data) return;
-    if (deepLinkedFor.current === initialItemId) return;
-    deepLinkedFor.current = initialItemId;
+    if (!initialItemId || !data || userPickedRef.current) return;
     if (!data.project?.is_public) return; // FIX404.1.1
     const target = (data.folders || []).find((f) => f.name === initialItemId);
     if (!target) return;
+    if (selectedFolderId === target.id && activeGroupId == null) return;
     setActiveGroupId(null); // FIX404.1.2: no group selected
     selectOnly(target.id); // FIX404.1.2: item open on the right
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -762,6 +763,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           : Math.max(0, idx < 0 ? 0 : idx - 1);
         // Keyboard nav stays single-select — Ctrl-arrow isn't a
         // multi-select gesture in this UI.
+        userPickedRef.current = true; // FIX404: stop re-applying the URL item
         selectOnly(displayedFolders[next].id);
       } else if (e.key === 'ArrowLeft') {
         if (!images.length) return;
@@ -1245,6 +1247,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       // FIX510.2.1.11: Ctrl/Cmd-click toggles the row
                       // in the multi-selection. Plain click resets to
                       // a single-row selection.
+                      userPickedRef.current = true; // FIX404: stop re-applying the URL item
                       if (e.ctrlKey || e.metaKey) toggleSelected(f.id);
                       else selectOnly(f.id);
                     }}

@@ -14,6 +14,9 @@
   --color-invalid:     #f87171;
   --color-selected:    rgba(91, 155, 213, 0.35);   /* dark-blue transparent */
   --color-selected-border: #5b9bd5;
+  /* FIX550 <display-row-selection>: light, non-transparent orange used as the
+     selected-row background across list/table views. */
+  --display-row-selection: #ffe6c2;
   --color-editing:     rgba(233, 69, 96, 0.25);
 }
 
@@ -723,7 +726,8 @@ body {
    row, with a stronger orange on the *primary* (first-selected) row
    so it visually drives the right-hand Item Panel (FIX510.5.3). */
 .sc-table tbody tr.selected td {
-  background: #ffe6c2;
+  /* FIX510.2.1.10 <display-row-selection> */
+  background: var(--display-row-selection);
   color: #222;
 }
 .sc-table tbody tr.selected-primary td {
@@ -1289,9 +1293,12 @@ body {
   text-align: center;
   opacity: 0.6;
 }
-.sc-img-list-table tr.selected {
-  /* FIX510.2.1.5 row selection colour (shared with Showcase list). */
-  background: rgba(255, 165, 0, 0.25);
+.sc-img-list-table tr.selected td {
+  /* FIX521.2.1.9.1 / FIX550 <display-row-selection>: light, non-transparent
+     orange. Dark text so the read-only cells stay legible (the Section/Caption
+     inputs keep their own dark background + light text). */
+  background: var(--display-row-selection);
+  color: #222;
 }
 .sc-img-list-table tr:not(.selected):hover {
   background: var(--color-bg-lighter);

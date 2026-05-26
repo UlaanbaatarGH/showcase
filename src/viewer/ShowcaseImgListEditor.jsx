@@ -295,6 +295,34 @@ export default function ShowcaseImgListEditor({
     }
   };
 
+  // FIX521.2.1.9.2: a leftmost checkbox per row is an easy way to (multi-)select
+  // a row without clicking into its Section/Caption input fields. Toggles the
+  // row in/out of the selection and keeps it as the primary when added.
+  const toggleRowSelect = (idx) => {
+    if (hasPendingImageEdit) return;
+    const s = new Set(selIdxs);
+    if (s.has(idx)) s.delete(idx);
+    else s.add(idx);
+    if (s.size === 0) s.add(idx); // one row always selected (FIX521.2.1.1.10)
+    setSelIdxs(s);
+    setAnchor(idx);
+    if (s.has(idx)) setSelectedIdx(idx);
+    else if (!s.has(selectedIdx)) setSelectedIdx(Math.min(...s));
+  };
+
+  // FIX521.2.1.9.3: one-click select-all (the header checkbox). Clicking again
+  // when everything is selected collapses back to just the primary row.
+  const allRowsSelected = images.length > 0 && selIdxs.size === images.length;
+  const toggleSelectAll = () => {
+    if (hasPendingImageEdit) return;
+    if (allRowsSelected) {
+      setSelIdxs(new Set([selectedIdx]));
+      setAnchor(selectedIdx);
+    } else {
+      setSelIdxs(new Set(images.map((_, i) => i)));
+    }
+  };
+
   // Reorder: swap sort_order between selected row and its neighbour,
   // then PATCH both folder_image rows. UI is updated optimistically.
   const moveSelected = async (delta) => {
@@ -583,6 +611,20 @@ export default function ShowcaseImgListEditor({
         <table className="sc-img-list-table" data-yagu-id="table-item-img-info">
           <thead>
             <tr>
+              {/* FIX521.2.1.9.2 / .9.3: leftmost select column with a select-all
+                  checkbox in the header. */}
+              <th style={{ textAlign: 'center' }} title="Select all rows">
+                <input
+                  type="checkbox"
+                  data-yagu-id="select-all-rows"
+                  checked={allRowsSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = selIdxs.size > 0 && !allRowsSelected;
+                  }}
+                  onChange={toggleSelectAll}
+                  disabled={hasPendingImageEdit || images.length === 0}
+                />
+              </th>
               {/* FIX521.2.1.12: column order — Section, Caption, Main, File name,
                   File size, Resolution, Zoom factor. */}
               <th>Section</th>
@@ -609,6 +651,18 @@ export default function ShowcaseImgListEditor({
                   className={isSelected ? 'selected' : ''}
                   onClick={(e) => onRowClick(e, idx)}
                 >
+                  {/* FIX521.2.1.9.2: easy row selection, independent of the
+                      Section/Caption inputs. */}
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleRowSelect(idx)}
+                      disabled={hasPendingImageEdit}
+                      title="Select this row"
+                    />
+                  </td>
                   {/* FIX521.2.1.12: order — Section, Caption, Main, File name,
                       File size, Resolution, Zoom factor. */}
                   <td>
@@ -662,7 +716,7 @@ export default function ShowcaseImgListEditor({
             })}
             {images.length === 0 && (
               <tr>
-                <td colSpan={7} className="empty">No images in this item.</td>
+                <td colSpan={8} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

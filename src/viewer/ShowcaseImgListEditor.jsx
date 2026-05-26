@@ -62,9 +62,9 @@ export default function ShowcaseImgListEditor({
   // selected images. Boolean: the confirmation overlay is shown or not.
   const [removeConfirm, setRemoveConfirm] = useState(false);
 
-  // FIX521.3.5: Shrink flow. stage: 'input' ('Image new ratio'), 'confirm'
-  // (cannot be undone), 'running' (progress). shrinkRatio is the target Disp.
-  // ratio entered by the user; blank by default.
+  // FIX521.3.5: Shrink flow. stage: 'input' ('Image max zoom factor'), 'confirm'
+  // (FIX521.3.5.4.1, cannot be undone), 'running' (progress). shrinkRatio is the
+  // requested ZF (<input-requested-zf>) entered by the user; blank by default.
   const [shrinkStage, setShrinkStage] = useState(null);
   const [shrinkRatio, setShrinkRatio] = useState('');
   const [shrinkProgress, setShrinkProgress] = useState(null);
@@ -432,11 +432,13 @@ export default function ShowcaseImgListEditor({
       img.src = url;
     });
 
-  // FIX521.3.5.2 / FIX521.3.5.3: reduce each selected image to the entered
-  // display ratio. New ratio = f × current ratio, so f = target / current.
-  // Images already at or below the target ratio are left unchanged.
+  // FIX521.3.10 <action-shrink-images>: for each selected image, check its ZF
+  // (FIX521.3.10.1). FIX521.3.10.1.1: IF image ZF > <input-requested-zf> THEN
+  // shrink it to end up with ZF == requested. Scaling by f = requested/current
+  // makes the new ZF equal the requested value; images already at or below it
+  // are left unchanged.
   const runShrink = async () => {
-    const target = Number(shrinkRatio);
+    const target = Number(shrinkRatio); // <input-requested-zf>
     const targets = [...selIdxs].sort((a, b) => a - b).map((i) => images[i]).filter(Boolean);
     setShrinkStage('running');
     setShrinkProgress({ done: 0, total: targets.length });
@@ -462,14 +464,14 @@ export default function ShowcaseImgListEditor({
           updates[im.image_id] ? { ...im, url: updates[im.image_id].url } : im,
         ),
       );
-      // FIX521.3.5.3: reflect the new sizes in the list immediately.
+      // FIX521.3.10.2: reflect the new sizes in the list immediately.
       setSizesByUrl((prev) => {
         const next = { ...prev };
         for (const u of Object.values(updates)) next[u.url] = u.bytes;
         return next;
       });
-      // FIX521.3.5.4: report the item's new total image bytes so the item
-      // list's 'Image size' column updates (when that column is shown).
+      // FIX521.3.10.3: report the item's new total image bytes so the item
+      // list's 'Img size' column updates (when that column is shown).
       let total = 0;
       let allKnown = true;
       for (const im of images) {
@@ -488,20 +490,20 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX521.3.5.1: entered ratio must be between 1 and the current ratio; for a
-  // multi-selection, bound by the largest current ratio among the selected.
-  const selectedRatios = [...selIdxs]
+  // FIX521.3.5.1.1: the input's ghost value is the current max ZF among the
+  // selected images. FIX521.3.5.1.2 / FIX521.3.5.2: the requested ZF must be
+  // >= 1. No upper bound — images already at/below the requested ZF are left
+  // unchanged by <action-shrink-images> (FIX521.3.10.1.1).
+  const selectedZfs = [...selIdxs]
     .map((i) => images[i])
     .filter(Boolean)
     .map((im) => { const d = dimsByUrl[im.url]; return d ? zoomFactor(d.w, d.h) : null; })
     .filter((r) => r != null);
-  const maxSelRatio = selectedRatios.length ? Math.max(...selectedRatios) : null;
+  const maxSelZf = selectedZfs.length ? Math.max(...selectedZfs) : null;
   const shrinkValid =
     shrinkRatio.trim() !== '' &&
     Number.isFinite(Number(shrinkRatio)) &&
-    Number(shrinkRatio) >= 1 &&
-    maxSelRatio != null &&
-    Number(shrinkRatio) <= maxSelRatio;
+    Number(shrinkRatio) >= 1;
 
   return (
     <div
@@ -780,22 +782,33 @@ export default function ShowcaseImgListEditor({
         </div>
       )}
 
-      {/* FIX521.3.5: 'Image new ratio' prompt */}
+      {/* FIX521.3.5: <button-shrink-image-list> opens this overlay popup. */}
       {shrinkStage === 'input' && (
         <div className="setup-overlay" onMouseDown={() => setShrinkStage(null)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            {/* FIX521.3.5.1: input field 'Image max zoom factor'. */}
             <label className="sc-shrink-row">
-              Image new ratio
+              Image max zoom factor
               <input
                 type="text"
                 autoFocus
+                data-yagu-id="input-requested-zf" /* FIX521.3.5.1.0 */
                 value={shrinkRatio}
-                placeholder={maxSelRatio ? `1 – ${maxSelRatio.toFixed(2)}` : ''}
-                onChange={(e) => setShrinkRatio(e.target.value)}
+                /* FIX521.3.5.1.1: ghost value (italic) = current max ZF. */
+                placeholder={maxSelZf != null ? maxSelZf.toFixed(2) : ''}
+                /* FIX521.3.5.1.2: input does not allow a value < 1. */
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || !(Number(v) < 1)) setShrinkRatio(v);
+                }}
               />
             </label>
+            {/* FIX521.3.5.2 */}
+            <div className="sc-shrink-hint">value must be &gt;=1</div>
             <div className="sc-shrink-actions">
+              {/* FIX521.3.5.3 */}
               <button type="button" onClick={() => setShrinkStage(null)}>Cancel</button>
+              {/* FIX521.3.5.4 → FIX521.3.5.4.1 confirmation popup */}
               <button
                 type="button"
                 className="primary"
@@ -809,13 +822,14 @@ export default function ShowcaseImgListEditor({
         </div>
       )}
 
-      {/* FIX521.3.5.1: cannot-be-undone confirmation */}
+      {/* FIX521.3.5.4.1: confirmation overlay popup */}
       {shrinkStage === 'confirm' && (
         <div className="setup-overlay" onMouseDown={() => setShrinkStage(null)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <p>Beware, shrinking images cannot be undone.</p>
+            <p>BEWARE. Shrinking the {selIdxs.size} images cannot be undone.</p>
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => setShrinkStage(null)}>Cancel</button>
+              {/* FIX521.3.5.4.2: on 'Confirm' do <action-shrink-images> */}
               <button type="button" className="primary" onClick={runShrink}>Confirm</button>
             </div>
           </div>

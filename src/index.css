@@ -1249,6 +1249,16 @@ body {
 .sc-shrink-row input {
   width: 6rem;
 }
+/* FIX521.3.5.1.1: ghost value shown in italic */
+.sc-shrink-row input::placeholder {
+  font-style: italic;
+}
+/* FIX521.3.5.2: 'value must be >=1' hint */
+.sc-shrink-hint {
+  margin-top: 0.4rem;
+  font-size: 0.85em;
+  color: var(--color-text-muted, #aaa);
+}
 .sc-shrink-actions {
   display: flex;
   justify-content: flex-end;

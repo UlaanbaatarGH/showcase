@@ -1311,9 +1311,9 @@ body {
 }
 .sc-img-list-table input[type="text"] {
   width: 100%;
-  /* FIX521.2.1.13: the row inputs use the common (light grey) input-field
-     background with black text, not the dark-theme input style. */
-  background: #f0f0f0;
+  /* FIX521.2.1.13: editable fields are white (read-only cells stay grey via
+     the zebra striping); black text, common input border. */
+  background: #fff;
   color: #222;
   border: 1px solid #aaa;
   border-radius: 3px;

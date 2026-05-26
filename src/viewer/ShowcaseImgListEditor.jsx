@@ -58,6 +58,10 @@ export default function ShowcaseImgListEditor({
   const [selIdxs, setSelIdxs] = useState(() => new Set([selectedIdx]));
   const [anchor, setAnchor] = useState(selectedIdx);
 
+  // FIX521.2.1.4: Remove flow — overlay popup confirmation for removing all
+  // selected images. Boolean: the confirmation overlay is shown or not.
+  const [removeConfirm, setRemoveConfirm] = useState(false);
+
   // FIX521.3.5: Shrink flow. stage: 'input' ('Image new ratio'), 'confirm'
   // (cannot be undone), 'running' (progress). shrinkRatio is the target Disp.
   // ratio entered by the user; blank by default.
@@ -373,23 +377,18 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX521.2.1.4: Remove the selected image after a confirmation prompt.
-  // Locked while a pending image edit exists (same lock pattern as
-  // selection / reorder).
-  const removeSelected = async () => {
-    if (hasPendingImageEdit) return;
-    const im = images[selectedIdx];
-    if (!im) return;
-    const ok = window.confirm(
-      `Remove "${im.filename ?? 'this image'}" from this item?\n\n` +
-      `If no other item references the underlying file, the file will also be deleted from storage.`,
-    );
-    if (!ok) return;
+  // FIX521.2.1.4: Remove all the selected images after an overlay popup
+  // confirmation. Locked while a pending image edit exists (same lock pattern
+  // as selection / reorder).
+  const confirmRemove = async () => {
+    const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
+    if (targets.length === 0) { setRemoveConfirm(false); return; }
+    const removedIds = new Set(targets.map((im) => im.id));
     try {
-      await deleteFolderImage(im.id);
-      // Drop the row locally and adjust selection so a row stays selected
-      // (FIX521.2.1.1.10).
-      const next = images.filter((_, idx) => idx !== selectedIdx);
+      await Promise.all(targets.map((im) => deleteFolderImage(im.id)));
+      // Drop the removed rows locally and adjust selection so a row stays
+      // selected (FIX521.2.1.1.10).
+      const next = images.filter((im) => !removedIds.has(im.id));
       setImages(next);
       let newIdx = selectedIdx;
       if (next.length === 0) newIdx = 0;
@@ -397,8 +396,10 @@ export default function ShowcaseImgListEditor({
       setSelectedIdx(newIdx);
       setSelIdxs(new Set(next.length ? [newIdx] : []));
       setAnchor(newIdx);
+      setRemoveConfirm(false);
     } catch (e) {
       setError(e.message || String(e));
+      setRemoveConfirm(false);
     }
   };
 
@@ -534,13 +535,14 @@ export default function ShowcaseImgListEditor({
           >
             ↓
           </button>
-          {/* FIX521.2.1.4: Remove button — confirms with the user. */}
+          {/* FIX521.2.1.4: Remove button — overlay popup confirms removing all
+              selected images. */}
           <button
             type="button"
             data-yagu-id="button-remove-image"
-            onClick={removeSelected}
-            disabled={hasPendingImageEdit || images.length === 0}
-            title="Remove selected image"
+            onClick={() => setRemoveConfirm(true)}
+            disabled={hasPendingImageEdit || selIdxs.size === 0}
+            title="Remove selected image(s)"
           >
             Remove
           </button>
@@ -764,6 +766,19 @@ export default function ShowcaseImgListEditor({
         )}
         {error && <div className="sc-viewer-err">{error}</div>}
       </div>
+
+      {/* FIX521.2.1.4: overlay popup confirming removal of all selected images */}
+      {removeConfirm && (
+        <div className="setup-overlay" onMouseDown={() => setRemoveConfirm(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Remove {selIdxs.size} images</p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setRemoveConfirm(false)}>Cancel</button>
+              <button type="button" className="primary" onClick={confirmRemove}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FIX521.3.5: 'Image new ratio' prompt */}
       {shrinkStage === 'input' && (

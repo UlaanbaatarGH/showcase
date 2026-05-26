@@ -58,6 +58,7 @@ function AppBody() {
   return (
     <ShowcaseView
       slug={route.slug}
+      initialItemId={route.item}
       onNavigateHome={() => navigate('/')}
     />
   );

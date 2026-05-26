@@ -22,11 +22,13 @@ export function parseLocation() {
   const p = window.location.pathname || '/';
   if (p === '/' || p === '') return { view: 'home' };
   if (p === '/admin') return { view: 'admin' };
-  // First path segment is the slug; ignore anything after for now —
-  // future deep-links can layer more state on top.
-  const slug = p.replace(/^\/+/, '').split('/')[0];
+  // First path segment is the slug; the optional second segment is an item
+  // id for the FIX404 direct-access deep-link (<app-url>/{id}).
+  const segs = p.replace(/^\/+/, '').split('/');
+  const slug = segs[0];
   if (!slug) return { view: 'home' };
-  return { view: 'project', slug };
+  const item = segs[1] ? decodeURIComponent(segs[1]) : null;
+  return { view: 'project', slug, item };
 }
 
 export function navigate(path) {

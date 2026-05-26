@@ -123,7 +123,7 @@ function compareValues(a, b) {
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
 }
 
-export default function ShowcaseView({ slug, onNavigateHome }) {
+export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const { profile, signOut } = useAuth();
   const [data, setData] = useState(null);
   // FIX503.5.1: <menu-import>, <button-item-grouping>, <button-setup>,
@@ -624,6 +624,24 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     if (stillVisible) return;
     selectOnly(displayedFolders[0].id);
   }, [data, displayedFolders, selectedFolderId]);
+
+  // FIX404: direct item access via <app-url>/{id}. Once the folders load and
+  // only when the project is public (FIX404.1.1), open the item whose id
+  // (folder name) matches the URL — no group selected, the item shown on the
+  // right (FIX404.1.2). Runs after the select-first-item effect above so this
+  // selection wins; re-fires only when the URL item id actually changes.
+  const deepLinkedFor = useRef(null);
+  useEffect(() => {
+    if (!initialItemId || !data) return;
+    if (deepLinkedFor.current === initialItemId) return;
+    deepLinkedFor.current = initialItemId;
+    if (!data.project?.is_public) return; // FIX404.1.1
+    const target = (data.folders || []).find((f) => f.name === initialItemId);
+    if (!target) return;
+    setActiveGroupId(null); // FIX404.1.2: no group selected
+    selectOnly(target.id); // FIX404.1.2: item open on the right
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, initialItemId]);
 
   const handleHeaderClick = (key, ctrl) => {
     setSortKeys((keys) => {

@@ -15,7 +15,7 @@ import {
   IconSignOut,
   RichText,
 } from './Icons.jsx';
-import { parseSegment, bucketsWithValues, bucketFor, NO_VALUE_KEY } from './grouping/segments.js';
+import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import { getShowcase, getFolderImages, trackVisit, setFolderZoomFactor } from './data/backend.js';
@@ -507,12 +507,20 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     return folder.properties?.[String(activeGroup.property_id)];
   };
 
+  // FIX506.5.5 / FIX374.2.2: only interpret a value as a set/range (so one
+  // item can fall in several Group values) when the grouping property is
+  // flagged accepted-value-set. The 'img' derived group never is.
+  const activeGroupAcceptsSet =
+    !!activeGroup &&
+    activeGroup.property_id !== 'img' &&
+    !!propertiesById.get(activeGroup.property_id)?.accepted_value_set;
+
   const bucketList = useMemo(() => {
     if (!activeGroup || !activeParsed) return [];
     const values = liveFolders.map(valueForGroup);
-    return bucketsWithValues(values, activeParsed);
+    return bucketsWithValues(values, activeParsed, activeGroupAcceptsSet);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroup, activeParsed, liveFolders]);
+  }, [activeGroup, activeParsed, liveFolders, activeGroupAcceptsSet]);
 
   const displayedFolders = useMemo(() => {
     if (!data) return [];
@@ -520,13 +528,13 @@ export default function ShowcaseView({ slug, onNavigateHome }) {
     // FIX374.2.11 [ex-FIX372.6.2.11]: apply the active grouping bucket filter.
     if (activeGroup && activeBucketKey && activeParsed) {
       rows = rows.filter((f) => {
-        const v = valueForGroup(f);
+        const buckets = bucketsFor(valueForGroup(f), activeParsed, activeGroupAcceptsSet);
         if (activeBucketKey === NO_VALUE_KEY) {
           // FIX374.2.3 [ex-FIX372.6.2.3]: folders with no bucketable value sit in this pile.
-          return bucketFor(v, activeParsed) == null;
+          return buckets.length === 0;
         }
-        const b = bucketFor(v, activeParsed);
-        return b != null && b.key === activeBucketKey;
+        // FIX374.2.2: a set/range item matches any of the buckets it spans.
+        return buckets.some((b) => b.key === activeBucketKey);
       });
     }
     const activeFilters = Object.entries(filters).filter(([, v]) => v && v.trim());

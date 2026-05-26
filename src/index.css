@@ -1232,6 +1232,9 @@ body {
 .sc-img-list-table tbody tr {
   height: 2rem;
 }
+/* FIX521.2.1.13: rows are zebra-striped with black text. */
+.sc-img-list-table tbody tr:nth-child(even) td { background: #cccccc; }
+.sc-img-list-table tbody tr:nth-child(odd)  td { background: #dedede; }
 /* FIX521.3.5 <button-shrink-image-list> popups: small modal box that reuses
    the .setup-overlay backdrop. */
 .sc-shrink-box {
@@ -1271,7 +1274,9 @@ body {
 }
 .sc-img-list-table td {
   padding: 0.2rem 0.5rem;
-  border-bottom: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.05));
+  /* FIX521.2.1.13: black text on the zebra rows. */
+  color: #222;
+  border-bottom: 1px solid #bbb;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
@@ -1293,22 +1298,24 @@ body {
   text-align: center;
   opacity: 0.6;
 }
-.sc-img-list-table tr.selected td {
-  /* FIX521.2.1.9.1 / FIX550 <display-row-selection>: light, non-transparent
-     orange. Dark text so the read-only cells stay legible (the Section/Caption
-     inputs keep their own dark background + light text). */
+/* FIX521.2.1.9.1 / FIX550 <display-row-selection>: light, non-transparent
+   orange overrides the zebra background on selected rows (needs `tbody` so it
+   wins the specificity battle against the nth-child zebra rules). */
+.sc-img-list-table tbody tr.selected td {
   background: var(--display-row-selection);
   color: #222;
 }
-.sc-img-list-table tr:not(.selected):hover {
-  background: var(--color-bg-lighter);
+.sc-img-list-table tbody tr:not(.selected):hover td {
+  background: #e9e9e9;
   cursor: pointer;
 }
 .sc-img-list-table input[type="text"] {
   width: 100%;
-  background: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
+  /* FIX521.2.1.13: the row inputs use the common (light grey) input-field
+     background with black text, not the dark-theme input style. */
+  background: #f0f0f0;
+  color: #222;
+  border: 1px solid #aaa;
   border-radius: 3px;
   padding: 0.15rem 0.35rem;
   font: inherit;

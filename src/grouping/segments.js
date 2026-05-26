@@ -6,7 +6,7 @@
 // FIX374.2.2: a single item can belong to *several* Group values when its
 // property value is a set/range (FIX506.5.5). bucketsFor() returns every
 // bucket an item's value maps to; an item is then counted once per distinct
-// bucket (FIX374.2.2.2.1 / FIX374.2.2.3.1).
+// bucket (FIX374.2.2.2.2 / FIX374.2.2.3.2).
 import { parseValueSet } from '../properties/formulas.js';
 
 // A parsed segment. `type` is 'exact' | 'integer' | 'text'.
@@ -90,7 +90,7 @@ function dedupeBuckets(buckets) {
   return [...seen.values()];
 }
 
-// Buckets touched by a [lo..hi] value range (FIX374.2.2.2.1 / FIX374.2.2.3.1).
+// Buckets touched by a [lo..hi] value range (FIX374.2.2.2.2 / FIX374.2.2.3.2).
 //  - exact (individual values): every integer in [lo..hi] is its own bucket
 //    (e.g. 1800..1810 → 11 values). Non-numeric ranges fall back to the two
 //    endpoints as exact buckets.
@@ -172,7 +172,7 @@ export function bucketsWithValues(folderValues, parsed, acceptsSet) {
       noValueCount += 1;
       continue;
     }
-    // FIX374.2.2.2.1 / FIX374.2.2.3.1: count the item once per distinct
+    // FIX374.2.2.2.2 / FIX374.2.2.3.2: count the item once per distinct
     // bucket it belongs to (a range/set item lands in several).
     for (const b of buckets) {
       const existing = byKey.get(b.key);

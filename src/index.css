@@ -1290,7 +1290,8 @@ body {
   font-family: monospace;
 }
 .sc-img-list-table td.filesize {
-  opacity: 0.6;
+  /* FIX521.2.1.13: read-only numeric cells use the same black text as the
+     other read-only cells (no dimming); just right-aligned. */
   text-align: right;
 }
 .sc-img-list-table td.empty {

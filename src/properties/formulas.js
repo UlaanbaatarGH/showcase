@@ -4,22 +4,26 @@
 //
 // Functions:
 //   numberOf(prop)  — count of "terms" in the referenced property's value:
-//     - 'a, b, c'   → 3   (FIX506.5.4.1.1, comma-separated)
-//     - '2..6'      → 5   (FIX506.5.4.1.2, inclusive integer range)
-//     - '' / null   → ''  (unknown → blank, not 0, so the UI matches
-//                          an empty cell rather than a misleading 0)
+//     - 'a, b, c'     → 3   (FIX506.5.4.1.1, comma-separated)
+//     - '2..6'        → 5   (FIX506.5.4.1.2, inclusive integer range)
+//     - '27..31, 33'  → 6   (FIX506.5.4.1.3, combination: each range is
+//                            expanded and summed with the individual terms)
+//     - '' / null     → ''  (unknown → blank, not 0, so the UI matches
+//                            an empty cell rather than a misleading 0)
+
+// FIX506.5.4.1.3: count one comma-separated term — a range 'lo..hi' counts as
+// its inclusive integer span, anything else counts as a single term.
+function countTerm(term) {
+  const range = term.match(/^(-?\d+)\s*\.\.\s*(-?\d+)$/);
+  if (range) return Math.abs(Number(range[2]) - Number(range[1])) + 1;
+  return 1;
+}
 
 function numberOf(raw) {
   const s = String(raw ?? '').trim();
   if (!s) return '';
-  const range = s.match(/^(-?\d+)\s*\.\.\s*(-?\d+)$/);
-  if (range) {
-    const lo = Number(range[1]);
-    const hi = Number(range[2]);
-    return Math.abs(hi - lo) + 1;
-  }
   const terms = s.split(',').map((t) => t.trim()).filter(Boolean);
-  return terms.length;
+  return terms.reduce((sum, term) => sum + countTerm(term), 0);
 }
 
 const FUNCTIONS = { numberOf };

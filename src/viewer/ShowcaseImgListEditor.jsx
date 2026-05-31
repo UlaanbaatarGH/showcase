@@ -263,6 +263,7 @@ export default function ShowcaseImgListEditor({
   // Row selection — blocked while the image editor has pending changes.
   // Single-selects: collapses any multi-selection to this one row.
   const trySelect = (nextIdx) => {
+    console.log('[sel] trySelect', { nextIdx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
     if (hasPendingImageEdit) return;
     if (nextIdx < 0 || nextIdx >= images.length) return;
     setSelectedIdx(nextIdx);
@@ -278,6 +279,7 @@ export default function ShowcaseImgListEditor({
   // onRowClick, which broke Shift-click (range collapsed to the clicked row)
   // and made plain clicks behave differently on input cells vs plain cells.
   const focusRowPrimary = (idx) => {
+    console.log('[sel] focusRowPrimary (input onFocus)', { idx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
     if (hasPendingImageEdit) return;
     if (idx < 0 || idx >= images.length) return;
     setSelectedIdx(idx);
@@ -287,6 +289,16 @@ export default function ShowcaseImgListEditor({
   // Shift-click selects the range from the anchor. The clicked row becomes the
   // primary (drives the editor). Blocked while an image edit is pending.
   const onRowClick = (e, idx) => {
+    console.log('[sel] onRowClick', {
+      idx,
+      target: e.target?.tagName,
+      shift: e.shiftKey,
+      ctrl: e.ctrlKey,
+      meta: e.metaKey,
+      anchor,
+      selIdxs: [...selIdxs],
+      hasPendingImageEdit,
+    });
     if (hasPendingImageEdit) return;
     if (e.shiftKey) {
       const lo = Math.min(anchor, idx);
@@ -312,6 +324,7 @@ export default function ShowcaseImgListEditor({
   // a row without clicking into its Section/Caption input fields. Toggles the
   // row in/out of the selection and keeps it as the primary when added.
   const toggleRowSelect = (idx) => {
+    console.log('[sel] toggleRowSelect', { idx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
     if (hasPendingImageEdit) return;
     const s = new Set(selIdxs);
     if (s.has(idx)) s.delete(idx);
@@ -327,6 +340,7 @@ export default function ShowcaseImgListEditor({
   // when everything is selected collapses back to just the primary row.
   const allRowsSelected = images.length > 0 && selIdxs.size === images.length;
   const toggleSelectAll = () => {
+    console.log('[sel] toggleSelectAll', { allRowsSelected, hasPendingImageEdit, selIdxs: [...selIdxs] });
     if (hasPendingImageEdit) return;
     if (allRowsSelected) {
       setSelIdxs(new Set([selectedIdx]));
@@ -664,17 +678,27 @@ export default function ShowcaseImgListEditor({
                   className={isSelected ? 'selected' : ''}
                   onClick={(e) => onRowClick(e, idx)}
                 >
-                  {/* FIX521.2.1.9.2: easy row selection, independent of the
-                      Section/Caption inputs. */}
+                  {/* FIX521.2.1.9.2: easy row selection via a toggle BUTTON
+                      (not a checkbox) so it is visually distinct from the Main
+                      checkbox on the same row, which is real data. Plain click
+                      toggles the row in/out; Shift-click extends a range from
+                      the anchor. Clean button target — no text-input interference. */}
                   <td style={{ textAlign: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => toggleRowSelect(idx)}
+                    <button
+                      type="button"
+                      className={`sc-row-select-toggle${isSelected ? ' on' : ''}`}
+                      aria-pressed={isSelected}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('[sel] toggleButton', { idx, shift: e.shiftKey, ctrl: e.ctrlKey, isSelected });
+                        if (e.shiftKey || e.ctrlKey || e.metaKey) onRowClick(e, idx);
+                        else toggleRowSelect(idx);
+                      }}
                       disabled={hasPendingImageEdit}
-                      title="Select this row"
-                    />
+                      title={isSelected ? 'Selected — click to deselect (Shift-click for a range)' : 'Select this row (Shift-click for a range)'}
+                    >
+                      {isSelected ? '✓' : ''}
+                    </button>
                   </td>
                   {/* FIX521.2.1.12: order — Section, Caption, Main, File name,
                       File size, Resolution, Zoom factor. */}

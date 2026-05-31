@@ -1310,6 +1310,27 @@ body {
   background: #e9e9e9;
   cursor: pointer;
 }
+/* FIX521.2.1.9.2: row-select toggle button — a square pill that fills with the
+   selection colour when on, so it reads as a toggle, not as a data checkbox
+   (the Main column uses a real checkbox). */
+.sc-row-select-toggle {
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  line-height: 1;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #222;
+  background: #fff;
+  border: 1px solid #888;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sc-row-select-toggle.on {
+  background: var(--display-row-selection);
+  border-color: #c98b3b;
+}
+.sc-row-select-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .sc-img-list-table input[type="text"] {
   width: 100%;
   /* FIX521.2.1.13: editable fields are white (read-only cells stay grey via

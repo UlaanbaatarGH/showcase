@@ -270,6 +270,19 @@ export default function ShowcaseImgListEditor({
     setAnchor(nextIdx);
   };
 
+  // FIX521.2.1.9: focusing a row's Section/Caption input makes it the primary
+  // row (so the editor follows it, and keyboard-tab navigation still updates
+  // the selection) WITHOUT collapsing the multi-selection or moving the
+  // Shift-click anchor. Using trySelect here reset `anchor` and clobbered
+  // `selIdxs` — and because focus fires before click, it ran *before*
+  // onRowClick, which broke Shift-click (range collapsed to the clicked row)
+  // and made plain clicks behave differently on input cells vs plain cells.
+  const focusRowPrimary = (idx) => {
+    if (hasPendingImageEdit) return;
+    if (idx < 0 || idx >= images.length) return;
+    setSelectedIdx(idx);
+  };
+
   // FIX521.2.1.9: plain click selects one; Ctrl/Cmd-click toggles a row;
   // Shift-click selects the range from the anchor. The clicked row becomes the
   // primary (drives the editor). Blocked while an image edit is pending.
@@ -673,7 +686,7 @@ export default function ShowcaseImgListEditor({
                       onBlur={(e) =>
                         patchFolderImage(im.id, { section: e.target.value || null })
                       }
-                      onFocus={() => trySelect(idx)}
+                      onFocus={() => focusRowPrimary(idx)}
                     />
                   </td>
                   <td>
@@ -684,7 +697,7 @@ export default function ShowcaseImgListEditor({
                       onBlur={(e) =>
                         patchFolderImage(im.id, { caption: e.target.value || null })
                       }
-                      onFocus={() => trySelect(idx)}
+                      onFocus={() => focusRowPrimary(idx)}
                     />
                   </td>
                   <td style={{ textAlign: 'center' }}>

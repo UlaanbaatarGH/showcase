@@ -57,6 +57,10 @@ export default function ShowcaseImgListEditor({
   // the Shift-click pivot.
   const [selIdxs, setSelIdxs] = useState(() => new Set([selectedIdx]));
   const [anchor, setAnchor] = useState(selectedIdx);
+  // FIX521.2.1.9: the check/uncheck action of the last plain click. Shift-click
+  // replays this action across the anchor..clicked range ("extend what I just
+  // did"): 'select' checks the range, 'deselect' unchecks it.
+  const [lastAction, setLastAction] = useState('select');
 
   // FIX521.2.1.4: Remove flow — overlay popup confirmation for removing all
   // selected images. Boolean: the confirmation overlay is shown or not.
@@ -269,6 +273,7 @@ export default function ShowcaseImgListEditor({
     setSelectedIdx(nextIdx);
     setSelIdxs(new Set([nextIdx]));
     setAnchor(nextIdx);
+    setLastAction('select'); // FIX521.2.1.9: a plain single-select is a "check"
   };
 
   // FIX521.2.1.9: focusing a row's Section/Caption input makes it the primary
@@ -285,8 +290,9 @@ export default function ShowcaseImgListEditor({
     setSelectedIdx(idx);
   };
 
-  // FIX521.2.1.9: plain click selects one; Ctrl/Cmd-click toggles a row;
-  // Shift-click selects the range from the anchor. The clicked row becomes the
+  // FIX521.2.1.9: plain click selects one; Ctrl/Cmd-click toggles a row (and
+  // records whether that was a check or uncheck); Shift-click replays that last
+  // action across the anchor..clicked range. The clicked row becomes the
   // primary (drives the editor). Blocked while an image edit is pending.
   const onRowClick = (e, idx) => {
     console.log('[sel] onRowClick', {
@@ -296,25 +302,38 @@ export default function ShowcaseImgListEditor({
       ctrl: e.ctrlKey,
       meta: e.metaKey,
       anchor,
+      lastAction,
       selIdxs: [...selIdxs],
       hasPendingImageEdit,
     });
     if (hasPendingImageEdit) return;
     if (e.shiftKey) {
+      // FIX521.2.1.9: replay the last plain click's action across the
+      // anchor..idx range. lastAction 'select' checks the range, 'deselect'
+      // unchecks it. Merge into the current selection (rows outside the range
+      // are left as-is); the anchor stays put so the endpoint can be dragged.
       const lo = Math.min(anchor, idx);
       const hi = Math.max(anchor, idx);
-      const s = new Set();
-      for (let i = lo; i <= hi; i++) s.add(i);
+      const s = new Set(selIdxs);
+      for (let i = lo; i <= hi; i++) {
+        if (lastAction === 'deselect') s.delete(i);
+        else s.add(i);
+      }
+      if (s.size === 0 && images.length > 0) s.add(selectedIdx); // FIX521.2.1.1.10
       setSelIdxs(s);
-      setSelectedIdx(idx);
+      if (s.has(idx)) setSelectedIdx(idx);
+      else if (!s.has(selectedIdx) && s.size) setSelectedIdx(Math.min(...s));
     } else if (e.ctrlKey || e.metaKey) {
       const s = new Set(selIdxs);
-      if (s.has(idx)) s.delete(idx);
-      else s.add(idx);
-      if (s.size === 0) s.add(idx); // one row always selected (FIX521.2.1.1.10)
+      let action;
+      if (s.has(idx)) { s.delete(idx); action = 'deselect'; }
+      else { s.add(idx); action = 'select'; }
+      if (s.size === 0) { s.add(idx); action = 'select'; } // one row always selected (FIX521.2.1.1.10)
       setSelIdxs(s);
       setAnchor(idx);
-      setSelectedIdx(idx);
+      setLastAction(action); // FIX521.2.1.9: Ctrl-click sets the action Shift replays
+      if (s.has(idx)) setSelectedIdx(idx);
+      else if (!s.has(selectedIdx)) setSelectedIdx(Math.min(...s));
     } else {
       trySelect(idx);
     }
@@ -324,14 +343,16 @@ export default function ShowcaseImgListEditor({
   // a row without clicking into its Section/Caption input fields. Toggles the
   // row in/out of the selection and keeps it as the primary when added.
   const toggleRowSelect = (idx) => {
-    console.log('[sel] toggleRowSelect', { idx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
+    console.log('[sel] toggleRowSelect', { idx, hasPendingImageEdit, anchor, lastAction, selIdxs: [...selIdxs] });
     if (hasPendingImageEdit) return;
     const s = new Set(selIdxs);
-    if (s.has(idx)) s.delete(idx);
-    else s.add(idx);
-    if (s.size === 0) s.add(idx); // one row always selected (FIX521.2.1.1.10)
+    let action;
+    if (s.has(idx)) { s.delete(idx); action = 'deselect'; }
+    else { s.add(idx); action = 'select'; }
+    if (s.size === 0) { s.add(idx); action = 'select'; } // one row always selected (FIX521.2.1.1.10)
     setSelIdxs(s);
     setAnchor(idx);
+    setLastAction(action); // FIX521.2.1.9: this becomes the action Shift-click replays
     if (s.has(idx)) setSelectedIdx(idx);
     else if (!s.has(selectedIdx)) setSelectedIdx(Math.min(...s));
   };

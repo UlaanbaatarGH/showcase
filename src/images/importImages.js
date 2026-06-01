@@ -33,10 +33,11 @@ export function parseVersion(filename) {
 export async function scanFiles(fileList) {
   const byItem = new Map();
   const sortPromises = [];
+  const _dropped = []; // [import] trace: files the scan ignores, with the reason
   for (const file of fileList) {
     const rel = file.webkitRelativePath || file.name;
     const segments = rel.split('/');
-    if (segments.length < 2) continue;
+    if (segments.length < 2) { _dropped.push({ rel, why: 'no-parent-folder' }); continue; }
     const filename = segments[segments.length - 1];
     const itemName = segments[segments.length - 2];
     if (!byItem.has(itemName)) byItem.set(itemName, { files: [], sortList: [] });
@@ -50,10 +51,18 @@ export async function scanFiles(fileList) {
       );
       continue;
     }
-    if (!isAcceptedImage(filename)) continue;
+    if (!isAcceptedImage(filename)) { _dropped.push({ rel, why: 'not-accepted-ext' }); continue; }
     byItem.get(itemName).files.push({ filename, file });
   }
   await Promise.all(sortPromises);
+  // [import] trace: how the picked folder mapped to items, and what was ignored.
+  console.log('[import] scanFiles', {
+    inputFiles: fileList.length,
+    sampleRelPaths: Array.from(fileList).slice(0, 5).map((f) => f.webkitRelativePath || f.name),
+    items: [...byItem].map(([name, e]) => `${name}: ${e.files.length} img`),
+    droppedCount: _dropped.length,
+    dropped: _dropped.slice(0, 15),
+  });
   // Drop items that ended up with neither images nor sort entries (e.g. an
   // item folder that contained only sort.txt with no listed files).
   for (const [name, entry] of byItem) {

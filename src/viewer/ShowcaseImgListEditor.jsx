@@ -113,8 +113,13 @@ export default function ShowcaseImgListEditor({
   }, [images, sizesByUrl]);
 
   // FIX521.2.1.1.6 (Resolution) / FIX521.2.1.1.7 (Zoom factor): natural pixel
-  // dimensions per image, probed once per URL. Reading dimensions doesn't
-  // taint anything, so no crossOrigin needed. Value: { w, h } or null.
+  // dimensions per image, probed once per URL. Value: { w, h } or null.
+  // crossOrigin MUST match the editor canvas (ShowcaseImageCanvas, which uses
+  // 'anonymous'): the image host (R2) only returns CORS headers — and Vary:
+  // Origin — when an Origin is sent, so a plain (no-crossOrigin) probe would
+  // cache a header-less copy that the canvas's CORS load then reuses and the
+  // browser blocks. Loading the probe with crossOrigin keeps the cached copy
+  // CORS-valid for both.
   const [dimsByUrl, setDimsByUrl] = useState({});
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +127,7 @@ export default function ShowcaseImgListEditor({
     if (pending.length === 0) return undefined;
     for (const url of pending) {
       const probe = new Image();
+      probe.crossOrigin = 'anonymous';
       probe.onload = () => {
         if (cancelled) return;
         setDimsByUrl((prev) =>

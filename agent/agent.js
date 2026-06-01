@@ -16,6 +16,20 @@ const __dirname  = path.dirname(__filename);
 const app  = express();
 const PORT = 3001;
 
+// Accented paths can arrive NFC- or NFD-normalized depending on the source
+// (a path that round-trips through the browser/clipboard may be decomposed,
+// e.g. "régler"). NTFS lookup is normalization-sensitive, so `fs` throws
+// ENOENT when the form doesn't match the on-disk name. Resolve to whichever
+// Unicode form actually exists before any read/list/stat.
+function resolveFsPath(p) {
+  if (typeof p !== 'string' || fs.existsSync(p)) return p;
+  for (const form of ['NFC', 'NFD']) {
+    const alt = p.normalize(form);
+    if (alt !== p && fs.existsSync(alt)) return alt;
+  }
+  return p; // unchanged → let the caller's fs call throw ENOENT as before
+}
+
 let targetVite = null; // reference to the spawned target Vite process
 let registeredFilePath = null; // currently registered file for read/write (/file/open + /file/save)
 let targetStartupProject = null; // --project path for the currently running target
@@ -91,7 +105,7 @@ app.get('/agent/dir/list', (req, res) => {
   const { path: dirPath } = req.query;
   if (!dirPath) return res.status(400).json({ error: 'path is required' });
   try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    const entries = fs.readdirSync(resolveFsPath(dirPath), { withFileTypes: true });
     const result = entries
       .filter(e => !e.name.startsWith('.'))
       .map(e => ({ name: e.name, type: e.isDirectory() ? 'folder' : 'file' }))
@@ -178,7 +192,7 @@ app.get('/agent/dir/image', (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const mimeMap = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml' };
     const mime = mimeMap[ext] || 'application/octet-stream';
-    const data = fs.readFileSync(filePath);
+    const data = fs.readFileSync(resolveFsPath(filePath));
     res.set('Content-Type', mime);
     res.send(data);
   } catch (err) {
@@ -206,7 +220,7 @@ app.get('/agent/file/list', (req, res) => {
   const { path: folderPath } = req.query;
   if (!folderPath) return res.status(400).json({ error: 'path is required' });
   try {
-    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+    const entries = fs.readdirSync(resolveFsPath(folderPath), { withFileTypes: true });
     const files = entries
       .filter(e => e.isFile() && (e.name.endsWith('.txt') || e.name.endsWith('.md')))
       .map(e => e.name)
@@ -226,7 +240,7 @@ app.post('/file/open', (req, res) => {
   if (!filePath) return res.status(400).json({ error: 'path is required' });
   registeredFilePath = filePath;
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = fs.readFileSync(resolveFsPath(filePath), 'utf8');
     res.json({ content, path: filePath });
   } catch (err) {
     if (err.code === 'ENOENT') return res.status(404).json({ path: filePath });
@@ -297,7 +311,7 @@ app.get('/agent/project/read', (req, res) => {
   if (!projectPath) return res.status(400).json({ error: 'path is required' });
   const filePath = path.join(projectPath, 'project.tell');
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = fs.readFileSync(resolveFsPath(filePath), 'utf8');
     res.json({ content });
   } catch (err) {
     if (err.code === 'ENOENT') return res.status(404).json({ error: 'project.tell not found' });
@@ -330,7 +344,7 @@ app.get('/file/stat', (req, res) => {
   const { path: filePath } = req.query;
   if (!filePath) return res.status(400).json({ error: 'path is required' });
   try {
-    const st = fs.statSync(filePath);
+    const st = fs.statSync(resolveFsPath(filePath));
     res.json({ exists: true, mtime: st.mtimeMs, size: st.size });
   } catch (err) {
     if (err.code === 'ENOENT') return res.json({ exists: false, mtime: 0, size: 0 });
@@ -346,7 +360,7 @@ app.get('/file/read', (req, res) => {
   const { path: filePath } = req.query;
   if (!filePath) return res.status(400).json({ error: 'path is required' });
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = fs.readFileSync(resolveFsPath(filePath), 'utf8');
     res.json({ content, path: filePath });
   } catch (err) {
     if (err.code === 'ENOENT') return res.status(404).json({ content: '', path: filePath });

@@ -430,7 +430,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       (c) => c.type !== 'main_image_icon',
     );
     // FIX510.5.4: when no column is defined, fall back to the # column.
-    return cols.length > 0 ? cols : [{ type: 'folder_name' }];
+    // _hash forces the header to '#' regardless of folder_column_name.
+    return cols.length > 0 ? cols : [{ type: 'folder_name', _hash: true }];
   })();
   const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
@@ -855,7 +856,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX510.2.1.1.2 / <property-short-name>: Showcase column headers use the
   // property's short name when defined; fall back to the full name otherwise.
   const columnHeaderLabel = (col) => {
-    if (col.type === 'folder_name') return folderColumnName;
+    // FIX510.5.4: _hash marks the fallback # column — always '#', never the renamed label.
+    if (col.type === 'folder_name') return col._hash ? '#' : folderColumnName;
     if (col.type === 'img') return 'Img';
     if (col.type === 'img_size') return 'Img size'; // FIX500.2.3.2.1.2.2.4
     if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX500.2.3.2.1.2.2.5

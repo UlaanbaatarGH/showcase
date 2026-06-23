@@ -425,9 +425,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX506.2.2 / FIX500.2.3.2.1.2.2 (updated): the 'Main image icon'
   // column was removed. Filter any leftover entries from previously
   // saved view_setup so existing projects don't render orphan columns.
-  const configuredColumns = (showcaseCfg.columns ?? []).filter(
-    (c) => c.type !== 'main_image_icon',
-  );
+  const configuredColumns = (() => {
+    const cols = (showcaseCfg.columns ?? []).filter(
+      (c) => c.type !== 'main_image_icon',
+    );
+    // FIX510.5.4: when no column is defined, fall back to the # column.
+    return cols.length > 0 ? cols : [{ type: 'folder_name' }];
+  })();
   const folderColumnName = showcaseCfg.folder_column_name || '#';
   const romanYearConverter = !!showcaseCfg.roman_year_converter;
   // FIX373 (updated): groups carry their own id + name. normalizeGroups

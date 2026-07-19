@@ -52,25 +52,26 @@ function clearFailedSignIns() {
   try { localStorage.removeItem(SIGNIN_FAILS_KEY); } catch { /* ignore */ }
 }
 
+// 19-july-2026: Commented out on Hervé's request
 // FIX315.2 / FIX315.2.1: idle-timeout configuration + a persisted
 // "last activity" stamp. The in-memory setTimeout below only counts
 // time while the JS context is alive — when the user closes the tab
 // or shuts down the PC, only this localStorage stamp tells us, on
 // return, that the inactivity gap exceeded the limit.
-const IDLE_MS = 15 * 60 * 1000;
-const LAST_ACTIVITY_KEY = 'sc-last-activity';
-function readLastActivity() {
-  try {
-    const v = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
-    return Number.isFinite(v) && v > 0 ? v : 0;
-  } catch { return 0; }
-}
-function stampActivity() {
-  try { localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now())); } catch { /* ignore */ }
-}
-function clearLastActivity() {
-  try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
-}
+// const IDLE_MS = 15 * 60 * 1000;
+// const LAST_ACTIVITY_KEY = 'sc-last-activity';
+// function readLastActivity() {
+//   try {
+//     const v = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+//     return Number.isFinite(v) && v > 0 ? v : 0;
+//   } catch { return 0; }
+// }
+// function stampActivity() {
+//   try { localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now())); } catch { /* ignore */ }
+// }
+// function clearLastActivity() {
+//   try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
+// }
 
 // FIX310 + FIX300: holds the current session token and the app_user profile row.
 const AuthContext = createContext(null);
@@ -88,18 +89,17 @@ export function AuthProvider({ children }) {
       const { data } = await supabase.auth.getSession();
       let s = data.session ?? null;
       if (s) {
-        const last = readLastActivity();
-        if (last && Date.now() - last > IDLE_MS) {
-          // FIX315.2.1: session restored from localStorage but the
-          // inactivity gap exceeded the limit while the tab was
-          // closed — sign out before exposing it so visit tracking
-          // and /me requests run unauthenticated.
-          await supabase.auth.signOut();
-          s = null;
-          clearLastActivity();
-        } else {
-          stampActivity();
-        }
+        // 19-july-2026: Commented out on Hervé's request
+        // FIX315.2 / FIX315.2.1: sign out if the inactivity gap
+        // exceeded the idle limit while the tab was closed.
+        // const last = readLastActivity();
+        // if (last && Date.now() - last > IDLE_MS) {
+        //   await supabase.auth.signOut();
+        //   s = null;
+        //   clearLastActivity();
+        // } else {
+        //   stampActivity();
+        // }
       }
       if (cancelled) return;
       // Set the module-scope auth token synchronously with the session state
@@ -208,30 +208,32 @@ export function AuthProvider({ children }) {
     // Clear the backend auth token eagerly so any in-flight effect refiring
     // on the session change doesn't replay a request with a now-invalid JWT.
     setAuthToken(null);
-    clearLastActivity();
+    // 19-july-2026: Commented out on Hervé's request
+    // FIX315.2 / FIX315.2.1: clearLastActivity();
     await supabase.auth.signOut();
   }, []);
 
+  // 19-july-2026: Commented out on Hervé's request
   // FIX315.2 / FIX315.2.1: automatic sign-out after 15 minutes of inactivity.
   // Only armed while a session exists. Any mouse/keyboard/touch/scroll event
   // counts as activity and resets the timer; the timestamp is also persisted
   // so an across-shutdown gap is caught on next mount (see effect above).
-  useEffect(() => {
-    if (!session) return undefined;
-    let timer = null;
-    const reset = () => {
-      stampActivity();
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => { signOut(); }, IDLE_MS);
-    };
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
-    reset();
-    return () => {
-      if (timer) clearTimeout(timer);
-      events.forEach((e) => window.removeEventListener(e, reset));
-    };
-  }, [session, signOut]);
+  // useEffect(() => {
+  //   if (!session) return undefined;
+  //   let timer = null;
+  //   const reset = () => {
+  //     stampActivity();
+  //     if (timer) clearTimeout(timer);
+  //     timer = setTimeout(() => { signOut(); }, IDLE_MS);
+  //   };
+  //   const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+  //   events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+  //   reset();
+  //   return () => {
+  //     if (timer) clearTimeout(timer);
+  //     events.forEach((e) => window.removeEventListener(e, reset));
+  //   };
+  // }, [session, signOut]);
 
   // Auto-recover from a stale Supabase JWT. The data layer dispatches
   // 'auth:invalid' when any backend call returns 401 while a token is

@@ -1320,9 +1320,18 @@ body {
   text-overflow: ellipsis;
 }
 /* FIX521.2.1.1.13: card line 2 — unlabeled File name/Size/Resolution/Zoom
-   factor, laid out inline inside the single colSpan cell. */
+   factor, laid out inline inside the single colSpan cell. The row's own
+   zebra/selected background (below) must cover both the blank leading
+   cell (under the select column) and the detail cell — explicit here
+   rather than relying solely on the general tbody tr.even/odd/selected
+   td rules, so the whole line reads as one continuous band. */
 .sc-img-list-table tr.sc-img-list-detail-row {
   height: 1.6rem;
+}
+.sc-img-list-table tbody tr.sc-img-list-detail-row.even td { background: #cccccc; }
+.sc-img-list-table tbody tr.sc-img-list-detail-row.odd  td { background: #dedede; }
+.sc-img-list-table tbody tr.sc-img-list-detail-row.selected td {
+  background: var(--display-row-selection);
 }
 .sc-img-list-table td.sc-img-list-detail-cell {
   display: flex;

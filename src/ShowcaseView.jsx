@@ -320,6 +320,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     };
     setFsIsPanning(true);
   };
+  // FIX523.3.5 (enhancement, not in the literal spec text — requested
+  // directly in session): mouse wheel also drives the zoom slider.
+  const onFsZoomWheel = (e) => {
+    e.preventDefault();
+    setFsZoomLevel((z) => Math.min(3, Math.max(1, Math.round((z - e.deltaY * 0.001) * 10) / 10)));
+  };
   useEffect(() => {
     if (!fsIsPanning) return undefined;
     const move = (e) => {
@@ -2090,6 +2096,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             onTouchStart={onImageTouchStart}
             onTouchEnd={onImageTouchEnd}
             onMouseDown={onFsZoomPointerDown}
+            onWheel={onFsZoomWheel}
             onClick={(e) => {
               if (wasSwipeRef.current) {
                 wasSwipeRef.current = false;

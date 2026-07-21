@@ -2002,7 +2002,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           full-screen image overlay. FIX523.2: same layout as the
           in-page viewer with no sections panel — image fills the
           column, then a bottom strip carries the caption (centred)
-          and the nav pill (bottom-right). FIX523.3.1 ESC + FIX521.3.2
+          and the nav pill (bottom-right). FIX523.3.1 ESC + FIX523.3.2
           system back close the overlay (no in-overlay Back button —
           rely on the navigator). FIX521.3.4 swipe handlers wired on
           the image wrap. */}

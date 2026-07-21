@@ -1185,14 +1185,37 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   /* Disable browser pan-x so horizontal drags become swipes, not page
      scrolls. The overlay has no other horizontal scroll content. */
   touch-action: pan-y;
+}
+/* FIX523.3.5: same zoomed/panning mechanics as .sc-viewer-img-scroll. */
+.sc-fullscreen-img-wrap.zoomed {
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: auto;
+  cursor: grab;
+}
+.sc-fullscreen-img-wrap.zoomed.panning {
+  cursor: grabbing;
 }
 .sc-fullscreen-img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+/* FIX523.3.5: zoom slider row, pinned to the top of the overlay. */
+.sc-fullscreen-zoom {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #fff;
+}
+.sc-fullscreen-zoom input[type="range"] {
+  width: 100%;
+  max-width: 220px;
 }
 /* FIX523.3.2: closing fullscreen relies on the navigator's back
    button + ESC + backdrop tap. No in-overlay Back button is rendered.

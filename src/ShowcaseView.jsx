@@ -196,6 +196,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // >1 enlarges the image past the container so scrollbars appear.
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
+  // FIX523.3.5: zoom slider for the full-screen viewer — independent of
+  // the in-page one (separate panel, own state), same fit/scroll/pan
+  // mechanics.
+  const [fsZoomLevel, setFsZoomLevel] = useState(1);
+  const [fsIsPanning, setFsIsPanning] = useState(false);
   const menuRef = useRef(null);
   const mainRef = useRef(null);
   const selectedRowRef = useRef(null);
@@ -212,6 +217,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const viewerScrollRef = useRef(null);
   const panStateRef = useRef(null);
   const draggedRef = useRef(false);
+  // FIX523.3.5: same drag-to-pan mechanics, independent full-screen copy.
+  const fsViewerScrollRef = useRef(null);
+  const fsPanStateRef = useRef(null);
+  const fsDraggedRef = useRef(false);
   const onImageTouchStart = (e) => {
     const t = e.touches[0];
     if (!t) return;
@@ -293,6 +302,47 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       window.removeEventListener('mouseup', up);
     };
   }, [isPanning]);
+
+  // FIX523.3.5: zoom slider — independent full-screen copy of the
+  // FIX520.3.3 drag-to-pan mechanics. fsDraggedRef also suppresses the
+  // backdrop's click-to-close so a pan gesture doesn't exit fullscreen.
+  const onFsZoomPointerDown = (e) => {
+    if (fsZoomLevel <= 1) return;
+    const wrap = fsViewerScrollRef.current;
+    if (!wrap) return;
+    e.preventDefault();
+    fsDraggedRef.current = false;
+    fsPanStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: wrap.scrollLeft,
+      scrollTop: wrap.scrollTop,
+    };
+    setFsIsPanning(true);
+  };
+  useEffect(() => {
+    if (!fsIsPanning) return undefined;
+    const move = (e) => {
+      const wrap = fsViewerScrollRef.current;
+      const p = fsPanStateRef.current;
+      if (!wrap || !p) return;
+      const dx = e.clientX - p.startX;
+      const dy = e.clientY - p.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) fsDraggedRef.current = true;
+      wrap.scrollLeft = p.scrollLeft - dx;
+      wrap.scrollTop = p.scrollTop - dy;
+    };
+    const up = () => {
+      setFsIsPanning(false);
+      fsPanStateRef.current = null;
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [fsIsPanning]);
 
   // Draggable vertical splitter between the item table and the image viewer.
   const onSplitterDown = (e) => {
@@ -440,6 +490,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   useEffect(() => {
     setZoomLevel(1);
   }, [currentImageIdx, selectedFolderId]);
+
+  // FIX523.3.5: same per-image reset, independent full-screen zoom —
+  // also resets when the overlay is (re)opened.
+  useEffect(() => {
+    setFsZoomLevel(1);
+  }, [currentImageIdx, selectedFolderId, fullScreen]);
 
   const properties = data?.properties ?? [];
   // Lookup maps for formula evaluation — rebuilt whenever the property list
@@ -2012,13 +2068,35 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           data-yagu-id="panel-showcase-img-viewer-fullscreen"
           onClick={() => setFullScreen(false)}
         >
+          {/* FIX523.3.5: zoom slider — same mechanics as FIX520.3.3, own
+              state. Click swallowed so dragging the slider doesn't close
+              the overlay. */}
+          <div className="sc-fullscreen-zoom" onClick={(e) => e.stopPropagation()}>
+            <span className="sc-viewer-zoom-label">Zoom</span>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={fsZoomLevel}
+              onChange={(e) => setFsZoomLevel(Number(e.target.value))}
+              aria-label="Zoom image"
+              title="Zoom"
+            />
+          </div>
           <div
-            className="sc-fullscreen-img-wrap"
+            ref={fsViewerScrollRef}
+            className={`sc-fullscreen-img-wrap${fsZoomLevel > 1 ? ' zoomed' : ''}${fsIsPanning ? ' panning' : ''}`}
             onTouchStart={onImageTouchStart}
             onTouchEnd={onImageTouchEnd}
+            onMouseDown={onFsZoomPointerDown}
             onClick={(e) => {
               if (wasSwipeRef.current) {
                 wasSwipeRef.current = false;
+                e.stopPropagation();
+              }
+              if (fsDraggedRef.current) {
+                fsDraggedRef.current = false;
                 e.stopPropagation();
               }
             }}
@@ -2028,6 +2106,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               rotation={currentImage.rotation ?? 0}
               crop={currentImage.crop ?? null}
               className="sc-fullscreen-img"
+              zoom={fsZoomLevel}
             />
           </div>
           {/* FIX523.2: bottom strip mirrors the in-page no-sections

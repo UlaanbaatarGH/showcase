@@ -2004,7 +2004,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           column, then a bottom strip carries the caption (centred)
           and the nav pill (bottom-right). FIX523.3.1 ESC + FIX523.3.2
           system back close the overlay (no in-overlay Back button —
-          rely on the navigator). FIX521.3.4 swipe handlers wired on
+          rely on the navigator). FIX523.3.4 swipe handlers wired on
           the image wrap. */}
       {fullScreen && currentImage && (
         <div

@@ -1176,7 +1176,7 @@ body {
   gap: 0.5rem;
 }
 .sc-fullscreen-img-wrap {
-  /* FIX521.3.4 / FIX520.3.2.3: dedicated touch surface for swipe-to-
+  /* FIX523.3.4 / FIX520.3.2.3: dedicated touch surface for swipe-to-
      navigate. Fills the available height so a swipe anywhere over
      the image area is captured, regardless of the image's actual
      rendered size. */

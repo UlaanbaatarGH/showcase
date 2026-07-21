@@ -787,7 +787,11 @@ export default function ShowcaseImgListEditor({
                       className={`${rowClass} sc-img-list-detail-row`}
                       onClick={(e) => onRowClick(e, idx)}
                     >
-                      <td colSpan={4} className="sc-img-list-detail-cell">
+                      {/* Blank cell under the select column — the detail
+                          line spreads from under Section, not the row
+                          selector. */}
+                      <td></td>
+                      <td colSpan={3} className="sc-img-list-detail-cell">
                         {/* FIX521.2.1.1.1: File name (read-only). */}
                         <span className="filename" title={im.filename}>
                           {im.filename ?? ''}

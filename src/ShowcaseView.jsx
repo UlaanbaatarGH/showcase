@@ -2046,7 +2046,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 {currentImage.caption}
               </div>
             )}
-            {/* FIX521.3.3 / FIX520.3.2.2: prev / i-n / next pill,
+            {/* FIX523.3.3 / FIX520.3.2.2: prev / i-n / next pill,
                 identical to the in-page nav. */}
             <div className="sc-viewer-nav">
               <button

@@ -1196,7 +1196,7 @@ body {
 }
 /* FIX523.3.2: closing fullscreen relies on the navigator's back
    button + ESC + backdrop tap. No in-overlay Back button is rendered.
-   FIX520.3.2.2 + FIX521.3.3: nav reuses the in-page .sc-viewer-nav
+   FIX520.3.2.2 + FIX523.3.3: nav reuses the in-page .sc-viewer-nav
    styling and now lives inside the shared .sc-viewer-bottom strip,
    so no fullscreen-specific positioning rule is needed. */
 

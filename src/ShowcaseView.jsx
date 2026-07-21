@@ -1998,7 +1998,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX520.3.2 + FIX521 <panel-showcase-img-viewer-fullscreen>:
+      {/* FIX520.3.2 + FIX523 <panel-showcase-img-viewer-fullscreen>:
           full-screen image overlay. FIX521.2: same layout as the
           in-page viewer with no sections panel — image fills the
           column, then a bottom strip carries the caption (centred)

@@ -1160,7 +1160,7 @@ body {
 .sc-viewer-img-clickable {
   cursor: zoom-in;
 }
-/* FIX521 <panel-showcase-img-viewer-fullscreen>: flex column — the
+/* FIX523 <panel-showcase-img-viewer-fullscreen>: flex column — the
    image area takes all available height; the bottom strip (caption +
    nav, sharing .sc-viewer-bottom with the in-page viewer) sits at
    the bottom. */

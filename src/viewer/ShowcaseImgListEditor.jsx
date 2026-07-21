@@ -382,28 +382,49 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // Reorder: swap sort_order between selected row and its neighbour,
-  // then PATCH both folder_image rows. UI is updated optimistically.
+  // FIX521.3.1 / FIX521.3.2: a multi-row move is only valid when the
+  // selection is an unbroken block — moving a scattered selection as one
+  // unit wouldn't have a sensible single "direction". null when selIdxs
+  // has gaps (or is empty).
+  const selBlock = (() => {
+    if (selIdxs.size === 0) return null;
+    const sorted = [...selIdxs].sort((a, b) => a - b);
+    const lo = sorted[0];
+    const hi = sorted[sorted.length - 1];
+    if (hi - lo + 1 !== sorted.length) return null;
+    return { lo, hi };
+  })();
+
+  // Reorder: FIX521.3.1 (updated) — moves every row in a contiguous
+  // selected block one position in `delta`'s direction (not just a
+  // single row), by rotating the block against its one adjacent
+  // "boundary" row. sort_order values are reassigned positionally so
+  // the new order is preserved; row identities (ids) don't change.
+  // PATCHes every affected folder_image row. UI is updated optimistically.
   const moveSelected = async (delta) => {
-    if (hasPendingImageEdit) return;
-    const i = selectedIdx;
-    const j = i + delta;
-    if (j < 0 || j >= images.length) return;
-    const a = images[i];
-    const b = images[j];
-    if (!a || !b) return;
-    const swapped = [...images];
-    swapped[i] = { ...b, sort_order: a.sort_order };
-    swapped[j] = { ...a, sort_order: b.sort_order };
-    setImages(swapped);
-    setSelectedIdx(j);
-    setSelIdxs(new Set([j]));
-    setAnchor(j);
+    if (hasPendingImageEdit || !selBlock) return;
+    const { lo, hi } = selBlock;
+    const rangeStart = delta < 0 ? lo - 1 : lo;
+    const rangeEnd = delta < 0 ? hi : hi + 1;
+    if (rangeStart < 0 || rangeEnd >= images.length) return;
+    const range = images.slice(rangeStart, rangeEnd + 1);
+    const orders = range.map((im) => im.sort_order);
+    const rotated = delta < 0
+      ? [...range.slice(1), range[0]] // boundary-above moves to bottom of range
+      : [range[range.length - 1], ...range.slice(0, -1)]; // boundary-below moves to top
+    const updated = rotated.map((im, k) => ({ ...im, sort_order: orders[k] }));
+    const newImages = [...images];
+    for (let k = 0; k < updated.length; k++) newImages[rangeStart + k] = updated[k];
+    setImages(newImages);
+    const newLo = lo + delta;
+    const newHi = hi + delta;
+    setSelIdxs(new Set(Array.from({ length: newHi - newLo + 1 }, (_, k) => newLo + k)));
+    setSelectedIdx(selectedIdx + delta);
+    setAnchor(anchor + delta);
     try {
-      await Promise.all([
-        updateFolderImage(a.id, { sort_order: b.sort_order }),
-        updateFolderImage(b.id, { sort_order: a.sort_order }),
-      ]);
+      await Promise.all(
+        updated.map((im) => updateFolderImage(im.id, { sort_order: im.sort_order })),
+      );
     } catch (e) {
       setError(e.message || String(e));
     }
@@ -614,8 +635,8 @@ export default function ShowcaseImgListEditor({
             type="button"
             data-yagu-id="button-arrow-up"
             onClick={() => moveSelected(-1)}
-            disabled={hasPendingImageEdit || selectedIdx <= 0}
-            title="Move selected image up"
+            disabled={hasPendingImageEdit || !selBlock || selBlock.lo <= 0}
+            title="Move selected image(s) up"
           >
             ↑
           </button>

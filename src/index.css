@@ -1398,6 +1398,11 @@ body {
 }
 .sc-img-list-reorder button:disabled { opacity: 0.4; cursor: not-allowed; }
 .sc-img-list-reorder button:not(:disabled):hover { background: var(--color-bg-lighter); }
+/* FIX521.2.1.6 <button-file-details>: toggle-pressed state. */
+.sc-img-list-reorder button.active {
+  background: var(--color-selected);
+  border-color: var(--color-selected-border);
+}
 .sc-img-list-reorder .sc-img-list-done {
   margin-left: auto;
 }

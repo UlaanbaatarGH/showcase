@@ -66,6 +66,11 @@ export default function ShowcaseImgListEditor({
   // selected images. Boolean: the confirmation overlay is shown or not.
   const [removeConfirm, setRemoveConfirm] = useState(false);
 
+  // FIX521.2.1.6 <button-file-details>: toggle, off by default. Reveals
+  // the file-name/size/resolution/zoom-factor detail line per row
+  // (FIX521.2.1.1.13) — off by default keeps rows to a single line.
+  const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
+
   // FIX521.3.5: Shrink flow. stage: 'input' ('Image max zoom factor'), 'confirm'
   // (FIX521.3.5.4.1, cannot be undone), 'running' (progress). shrinkRatio is the
   // requested ZF (<input-requested-zf>) entered by the user; blank by default.
@@ -644,6 +649,17 @@ export default function ShowcaseImgListEditor({
             title="Shrink selected image(s)"
           >
             Shrink
+          </button>
+          {/* FIX521.2.1.6 <button-file-details>: toggle, off by default. */}
+          <button
+            type="button"
+            data-yagu-id="button-file-details"
+            className={fileDetailsOpen ? 'active' : ''}
+            aria-pressed={fileDetailsOpen}
+            onClick={() => setFileDetailsOpen((v) => !v)}
+            title="Show file name, size, resolution and zoom factor"
+          >
+            File details
           </button>
           <button
             type="button"

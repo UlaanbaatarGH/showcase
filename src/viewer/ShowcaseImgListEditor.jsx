@@ -644,8 +644,8 @@ export default function ShowcaseImgListEditor({
             type="button"
             data-yagu-id="button-arrow-down"
             onClick={() => moveSelected(1)}
-            disabled={hasPendingImageEdit || selectedIdx >= images.length - 1}
-            title="Move selected image down"
+            disabled={hasPendingImageEdit || !selBlock || selBlock.hi >= images.length - 1}
+            title="Move selected image(s) down"
           >
             ↓
           </button>

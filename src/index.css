@@ -909,10 +909,40 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 0.35rem;
+  overflow: hidden;
+}
+/* FIX520.3.3: zoom slider, pinned above the (possibly scrolling) image. */
+.sc-viewer-zoom {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+.sc-viewer-zoom input[type="range"] {
+  width: 100%;
+  max-width: 220px;
+}
+/* FIX520.3.3: the actual scroll/pan region. At zoom 1 it behaves exactly
+   like the old .sc-viewer-img-wrap (centered, no overflow). Past 1x,
+   .zoomed switches to top-left alignment so the enlarged image grows into
+   reachable scroll range (centering it would push half the extra size
+   into unreachable negative overflow) and shows a hand cursor. */
+.sc-viewer-img-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
   overflow: hidden;
+}
+.sc-viewer-img-scroll.zoomed {
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: auto;
+  cursor: grab;
+}
+.sc-viewer-img-scroll.zoomed.panning {
+  cursor: grabbing;
 }
 /* FIX520.2.10 Toolbox (edition mode). */
 .sc-viewer-toolbox {

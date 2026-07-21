@@ -192,6 +192,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX520.3.2: clicking the viewer image opens it in a full-screen
   // overlay; ESC (or clicking the backdrop) exits.
   const [fullScreen, setFullScreen] = useState(false);
+  // FIX520.3.3: zoom slider for the in-page viewer — 1 = fit (default),
+  // >1 enlarges the image past the container so scrollbars appear.
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
   const menuRef = useRef(null);
   const mainRef = useRef(null);
   const selectedRowRef = useRef(null);
@@ -201,6 +205,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const touchStartXRef = useRef(null);
   const touchStartYRef = useRef(null);
   const wasSwipeRef = useRef(false);
+  // FIX520.3.3: drag-to-pan while zoomed. viewerScrollRef is the scrolling
+  // element itself (scrollLeft/scrollTop are moved directly on drag);
+  // draggedRef tells the click handler a pan just happened so it doesn't
+  // also open fullscreen.
+  const viewerScrollRef = useRef(null);
+  const panStateRef = useRef(null);
+  const draggedRef = useRef(false);
   const onImageTouchStart = (e) => {
     const t = e.touches[0];
     if (!t) return;
@@ -234,8 +245,54 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       wasSwipeRef.current = false;
       return;
     }
+    // FIX520.3.3: a drag-to-pan gesture also ends with a click — don't
+    // let it also open fullscreen.
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
     setFullScreen(true);
   };
+
+  // FIX520.3.3: zoom slider — once zoomed, dragging on the image pans it
+  // (hand-shape cursor), mirroring the scrollbars that appear alongside.
+  const onZoomPointerDown = (e) => {
+    if (zoomLevel <= 1) return;
+    const wrap = viewerScrollRef.current;
+    if (!wrap) return;
+    e.preventDefault();
+    draggedRef.current = false;
+    panStateRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: wrap.scrollLeft,
+      scrollTop: wrap.scrollTop,
+    };
+    setIsPanning(true);
+  };
+  useEffect(() => {
+    if (!isPanning) return undefined;
+    const move = (e) => {
+      const wrap = viewerScrollRef.current;
+      const p = panStateRef.current;
+      if (!wrap || !p) return;
+      const dx = e.clientX - p.startX;
+      const dy = e.clientY - p.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) draggedRef.current = true;
+      wrap.scrollLeft = p.scrollLeft - dx;
+      wrap.scrollTop = p.scrollTop - dy;
+    };
+    const up = () => {
+      setIsPanning(false);
+      panStateRef.current = null;
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [isPanning]);
 
   // Draggable vertical splitter between the item table and the image viewer.
   const onSplitterDown = (e) => {
@@ -377,6 +434,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       })
       .catch((e) => setError(e.message || String(e)));
   }, [selectedFolderId]);
+
+  // FIX520.3.3: zoom is per-image — reset to fit whenever the displayed
+  // image changes (folder switch or prev/next navigation).
+  useEffect(() => {
+    setZoomLevel(1);
+  }, [currentImageIdx, selectedFolderId]);
 
   const properties = data?.properties ?? [];
   // Lookup maps for formula evaluation — rebuilt whenever the property list
@@ -1558,19 +1621,49 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             caption (left, FIX520.2.6) and nav pill
                             (right when caption present, centred when
                             not — FIX520.2.10) share the bottom row. */}
-                        <div
-                          className="sc-viewer-img-wrap sc-viewer-img-clickable"
-                          onClick={onImageClick}
-                          onTouchStart={onImageTouchStart}
-                          onTouchEnd={onImageTouchEnd}
-                          title="Click to view full screen — swipe left/right to navigate"
-                        >
-                          <ShowcaseImageCanvas
-                            url={currentImage.url}
-                            rotation={currentImage.rotation ?? 0}
-                            crop={currentImage.crop ?? null}
-                            className="sc-viewer-img"
-                          />
+                        <div className="sc-viewer-img-wrap">
+                          {/* FIX520.3.3: zoom slider — displays the image
+                              bigger; past 1x the scroll region below grows
+                              scrollbars and switches to a hand cursor for
+                              drag-to-pan. */}
+                          <div
+                            className="sc-viewer-zoom"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="range"
+                              min={1}
+                              max={3}
+                              step={0.1}
+                              value={zoomLevel}
+                              onChange={(e) => setZoomLevel(Number(e.target.value))}
+                              aria-label="Zoom image"
+                              title="Zoom"
+                            />
+                          </div>
+                          <div
+                            ref={viewerScrollRef}
+                            className={`sc-viewer-img-scroll sc-viewer-img-clickable${
+                              zoomLevel > 1 ? ' zoomed' : ''
+                            }${isPanning ? ' panning' : ''}`}
+                            onClick={onImageClick}
+                            onTouchStart={onImageTouchStart}
+                            onTouchEnd={onImageTouchEnd}
+                            onMouseDown={onZoomPointerDown}
+                            title={
+                              zoomLevel > 1
+                                ? 'Drag to pan'
+                                : 'Click to view full screen — swipe left/right to navigate'
+                            }
+                          >
+                            <ShowcaseImageCanvas
+                              url={currentImage.url}
+                              rotation={currentImage.rotation ?? 0}
+                              crop={currentImage.crop ?? null}
+                              className="sc-viewer-img"
+                              zoom={zoomLevel}
+                            />
+                          </div>
                         </div>
                         <div
                           className={`sc-viewer-bottom${currentImage.caption ? ' has-caption' : ''}`}

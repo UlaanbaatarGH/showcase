@@ -18,6 +18,7 @@ export default function ShowcaseImageCanvas({
   cropMode = false,
   onCropComplete,
   className,
+  zoom = 1,
 }) {
   const canvasRef = useRef(null);
   const [img, setImg] = useState(null);
@@ -161,6 +162,14 @@ export default function ShowcaseImageCanvas({
     setFirstCorner(null);
   };
 
+  // FIX520.3.3: zoom scales the canvas past its fitted size; transform
+  // (rather than resizing the intrinsic bitmap) keeps this cheap and lets
+  // the scrolling parent's overflow calculation pick up the larger box.
+  const style = {
+    ...(cropMode ? { cursor: 'crosshair' } : null),
+    ...(zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top left' } : null),
+  };
+
   return (
     <canvas
       ref={canvasRef}
@@ -168,7 +177,7 @@ export default function ShowcaseImageCanvas({
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
-      style={cropMode ? { cursor: 'crosshair' } : undefined}
+      style={Object.keys(style).length ? style : undefined}
     />
   );
 }

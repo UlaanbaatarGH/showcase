@@ -800,6 +800,10 @@ export default function ShowcaseImgListEditor({
                             ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
                             : '…'}
                         </span>
+                        {/* FIX521.2.1.1.7: Zoom factor (read-only) — vs Reference Viewport. */}
+                        <span className="filesize">
+                          {zf == null ? '…' : zf.toFixed(2)}
+                        </span>
                       </td>
                     </tr>
                   )}

@@ -788,6 +788,10 @@ export default function ShowcaseImgListEditor({
                       onClick={(e) => onRowClick(e, idx)}
                     >
                       <td colSpan={4} className="sc-img-list-detail-cell">
+                        {/* FIX521.2.1.1.1: File name (read-only). */}
+                        <span className="filename" title={im.filename}>
+                          {im.filename ?? ''}
+                        </span>
                       </td>
                     </tr>
                   )}

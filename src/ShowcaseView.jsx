@@ -1630,6 +1630,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             className="sc-viewer-zoom"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            <span className="sc-viewer-zoom-label">Zoom</span>
                             <input
                               type="range"
                               min={1}

@@ -279,6 +279,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     };
     setIsPanning(true);
   };
+  // FIX520.3.3 (enhancement, not in the literal spec text — requested
+  // directly in session): mouse wheel also drives the zoom slider.
+  const onZoomWheel = (e) => {
+    e.preventDefault();
+    setZoomLevel((z) => Math.min(3, Math.max(1, Math.round((z - e.deltaY * 0.001) * 10) / 10)));
+  };
   useEffect(() => {
     if (!isPanning) return undefined;
     const move = (e) => {
@@ -1713,6 +1719,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             onTouchStart={onImageTouchStart}
                             onTouchEnd={onImageTouchEnd}
                             onMouseDown={onZoomPointerDown}
+                            onWheel={onZoomWheel}
                             title={
                               zoomLevel > 1
                                 ? 'Drag to pan'

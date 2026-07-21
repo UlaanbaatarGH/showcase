@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
 import { updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
@@ -695,19 +695,15 @@ export default function ShowcaseImgListEditor({
                   disabled={hasPendingImageEdit || images.length === 0}
                 />
               </th>
-              {/* FIX521.2.1.12: column order — Section, Caption, Main, File name,
-                  File size, Resolution, Zoom factor. */}
+              {/* FIX521.2.1.12: column order — Section, Caption, Main. File
+                  name/size/Resolution/Zoom factor moved out of the header
+                  (FIX521.2.1.1.13): they're now an unlabeled detail line
+                  per row, shown only via <button-file-details>. */}
               <th>Section</th>
               <th>Caption</th>
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
                   At most one is set per item (FIX521.5.6). */}
               <th title="Main image of the item">Main</th>
-              <th>File name</th>
-              <th>File Size</th>
-              {/* FIX521.2.1.1.6: pixel width × height, read-only. */}
-              <th>Resolution</th>
-              {/* FIX521.2.1.1.7: image pixels ÷ pixels when shown full, read-only. */}
-              <th title="Image resolution ÷ its size in the reference viewport">Zoom factor</th>
             </tr>
           </thead>
           <tbody>
@@ -715,88 +711,92 @@ export default function ShowcaseImgListEditor({
               const isSelected = selIdxs.has(idx);
               const dimsZ = dimsByUrl[im.url];
               const zf = dimsZ ? zoomFactor(dimsZ.w, dimsZ.h) : null; // FIX521.2.1.1.7
+              // FIX521.2.1.1.13: zebra striping now keys off the image
+              // index (one card per image) rather than tbody's nth-child
+              // (which would misalign once some cards render 2 <tr>s and
+              // others render 1).
+              const parity = idx % 2 === 0 ? 'even' : 'odd';
+              const rowClass = `${parity}${isSelected ? ' selected' : ''}`;
               return (
-                <tr
-                  key={im.id}
-                  className={isSelected ? 'selected' : ''}
-                  onClick={(e) => onRowClick(e, idx)}
-                >
-                  {/* FIX521.2.1.9.2: easy row selection via a toggle BUTTON
-                      (not a checkbox) so it is visually distinct from the Main
-                      checkbox on the same row, which is real data. Plain click
-                      toggles the row in/out; Shift-click extends a range from
-                      the anchor. Clean button target — no text-input interference. */}
-                  <td style={{ textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      className={`sc-row-select-toggle${isSelected ? ' on' : ''}`}
-                      aria-pressed={isSelected}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        console.log('[sel] toggleButton', { idx, shift: e.shiftKey, ctrl: e.ctrlKey, isSelected });
-                        if (e.shiftKey || e.ctrlKey || e.metaKey) onRowClick(e, idx);
-                        else toggleRowSelect(idx);
-                      }}
-                      disabled={hasPendingImageEdit}
-                      title={isSelected ? 'Selected — click to deselect (Shift-click for a range)' : 'Select this row (Shift-click for a range)'}
+                <Fragment key={im.id}>
+                  <tr
+                    className={rowClass}
+                    onClick={(e) => onRowClick(e, idx)}
+                  >
+                    {/* FIX521.2.1.9.2: easy row selection via a toggle BUTTON
+                        (not a checkbox) so it is visually distinct from the Main
+                        checkbox on the same row, which is real data. Plain click
+                        toggles the row in/out; Shift-click extends a range from
+                        the anchor. Clean button target — no text-input interference. */}
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        className={`sc-row-select-toggle${isSelected ? ' on' : ''}`}
+                        aria-pressed={isSelected}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('[sel] toggleButton', { idx, shift: e.shiftKey, ctrl: e.ctrlKey, isSelected });
+                          if (e.shiftKey || e.ctrlKey || e.metaKey) onRowClick(e, idx);
+                          else toggleRowSelect(idx);
+                        }}
+                        disabled={hasPendingImageEdit}
+                        title={isSelected ? 'Selected — click to deselect (Shift-click for a range)' : 'Select this row (Shift-click for a range)'}
+                      >
+                        {isSelected ? '✓' : ''}
+                      </button>
+                    </td>
+                    {/* FIX521.2.1.12: order — Section, Caption, Main. */}
+                    <td>
+                      <input
+                        type="text"
+                        value={im.section ?? ''}
+                        onChange={(e) => onSectionChange(im.id, e.target.value)}
+                        onBlur={(e) =>
+                          patchFolderImage(im.id, { section: e.target.value || null })
+                        }
+                        onFocus={() => focusRowPrimary(idx)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={im.caption ?? ''}
+                        onChange={(e) => onCaptionChange(im.id, e.target.value)}
+                        onBlur={(e) =>
+                          patchFolderImage(im.id, { caption: e.target.value || null })
+                        }
+                        onFocus={() => focusRowPrimary(idx)}
+                      />
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        data-yagu-id="item-main-img"
+                        type="checkbox"
+                        checked={!!im.is_main}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setMain(im.id, e.target.checked)}
+                        title="Use as the item's main image"
+                      />
+                    </td>
+                  </tr>
+                  {/* FIX521.2.1.1.13: card line 2 — unlabeled File name /
+                      File Size / Resolution / Zoom factor, shown only when
+                      <button-file-details> is on. */}
+                  {fileDetailsOpen && (
+                    <tr
+                      className={`${rowClass} sc-img-list-detail-row`}
+                      onClick={(e) => onRowClick(e, idx)}
                     >
-                      {isSelected ? '✓' : ''}
-                    </button>
-                  </td>
-                  {/* FIX521.2.1.12: order — Section, Caption, Main, File name,
-                      File size, Resolution, Zoom factor. */}
-                  <td>
-                    <input
-                      type="text"
-                      value={im.section ?? ''}
-                      onChange={(e) => onSectionChange(im.id, e.target.value)}
-                      onBlur={(e) =>
-                        patchFolderImage(im.id, { section: e.target.value || null })
-                      }
-                      onFocus={() => focusRowPrimary(idx)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      value={im.caption ?? ''}
-                      onChange={(e) => onCaptionChange(im.id, e.target.value)}
-                      onBlur={(e) =>
-                        patchFolderImage(im.id, { caption: e.target.value || null })
-                      }
-                      onFocus={() => focusRowPrimary(idx)}
-                    />
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <input
-                      data-yagu-id="item-main-img"
-                      type="checkbox"
-                      checked={!!im.is_main}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setMain(im.id, e.target.checked)}
-                      title="Use as the item's main image"
-                    />
-                  </td>
-                  <td className="filename" title={im.filename}>
-                    {im.filename ?? ''}
-                  </td>
-                  <td className="filesize">{formatBytes(sizesByUrl[im.url])}</td>
-                  {/* FIX521.2.1.1.6: Resolution (read-only) */}
-                  <td className="filesize">
-                    {dimsByUrl[im.url]
-                      ? `${dimsByUrl[im.url].w} × ${dimsByUrl[im.url].h}`
-                      : '…'}
-                  </td>
-                  {/* FIX521.2.1.1.7: Zoom factor (read-only) — vs Reference Viewport */}
-                  <td className="filesize">
-                    {zf == null ? '…' : zf.toFixed(2)}
-                  </td>
-                </tr>
+                      <td colSpan={4} className="sc-img-list-detail-cell">
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
             {images.length === 0 && (
               <tr>
-                <td colSpan={8} className="empty">No images in this item.</td>
+                <td colSpan={4} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

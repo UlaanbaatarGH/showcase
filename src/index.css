@@ -1267,9 +1267,11 @@ body {
 .sc-img-list-table tbody tr {
   height: 2rem;
 }
-/* FIX521.2.1.13: rows are zebra-striped with black text. */
-.sc-img-list-table tbody tr:nth-child(even) td { background: #cccccc; }
-.sc-img-list-table tbody tr:nth-child(odd)  td { background: #dedede; }
+/* FIX521.2.1.13: rows are zebra-striped with black text. Keyed by the
+   .even/.odd class (FIX521.2.1.1.13) rather than nth-child, since a
+   card can render 1 or 2 <tr>s depending on <button-file-details>. */
+.sc-img-list-table tbody tr.even td { background: #cccccc; }
+.sc-img-list-table tbody tr.odd  td { background: #dedede; }
 /* FIX521.3.5 <button-shrink-image-list> popups: small modal box that reuses
    the .setup-overlay backdrop. */
 .sc-shrink-box {
@@ -1317,16 +1319,27 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sc-img-list-table td.filename {
+/* FIX521.2.1.1.13: card line 2 — unlabeled File name/Size/Resolution/Zoom
+   factor, laid out inline inside the single colSpan cell. */
+.sc-img-list-table tr.sc-img-list-detail-row {
+  height: 1.6rem;
+}
+.sc-img-list-table td.sc-img-list-detail-cell {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  white-space: nowrap;
+}
+.sc-img-list-detail-cell .filename {
   max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: monospace;
 }
-.sc-img-list-table td.filesize {
+.sc-img-list-detail-cell .filesize {
   /* FIX521.2.1.13: read-only numeric cells use the same black text as the
-     other read-only cells (no dimming); just right-aligned. */
+     other read-only cells (no dimming). */
   text-align: right;
 }
 .sc-img-list-table td.empty {

@@ -792,6 +792,8 @@ export default function ShowcaseImgListEditor({
                         <span className="filename" title={im.filename}>
                           {im.filename ?? ''}
                         </span>
+                        {/* FIX521.2.1.1.2: File Size (read-only). */}
+                        <span className="filesize">{formatBytes(sizesByUrl[im.url])}</span>
                       </td>
                     </tr>
                   )}

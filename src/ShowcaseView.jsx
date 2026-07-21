@@ -1999,7 +1999,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         </div>
       )}
       {/* FIX520.3.2 + FIX523 <panel-showcase-img-viewer-fullscreen>:
-          full-screen image overlay. FIX521.2: same layout as the
+          full-screen image overlay. FIX523.2: same layout as the
           in-page viewer with no sections panel — image fills the
           column, then a bottom strip carries the caption (centred)
           and the nav pill (bottom-right). FIX521.3.1 ESC + FIX521.3.2
@@ -2030,7 +2030,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               className="sc-fullscreen-img"
             />
           </div>
-          {/* FIX521.2: bottom strip mirrors the in-page no-sections
+          {/* FIX523.2: bottom strip mirrors the in-page no-sections
               layout via the shared .sc-viewer-bottom. Click here is
               swallowed so the backdrop dismiss only fires on a real
               outside tap. */}

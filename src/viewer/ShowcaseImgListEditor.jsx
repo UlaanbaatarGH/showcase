@@ -221,6 +221,10 @@ export default function ShowcaseImgListEditor({
   const draftForCurrent =
     imageDraft && draftForId === currentImage?.id ? imageDraft : null;
   const hasPendingImageEdit = !!draftForCurrent;
+  // FIX610.3.5.3: publishing locks the whole editor the same way a pending
+  // image edit already does — the user cannot edit any item image page
+  // while a Publish is in flight.
+  const interactionLocked = hasPendingImageEdit || publishing;
   const effectiveRotation = draftForCurrent
     ? draftForCurrent.rotation
     : currentImage?.rotation ?? 0;
@@ -306,7 +310,7 @@ export default function ShowcaseImgListEditor({
   // Single-selects: collapses any multi-selection to this one row.
   const trySelect = (nextIdx) => {
     console.log('[sel] trySelect', { nextIdx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
-    if (hasPendingImageEdit) return;
+    if (interactionLocked) return;
     if (nextIdx < 0 || nextIdx >= images.length) return;
     setSelectedIdx(nextIdx);
     setSelIdxs(new Set([nextIdx]));
@@ -323,7 +327,7 @@ export default function ShowcaseImgListEditor({
   // and made plain clicks behave differently on input cells vs plain cells.
   const focusRowPrimary = (idx) => {
     console.log('[sel] focusRowPrimary (input onFocus)', { idx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
-    if (hasPendingImageEdit) return;
+    if (interactionLocked) return;
     if (idx < 0 || idx >= images.length) return;
     setSelectedIdx(idx);
   };
@@ -344,7 +348,7 @@ export default function ShowcaseImgListEditor({
       selIdxs: [...selIdxs],
       hasPendingImageEdit,
     });
-    if (hasPendingImageEdit) return;
+    if (interactionLocked) return;
     if (e.shiftKey) {
       // FIX521.2.1.9: replay the last plain click's action across the
       // anchor..idx range. lastAction 'select' checks the range, 'deselect'
@@ -382,7 +386,7 @@ export default function ShowcaseImgListEditor({
   // row in/out of the selection and keeps it as the primary when added.
   const toggleRowSelect = (idx) => {
     console.log('[sel] toggleRowSelect', { idx, hasPendingImageEdit, anchor, lastAction, selIdxs: [...selIdxs] });
-    if (hasPendingImageEdit) return;
+    if (interactionLocked) return;
     const s = new Set(selIdxs);
     let action;
     if (s.has(idx)) { s.delete(idx); action = 'deselect'; }
@@ -400,7 +404,7 @@ export default function ShowcaseImgListEditor({
   const allRowsSelected = images.length > 0 && selIdxs.size === images.length;
   const toggleSelectAll = () => {
     console.log('[sel] toggleSelectAll', { allRowsSelected, hasPendingImageEdit, selIdxs: [...selIdxs] });
-    if (hasPendingImageEdit) return;
+    if (interactionLocked) return;
     if (allRowsSelected) {
       setSelIdxs(new Set([selectedIdx]));
       setAnchor(selectedIdx);
@@ -429,7 +433,7 @@ export default function ShowcaseImgListEditor({
   // the new order is preserved; row identities (ids) don't change.
   // PATCHes every affected folder_image row. UI is updated optimistically.
   const moveSelected = async (delta) => {
-    if (hasPendingImageEdit || !selBlock) return;
+    if (interactionLocked || !selBlock) return;
     const { lo, hi } = selBlock;
     const rangeStart = delta < 0 ? lo - 1 : lo;
     const rangeEnd = delta < 0 ? hi : hi + 1;
@@ -869,7 +873,7 @@ export default function ShowcaseImgListEditor({
             type="button"
             data-yagu-id="button-arrow-up"
             onClick={() => moveSelected(-1)}
-            disabled={hasPendingImageEdit || !selBlock || selBlock.lo <= 0}
+            disabled={interactionLocked || !selBlock || selBlock.lo <= 0}
             title="Move selected image(s) up"
           >
             ↑
@@ -878,7 +882,7 @@ export default function ShowcaseImgListEditor({
             type="button"
             data-yagu-id="button-arrow-down"
             onClick={() => moveSelected(1)}
-            disabled={hasPendingImageEdit || !selBlock || selBlock.hi >= images.length - 1}
+            disabled={interactionLocked || !selBlock || selBlock.hi >= images.length - 1}
             title="Move selected image(s) down"
           >
             ↓
@@ -898,6 +902,7 @@ export default function ShowcaseImgListEditor({
                 type="button"
                 data-yagu-id="button-local-add-img"
                 onClick={handleAddClick}
+                disabled={interactionLocked}
                 title="Add image(s)"
               >
                 Add
@@ -910,7 +915,7 @@ export default function ShowcaseImgListEditor({
             type="button"
             data-yagu-id="button-remove-image"
             onClick={handleRemoveClick}
-            disabled={hasPendingImageEdit || selIdxs.size === 0}
+            disabled={interactionLocked || selIdxs.size === 0}
             title="Remove selected image(s)"
           >
             Remove
@@ -921,7 +926,7 @@ export default function ShowcaseImgListEditor({
               type="button"
               data-yagu-id="button-local-unremove-img"
               onClick={handleUnremoveClick}
-              disabled={hasPendingImageEdit || selIdxs.size === 0}
+              disabled={interactionLocked || selIdxs.size === 0}
               title="Unremove selected image(s)"
             >
               Unremove
@@ -933,7 +938,7 @@ export default function ShowcaseImgListEditor({
             type="button"
             data-yagu-id="button-shrink-image-list"
             onClick={() => { setShrinkRatio(''); setShrinkStage('input'); }}
-            disabled={hasPendingImageEdit || selIdxs.size === 0}
+            disabled={interactionLocked || selIdxs.size === 0}
             title="Shrink selected image(s)"
           >
             Shrink
@@ -955,7 +960,7 @@ export default function ShowcaseImgListEditor({
               type="button"
               data-yagu-id="button-publish-img"
               onClick={handlePublishClick}
-              disabled={hasPendingImageEdit || publishing || publishScopeIdxs().length === 0}
+              disabled={interactionLocked || publishScopeIdxs().length === 0}
               title="Publish staged changes to the website"
             >
               {publishing ? 'Publishing…' : 'Publish'}
@@ -965,7 +970,7 @@ export default function ShowcaseImgListEditor({
             type="button"
             className="sc-img-list-done"
             onClick={onExitEdit}
-            disabled={hasPendingImageEdit}
+            disabled={interactionLocked}
             title="Done editing"
           >
             Done
@@ -992,7 +997,7 @@ export default function ShowcaseImgListEditor({
                     if (el) el.indeterminate = selIdxs.size > 0 && !allRowsSelected;
                   }}
                   onChange={toggleSelectAll}
-                  disabled={hasPendingImageEdit || images.length === 0}
+                  disabled={interactionLocked || images.length === 0}
                 />
               </th>
               {/* FIX521.2.1.12: column order — Section, Caption, Main. File
@@ -1041,7 +1046,7 @@ export default function ShowcaseImgListEditor({
                           if (e.shiftKey || e.ctrlKey || e.metaKey) onRowClick(e, idx);
                           else toggleRowSelect(idx);
                         }}
-                        disabled={hasPendingImageEdit}
+                        disabled={interactionLocked}
                         title={isSelected ? 'Selected — click to deselect (Shift-click for a range)' : 'Select this row (Shift-click for a range)'}
                       >
                         {isSelected ? '✓' : ''}
@@ -1057,6 +1062,7 @@ export default function ShowcaseImgListEditor({
                           patchFolderImage(im.id, { section: e.target.value || null })
                         }
                         onFocus={() => focusRowPrimary(idx)}
+                        disabled={publishing}
                       />
                     </td>
                     <td>
@@ -1068,6 +1074,7 @@ export default function ShowcaseImgListEditor({
                           patchFolderImage(im.id, { caption: e.target.value || null })
                         }
                         onFocus={() => focusRowPrimary(idx)}
+                        disabled={publishing}
                       />
                     </td>
                     <td style={{ textAlign: 'center' }}>
@@ -1078,6 +1085,7 @@ export default function ShowcaseImgListEditor({
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => setMain(im.id, e.target.checked)}
                         title="Use as the item's main image"
+                        disabled={publishing}
                       />
                     </td>
                     {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'. */}
@@ -1144,7 +1152,7 @@ export default function ShowcaseImgListEditor({
                 type="button"
                 data-yagu-id="button-crop"
                 className={cropMode ? 'active' : ''}
-                disabled={!currentImage}
+                disabled={!currentImage || publishing}
                 onClick={() => setCropMode((v) => !v)}
               >
                 {cropMode ? 'Cropping…' : 'Crop'}
@@ -1169,7 +1177,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 data-yagu-id="button-rotate270"
-                disabled={!currentImage}
+                disabled={!currentImage || publishing}
                 onClick={() => rotateBy(-90)}
                 title="Rotate −90°"
               >
@@ -1178,7 +1186,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 data-yagu-id="button-rotate90"
-                disabled={!currentImage}
+                disabled={!currentImage || publishing}
                 onClick={() => rotateBy(90)}
                 title="Rotate +90°"
               >
@@ -1186,7 +1194,7 @@ export default function ShowcaseImgListEditor({
               </button>
               <button
                 type="button"
-                disabled={!currentImage || !draftForCurrent}
+                disabled={!currentImage || !draftForCurrent || publishing}
                 onClick={resetImage}
                 title="Reset rotation & crop"
               >

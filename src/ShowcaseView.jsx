@@ -4,6 +4,7 @@ import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
 import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
+import { publishItemImages } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
@@ -167,6 +168,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [images, setImages] = useState([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
+  const isLocalApp = import.meta.env.DEV;
 
   // FIX610.3.20: per-project edit lock over <panel-showcase-img-list-editor>
   // (the Images tab in edition mode), coordinating the website and the
@@ -177,7 +179,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const editLockSessionRef = useRef(
     (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
   );
-  const editLockHolder = import.meta.env.DEV ? 'local' : 'website';
+  const editLockHolder = isLocalApp ? 'local' : 'website';
   const editLockHeldRef = useRef(false);
   useEffect(() => {
     const projectId = data?.project?.id;
@@ -220,6 +222,84 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     window.addEventListener('beforeunload', onUnload);
     return () => window.removeEventListener('beforeunload', onUnload);
   }, [data?.project?.id]);
+
+  // FIX375: staged (non-blank status) image changes need to survive
+  // switching items within the local app so <cmd-publish-changes> has
+  // something cross-item to act on — session-only (browser memory), same
+  // as every other FIX610 staging; lost on reload like the rest of it.
+  // Keyed by folder id. Cleared when the project changes.
+  const imagesByFolderRef = useRef({});
+  useEffect(() => {
+    imagesByFolderRef.current = {};
+  }, [data?.project?.id]);
+  // Wraps setImages so every update to the current folder's images is also
+  // mirrored into the cross-item cache, without ShowcaseImgListEditor (or
+  // anything else calling this) needing to know the cache exists.
+  const setImagesForCurrentFolder = (updater) => {
+    setImages((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (selectedFolderId != null) imagesByFolderRef.current[selectedFolderId] = next;
+      return next;
+    });
+  };
+
+  // FIX375 <cmd-publish-changes>: publish every item's staged changes,
+  // project-wide, local-app only — "exactly what <button-publish-img>
+  // does but cross-items" (publishItemImages is the same function the
+  // per-item Publish button calls). null | 'recap' | 'running'.
+  const [crossPublishStage, setCrossPublishStage] = useState(null);
+  const [crossPublishPlan, setCrossPublishPlan] = useState(null);
+  const [crossPublishProgress, setCrossPublishProgress] = useState(null);
+  const handleOpenCrossPublish = () => {
+    const plan = [];
+    for (const [folderIdStr, imgs] of Object.entries(imagesByFolderRef.current)) {
+      const scopeIdxs = imgs.map((_, idx) => idx).filter((idx) => imgs[idx].status);
+      if (scopeIdxs.length === 0) continue;
+      const folder = (data?.folders || []).find((f) => String(f.id) === folderIdStr);
+      plan.push({
+        folderId: Number(folderIdStr),
+        name: folder?.name ?? folderIdStr,
+        scopeIdxs,
+        addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
+        removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
+        moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
+      });
+    }
+    if (plan.length === 0) { setError('No pending changes to publish.'); return; }
+    setCrossPublishPlan(plan);
+    setCrossPublishStage('recap');
+  };
+  const confirmCrossPublish = async () => {
+    setCrossPublishStage('running');
+    const totalUnits = crossPublishPlan.reduce((s, p) => s + p.scopeIdxs.length, 0);
+    let doneUnits = 0;
+    setCrossPublishProgress({ done: 0, total: totalUnits });
+    setError(null);
+    try {
+      for (const p of crossPublishPlan) {
+        const folder = (data?.folders || []).find((f) => f.id === p.folderId);
+        const finalImages = await publishItemImages({
+          projectId: data.project.id,
+          itemName: folder?.name,
+          folderId: p.folderId,
+          images: imagesByFolderRef.current[p.folderId],
+          scopeIdxs: p.scopeIdxs,
+          onProgress: (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+        });
+        doneUnits += p.scopeIdxs.length;
+        imagesByFolderRef.current[p.folderId] = finalImages;
+        if (p.folderId === selectedFolderId) setImages(finalImages);
+      }
+      setCrossPublishStage(null);
+      setCrossPublishPlan(null);
+    } catch (e) {
+      setError(e.message || String(e));
+      setCrossPublishStage(null);
+    } finally {
+      setCrossPublishProgress(null);
+    }
+  };
+
   const [sortKeys, setSortKeys] = useState([]);
   const [filters, setFilters] = useState({});
   // FIX503.3.2 <button-columns> opens a standalone <panel-showcase-view-setup>
@@ -535,16 +615,27 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
 
   useEffect(() => {
     if (selectedFolderId == null) return;
-    setImages([]);
-    // Exit edition when moving to another item — pending edits don't persist
-    // across items since there's no cloud write path yet.
+    // Exit edition when moving to another item.
     setEditionMode(false);
     setDetailDraft({});
+    // FIX375: reuse this item's cached (possibly still-staged) images if
+    // we've already visited it this session, instead of refetching and
+    // silently discarding any pending local-app edits.
+    const cached = imagesByFolderRef.current[selectedFolderId];
+    if (cached) {
+      setImages(cached);
+      const mainIdx = cached.findIndex((i) => i.is_main);
+      setCurrentImageIdx(mainIdx >= 0 ? mainIdx : 0);
+      return;
+    }
+    setImages([]);
     getFolderImages(selectedFolderId)
       .then((imgs) => {
         // FIX610.3.4: baseline sort_order snapshot, so the local app can tell
         // whether a row has actually moved from its last-published position.
-        setImages(imgs.map((im) => ({ ...im, origSortOrder: im.sort_order })));
+        const withBaseline = imgs.map((im) => ({ ...im, origSortOrder: im.sort_order }));
+        imagesByFolderRef.current[selectedFolderId] = withBaseline;
+        setImages(withBaseline);
         // FIX510.3.4: on item selection, show the Main image first;
         // when no image is flagged main, show the first image of the
         // list. The Main flag is set per row in the Image List editor
@@ -1268,6 +1359,19 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     Image Properties
                   </button>
                 </li>
+                {/* FIX375 / FIX375.0 <cmd-publish-changes>: local-app only. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-publish-changes"
+                      onClick={() => { setMenuOpen(false); handleOpenCrossPublish(); }}
+                    >
+                      Publish changes
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
           </div>
@@ -1525,7 +1629,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 images={images}
                 selectedIdx={currentImageIdx}
                 setSelectedIdx={setCurrentImageIdx}
-                setImages={setImages}
+                setImages={setImagesForCurrentFolder}
                 onExitEdit={() => setEditionMode(false)}
                 folderId={selectedFolderId}
                 projectId={data.project?.id}
@@ -2069,6 +2173,36 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           onClose={() => setImportImagesOpen(false)}
           onDone={handleImportDone}
         />
+      )}
+      {/* FIX375.1-ish: <cmd-publish-changes> recap — same pattern as
+          <button-publish-img>'s popup, one Ref line per item with
+          pending changes. */}
+      {crossPublishStage === 'recap' && crossPublishPlan && (
+        <div className="setup-overlay" onMouseDown={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            {crossPublishPlan.map((p) => (
+              <p key={p.folderId}>
+                Ref {p.name}: {p.addCount} new, {p.removeCount} remove, {p.moveCount} move
+              </p>
+            ))}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>Cancel</button>
+              <button type="button" className="primary" onClick={confirmCrossPublish}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {crossPublishStage === 'running' && (
+        <div className="setup-overlay">
+          <div className="sc-shrink-box">
+            <p>
+              Publishing…{' '}
+              {crossPublishProgress
+                ? `${Math.round((crossPublishProgress.done / crossPublishProgress.total) * 100)}% (${crossPublishProgress.done}/${crossPublishProgress.total})`
+                : ''}
+            </p>
+          </div>
+        </div>
       )}
       {/* FIX503.3.4 + FIX420 <panel-contact-admin>: anonymous
           contact form opened from <button-contact-admin>. The

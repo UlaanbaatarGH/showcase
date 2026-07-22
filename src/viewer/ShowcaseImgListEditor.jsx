@@ -2,9 +2,10 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
-  getFolderImages, signUpload, confirmImage, setEditLockPendingChanges,
+  setEditLockPendingChanges,
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
+import { publishItemImages, isLocalRow } from './publishItemImages.js';
 
 // FIX600 / FIX600.1 <panel-showcase-img-list-editor> local-app extension:
 // manage image addition/update/removal locally, staged with a Status column,
@@ -56,10 +57,9 @@ export default function ShowcaseImgListEditor({
   // Status column) are visible only when running the app locally (dev),
   // matching the gating already used elsewhere for admin-only surfaces.
   const isLocalApp = import.meta.env.DEV;
-  // FIX610.3.1: rows staged locally (not yet uploaded) carry a synthetic
-  // string id in this form so they can be told apart from real folder_image
-  // ids (numeric) without a separate flag on every row.
-  const isLocalRow = (im) => typeof im.id === 'string' && im.id.startsWith('local-');
+  // FIX610.3.1: isLocalRow (imported from publishItemImages.js) tells a row
+  // staged locally (not yet uploaded, synthetic string id) apart from a
+  // real folder_image row (numeric id).
 
   // FIX610.3.20.2: report to the server whenever this item's staged status
   // set transitions between "something pending" and "nothing pending", so
@@ -637,133 +637,26 @@ export default function ShowcaseImgListEditor({
     });
   };
 
+  // FIX375: the actual publish pipeline now lives in publishItemImages(),
+  // shared with the cross-item <cmd-publish-changes> command in
+  // ShowcaseView — this just supplies the current item and the
+  // selection-based scope.
   const confirmPublish = async () => {
     setPublishRecap(null);
-    const scope = new Set(publishScopeIdxs());
-    if (scope.size === 0) return;
-    const total = scope.size; // FIX610.3.5.2: one unit per in-scope delete/upload
-    let done = 0;
+    const scope = publishScopeIdxs();
+    if (scope.length === 0) return;
     setPublishing(true);
-    setPublishProgress({ done, total });
+    setPublishProgress({ done: 0, total: scope.length });
     setError(null);
     try {
-      for (let idx = 0; idx < images.length; idx++) {
-        const im = images[idx];
-        if (scope.has(idx) && im.status === 'Removed' && !isLocalRow(im)) {
-          await deleteFolderImage(im.id);
-          done += 1;
-          setPublishProgress({ done, total });
-        }
-      }
-
-      // Rows still public (or about to become public) after this pass, in
-      // display order: excludes what was just deleted and any Added row
-      // left out of scope (still staged for a future Publish). origIdx is
-      // kept alongside each row so a 'Moved' row can be checked against
-      // scope below (FIX610.3.4) without losing its place in the list.
-      const remaining = images
-        .map((im, origIdx) => ({ im, origIdx }))
-        .filter(({ im, origIdx }) => {
-          if (scope.has(origIdx) && im.status === 'Removed') return false;
-          if (isLocalRow(im) && !scope.has(origIdx)) return false;
-          return true;
-        });
-      const staged = []; // { filename, caption, section, is_main } — applied after refetch
-      const pendingPatches = []; // in-scope existing rows needing a PATCH (move and/or field edits)
-      for (let idx = 0; idx < remaining.length; idx++) {
-        const { im, origIdx } = remaining[idx];
-        if (isLocalRow(im)) {
-          const sign = await signUpload({
-            project_id: projectId,
-            item_name: itemName,
-            filename: im.filename,
-          });
-          const putRes = await fetch(sign.signed_url, {
-            method: 'PUT',
-            headers: { 'Content-Type': im.localFile.type || 'application/octet-stream' },
-            body: im.localFile,
-          });
-          if (!putRes.ok) throw new Error(`Upload failed (${putRes.status}) for ${im.filename}`);
-          const dims = dimsByUrl[im.url];
-          await confirmImage({
-            project_id: projectId,
-            item_name: itemName,
-            storage_key: sign.storage_key,
-            sort_order: idx,
-            replaces_image_id: null,
-            zoom_factor: dims ? zoomFactor(dims.w, dims.h) : null,
-          });
-          if (im.caption || im.section || im.is_main) {
-            staged.push({ filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main });
-          }
-          URL.revokeObjectURL(im.url);
-          done += 1;
-          setPublishProgress({ done, total });
-        } else if (scope.has(origIdx)) {
-          // FIX610.3.4 / FIX610.3.6: an in-scope existing row always gets its
-          // current caption/section/is_main pushed (a no-op if the user only
-          // moved it) plus sort_order when it's the reason it's in scope —
-          // the rotation in moveSelected already assigned the correct target
-          // value locally, so this is just that value, not a renumbered
-          // position (an out-of-scope row's untouched sort_order is never
-          // collided with). This also means a row that's both moved and
-          // edited doesn't lose the edit to 'Moved' taking display precedence.
-          const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };
-          if (im.status === 'Moved') patch.sort_order = im.sort_order;
-          pendingPatches.push({ id: im.id, patch });
-        }
-      }
-      for (const p of pendingPatches) {
-        await updateFolderImage(p.id, p.patch);
-        done += 1;
-        setPublishProgress({ done, total });
-      }
-
-      let fresh = await getFolderImages(folderId);
-      if (staged.length) {
-        for (const s of staged) {
-          const row = fresh.find((f) => f.filename === s.filename);
-          if (!row) continue;
-          await updateFolderImage(row.id, {
-            caption: s.caption || null,
-            section: s.section || null,
-            is_main: s.is_main,
-          });
-        }
-        fresh = await getFolderImages(folderId);
-      }
-
-      // Merge fresh server state back with anything intentionally left out
-      // of this pass: still-staged local rows, and any public row with a
-      // pending status (Removed/Moved/Changed) that wasn't part of this
-      // batch — re-applied since the fresh fetch has no notion of any
-      // local-only staging. A row's caption/section/is_main are always
-      // carried over too (not just for 'Changed'), since a 'Moved' row can
-      // also have an edit pending under that same display label.
-      const stillStagedLocal = images.filter((im, idx) => isLocalRow(im) && !scope.has(idx));
-      const stillPendingById = new Map(
-        images
-          .filter((im, idx) => !isLocalRow(im) && im.status !== '' && !scope.has(idx))
-          .map((im) => [im.id, im]),
-      );
-      const finalFresh = fresh
-        .map((im) => {
-          // FIX610.3.4: fresh is the newly-published truth — its sort_order
-          // is the new baseline every future move gets rechecked against.
-          const withBaseline = { ...im, origSortOrder: im.sort_order };
-          const pending = stillPendingById.get(im.id);
-          if (!pending) return withBaseline;
-          return {
-            ...withBaseline,
-            status: pending.status,
-            sort_order: pending.status === 'Moved' ? pending.sort_order : withBaseline.sort_order,
-            caption: pending.caption,
-            section: pending.section,
-            is_main: pending.is_main,
-          };
-        })
-        .sort((a, b) => a.sort_order - b.sort_order);
-      const finalImages = [...finalFresh, ...stillStagedLocal];
+      const finalImages = await publishItemImages({
+        projectId,
+        itemName,
+        folderId,
+        images,
+        scopeIdxs: scope,
+        onProgress: (done, total) => setPublishProgress({ done, total }),
+      });
       setImages(finalImages);
       setSelIdxs(new Set(finalImages.length ? [0] : []));
       setSelectedIdx(0);

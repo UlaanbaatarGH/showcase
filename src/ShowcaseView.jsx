@@ -1469,6 +1469,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 setSelectedIdx={setCurrentImageIdx}
                 setImages={setImages}
                 onExitEdit={() => setEditionMode(false)}
+                folderId={selectedFolderId}
+                projectId={data.project?.id}
+                itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
                 onItemBytesChange={(bytes) =>
                   setData((prev) =>
                     prev

@@ -46,8 +46,20 @@ export default function ShowcaseImgListEditor({
   onExitEdit,
   onItemBytesChange, // FIX521.3.5.4: report the item's new total image bytes
   onItemZoomChange,  // FIX521.5.8.1: report the item's Zoom Factor (max ZF)
+  folderId,   // FIX610.3.5: which item to re-fetch from after Publish
+  projectId,  // FIX610.3.1 / .3.5: needed for sign-upload / confirm
+  itemName,   // FIX610.3.1 / .3.5: item folder name (item_name on the API)
 }) {
   const currentImage = images[selectedIdx] ?? null;
+
+  // FIX610: local-app-only staging controls (Add/Remove/Unremove/Publish +
+  // Status column) are visible only when running the app locally (dev),
+  // matching the gating already used elsewhere for admin-only surfaces.
+  const isLocalApp = import.meta.env.DEV;
+  // FIX610.3.1: rows staged locally (not yet uploaded) carry a synthetic
+  // string id in this form so they can be told apart from real folder_image
+  // ids (numeric) without a separate flag on every row.
+  const isLocalRow = (im) => typeof im.id === 'string' && im.id.startsWith('local-');
 
   // Image-editor state (right panel). null until the user touches
   // rotate/crop; pinned to the currently selected folder_image.id via
@@ -732,6 +744,8 @@ export default function ShowcaseImgListEditor({
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
                   At most one is set per item (FIX521.5.6). */}
               <th title="Main image of the item">Main</th>
+              {/* FIX610.3.10: Status column, local-app only. */}
+              {isLocalApp && <th>Status</th>}
             </tr>
           </thead>
           <tbody>
@@ -806,6 +820,8 @@ export default function ShowcaseImgListEditor({
                         title="Use as the item's main image"
                       />
                     </td>
+                    {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'. */}
+                    {isLocalApp && <td className="sc-img-list-status">{im.status || ''}</td>}
                   </tr>
                   {/* FIX521.2.1.1.13: card line 2 — unlabeled File name /
                       File Size / Resolution / Zoom factor, shown only when
@@ -819,7 +835,7 @@ export default function ShowcaseImgListEditor({
                           line spreads from under Section, not the row
                           selector. */}
                       <td></td>
-                      <td colSpan={3} className="sc-img-list-detail-cell">
+                      <td colSpan={isLocalApp ? 4 : 3} className="sc-img-list-detail-cell">
                         {/* FIX521.2.1.1.1: File name (read-only). */}
                         <span className="filename" title={im.filename}>
                           {im.filename ?? ''}
@@ -844,7 +860,7 @@ export default function ShowcaseImgListEditor({
             })}
             {images.length === 0 && (
               <tr>
-                <td colSpan={4} className="empty">No images in this item.</td>
+                <td colSpan={isLocalApp ? 5 : 4} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

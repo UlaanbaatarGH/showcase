@@ -1325,7 +1325,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </button>
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Import menu, admin- or project-manager-only (FIX503.5.1). */}
+            Import menu, admin- or project-manager-only (FIX503.5.1).
+            FIX369.1: three options — Images, Image Properties, and (local
+            app only) Publish changes <cmd-publish-changes>. */}
         {isAdminOrManager && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button

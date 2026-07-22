@@ -265,11 +265,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
       });
     }
-    if (plan.length === 0) { setError('No pending changes to publish.'); return; }
+    // Show the recap regardless — an empty plan just shows all-zero counts
+    // with Confirm disabled, rather than a blocking error.
     setCrossPublishPlan(plan);
     setCrossPublishStage('recap');
   };
   const confirmCrossPublish = async () => {
+    if (!crossPublishPlan?.length) return;
     setCrossPublishStage('running');
     const totalUnits = crossPublishPlan.reduce((s, p) => s + p.scopeIdxs.length, 0);
     let doneUnits = 0;
@@ -2178,18 +2180,30 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       )}
       {/* FIX375.1-ish: <cmd-publish-changes> recap — same pattern as
           <button-publish-img>'s popup, one Ref line per item with
-          pending changes. */}
+          pending changes. Nothing pending shows a single all-zero line
+          with Confirm disabled, rather than an error. */}
       {crossPublishStage === 'recap' && crossPublishPlan && (
         <div className="setup-overlay" onMouseDown={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            {crossPublishPlan.map((p) => (
-              <p key={p.folderId}>
-                Ref {p.name}: {p.addCount} new, {p.removeCount} remove, {p.moveCount} move
-              </p>
-            ))}
+            {crossPublishPlan.length === 0 ? (
+              <p>0 new, 0 remove, 0 move</p>
+            ) : (
+              crossPublishPlan.map((p) => (
+                <p key={p.folderId}>
+                  Ref {p.name}: {p.addCount} new, {p.removeCount} remove, {p.moveCount} move
+                </p>
+              ))
+            )}
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>Cancel</button>
-              <button type="button" className="primary" onClick={confirmCrossPublish}>Confirm</button>
+              <button
+                type="button"
+                className="primary"
+                disabled={crossPublishPlan.length === 0}
+                onClick={confirmCrossPublish}
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

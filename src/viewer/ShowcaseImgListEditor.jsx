@@ -71,6 +71,9 @@ export default function ShowcaseImgListEditor({
   const [error, setError] = useState(null);
   // FIX610.3.5: Publish is in flight.
   const [publishing, setPublishing] = useState(false);
+  // FIX610.3.5.1: recap popup shown on <button-publish-img> click, before
+  // anything is actually sent — { addCount, removeCount } or null when closed.
+  const [publishRecap, setPublishRecap] = useState(null);
 
   // FIX521.2.1.9: multi-selection for the Shrink action. selectedIdx (owned by
   // the parent) stays the *primary* row that drives the right-hand editor;
@@ -562,8 +565,20 @@ export default function ShowcaseImgListEditor({
   const publishScopeIdxs = () =>
     images.map((_, idx) => idx).filter((idx) => selIdxs.has(idx) && images[idx].status !== '');
 
-  const handlePublish = async () => {
+  // FIX610.3.5.1: <button-publish-img> click opens the recap popup — nothing
+  // is sent yet. Cancel just closes it; Confirm runs confirmPublish below.
+  const handlePublishClick = () => {
     if (!isLocalApp || publishing) return;
+    const scope = publishScopeIdxs();
+    if (scope.length === 0) return;
+    setPublishRecap({
+      addCount: scope.filter((idx) => images[idx].status === 'Added').length,
+      removeCount: scope.filter((idx) => images[idx].status === 'Removed').length,
+    });
+  };
+
+  const confirmPublish = async () => {
+    setPublishRecap(null);
     const scope = new Set(publishScopeIdxs());
     if (scope.size === 0) return;
     setPublishing(true);
@@ -928,7 +943,7 @@ export default function ShowcaseImgListEditor({
             <button
               type="button"
               data-yagu-id="button-publish-img"
-              onClick={handlePublish}
+              onClick={handlePublishClick}
               disabled={hasPendingImageEdit || publishing || publishScopeIdxs().length === 0}
               title="Publish staged changes to the website"
             >
@@ -1276,6 +1291,22 @@ export default function ShowcaseImgListEditor({
         <div className="setup-overlay">
           <div className="sc-shrink-box">
             <p>Shrinking… {shrinkProgress?.done ?? 0}/{shrinkProgress?.total ?? 0}</p>
+          </div>
+        </div>
+      )}
+
+      {/* FIX610.3.5.1: <button-publish-img> recap popup — nothing is sent
+          until Confirm. {item ref} is this item's name (itemName prop). */}
+      {publishRecap && (
+        <div className="setup-overlay" onMouseDown={() => setPublishRecap(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>{itemName} {publishRecap.addCount} new</p>
+            <p>{itemName} {publishRecap.removeCount} remove</p>
+            <p>{itemName} 0 other change to come</p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
+              <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>
+            </div>
           </div>
         </div>
       )}

@@ -443,7 +443,18 @@ export default function ShowcaseImgListEditor({
     const rotated = delta < 0
       ? [...range.slice(1), range[0]] // boundary-above moves to bottom of range
       : [range[range.length - 1], ...range.slice(0, -1)]; // boundary-below moves to top
-    const updated = rotated.map((im, k) => ({ ...im, sort_order: orders[k] }));
+    // FIX610.3.4: in the local app, a public row whose rank actually changes
+    // gets staged as 'Moved' instead of writing immediately — publishing
+    // that change is deferred to Publish, same as Add/Remove. A row already
+    // 'Removed' keeps that status (it's leaving anyway); an 'Added' row has
+    // no public rank yet so it's never tagged.
+    const updated = rotated.map((im, k) => {
+      const newSortOrder = orders[k];
+      if (isLocalApp && !isLocalRow(im) && im.status !== 'Removed' && newSortOrder !== im.sort_order) {
+        return { ...im, sort_order: newSortOrder, status: 'Moved' };
+      }
+      return { ...im, sort_order: newSortOrder };
+    });
     const newImages = [...images];
     for (let k = 0; k < updated.length; k++) newImages[rangeStart + k] = updated[k];
     setImages(newImages);
@@ -452,6 +463,10 @@ export default function ShowcaseImgListEditor({
     setSelIdxs(new Set(Array.from({ length: newHi - newLo + 1 }, (_, k) => newLo + k)));
     setSelectedIdx(selectedIdx + delta);
     setAnchor(anchor + delta);
+    // FIX610.3.4: local-app reorders are staged (see above) — the actual
+    // sort_order PATCH happens at Publish time for in-scope 'Moved' rows.
+    // Outside the local app, keep the existing immediate-save behavior.
+    if (isLocalApp) return;
     try {
       // FIX610.3.1: not-yet-published rows have no real id to PATCH — their
       // sort_order is already correct in local state and gets set directly
@@ -581,6 +596,7 @@ export default function ShowcaseImgListEditor({
     setPublishRecap({
       addCount: scope.filter((idx) => images[idx].status === 'Added').length,
       removeCount: scope.filter((idx) => images[idx].status === 'Removed').length,
+      moveCount: scope.filter((idx) => images[idx].status === 'Moved').length,
     });
   };
 
@@ -605,16 +621,20 @@ export default function ShowcaseImgListEditor({
 
       // Rows still public (or about to become public) after this pass, in
       // display order: excludes what was just deleted and any Added row
-      // left out of scope (still staged for a future Publish).
-      const remaining = images.filter((im, idx) => {
-        if (scope.has(idx) && im.status === 'Removed') return false;
-        if (isLocalRow(im) && !scope.has(idx)) return false;
-        return true;
-      });
+      // left out of scope (still staged for a future Publish). origIdx is
+      // kept alongside each row so a 'Moved' row can be checked against
+      // scope below (FIX610.3.4) without losing its place in the list.
+      const remaining = images
+        .map((im, origIdx) => ({ im, origIdx }))
+        .filter(({ im, origIdx }) => {
+          if (scope.has(origIdx) && im.status === 'Removed') return false;
+          if (isLocalRow(im) && !scope.has(origIdx)) return false;
+          return true;
+        });
       const staged = []; // { filename, caption, section, is_main } — applied after refetch
-      const sortPatches = []; // existing rows whose sort_order must change
+      const sortPatches = []; // in-scope 'Moved' rows whose sort_order must change
       for (let idx = 0; idx < remaining.length; idx++) {
-        const im = remaining[idx];
+        const { im, origIdx } = remaining[idx];
         if (isLocalRow(im)) {
           const sign = await signUpload({
             project_id: projectId,
@@ -642,11 +662,19 @@ export default function ShowcaseImgListEditor({
           URL.revokeObjectURL(im.url);
           done += 1;
           setPublishProgress({ done, total });
-        } else if (im.sort_order !== idx) {
-          sortPatches.push({ id: im.id, sort_order: idx });
+        } else if (scope.has(origIdx) && im.status === 'Moved') {
+          // FIX610.3.4: the rotation in moveSelected already assigned the
+          // correct target sort_order locally — just push that value, not a
+          // renumbered position, so an out-of-scope row's untouched sort_order
+          // is never collided with.
+          sortPatches.push({ id: im.id, sort_order: im.sort_order });
         }
       }
-      for (const p of sortPatches) await updateFolderImage(p.id, { sort_order: p.sort_order });
+      for (const p of sortPatches) {
+        await updateFolderImage(p.id, { sort_order: p.sort_order });
+        done += 1;
+        setPublishProgress({ done, total });
+      }
 
       let fresh = await getFolderImages(folderId);
       if (staged.length) {
@@ -672,9 +700,22 @@ export default function ShowcaseImgListEditor({
           .filter((im, idx) => !isLocalRow(im) && im.status === 'Removed' && !scope.has(idx))
           .map((im) => im.id),
       );
-      const finalFresh = fresh.map((im) =>
-        stillPendingRemovedIds.has(im.id) ? { ...im, status: 'Removed' } : im,
+      // FIX610.3.4: a still-pending 'Moved' row (not part of this publish)
+      // keeps both its status and its locally-rotated sort_order — the fresh
+      // fetch only knows the still-live (unpublished) value — then the list
+      // is re-sorted so the pending reorder stays visible.
+      const stillPendingMoved = new Map(
+        images
+          .filter((im, idx) => !isLocalRow(im) && im.status === 'Moved' && !scope.has(idx))
+          .map((im) => [im.id, im.sort_order]),
       );
+      const finalFresh = fresh
+        .map((im) => {
+          if (stillPendingRemovedIds.has(im.id)) return { ...im, status: 'Removed' };
+          if (stillPendingMoved.has(im.id)) return { ...im, status: 'Moved', sort_order: stillPendingMoved.get(im.id) };
+          return im;
+        })
+        .sort((a, b) => a.sort_order - b.sort_order);
       const finalImages = [...finalFresh, ...stillStagedLocal];
       setImages(finalImages);
       setSelIdxs(new Set(finalImages.length ? [0] : []));

@@ -441,8 +441,11 @@ export default function ShowcaseImgListEditor({
     setSelectedIdx(selectedIdx + delta);
     setAnchor(anchor + delta);
     try {
+      // FIX610.3.1: not-yet-published rows have no real id to PATCH — their
+      // sort_order is already correct in local state and gets set directly
+      // via confirmImage at Publish time.
       await Promise.all(
-        updated.map((im) => updateFolderImage(im.id, { sort_order: im.sort_order })),
+        updated.filter((im) => !isLocalRow(im)).map((im) => updateFolderImage(im.id, { sort_order: im.sort_order })),
       );
     } catch (e) {
       setError(e.message || String(e));
@@ -468,7 +471,11 @@ export default function ShowcaseImgListEditor({
   // Auto-save caption / section on blur. Updating local images state is
   // done on every keystroke for snappy UI; the PATCH is debounced to blur
   // to avoid hammering the backend while the user types.
+  // FIX610.3.1: a row staged locally (status 'Added', not yet published) has
+  // no real folder_image id to PATCH — its caption/section/main just sit in
+  // local state until Publish (FIX610.3.5) uploads it and applies them.
   const patchFolderImage = async (fiId, patch) => {
+    if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
     try {
       await updateFolderImage(fiId, patch);
     } catch (e) {
@@ -497,6 +504,8 @@ export default function ShowcaseImgListEditor({
         im.id === fiId ? { ...im, is_main: value } : { ...im, is_main: value ? false : im.is_main },
       ),
     );
+    // FIX610.3.1: a not-yet-published row has no real id to PATCH — applied at Publish instead.
+    if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
     try {
       await updateFolderImage(fiId, { is_main: value });
     } catch (e) {
@@ -636,6 +645,40 @@ export default function ShowcaseImgListEditor({
     Number.isFinite(Number(shrinkRatio)) &&
     Number(shrinkRatio) >= 1;
 
+  // FIX610.3.1 <button-local-add-img>: open a file selector; each picked
+  // image is inserted at the end, or right after the selected image when
+  // exactly one row is selected, with status 'Added'. Not uploaded yet —
+  // just a client-side preview (object URL) until Publish (FIX610.3.5).
+  const addInputRef = useRef(null);
+  const localIdRef = useRef(0);
+  const handleAddClick = () => addInputRef.current?.click();
+  const handleFilesPicked = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    const singleSelected = selIdxs.size === 1 ? [...selIdxs][0] : null;
+    const insertAt = singleSelected != null ? singleSelected + 1 : images.length;
+    const newRows = files.map((file) => ({
+      id: `local-${Date.now()}-${localIdRef.current++}`,
+      image_id: null,
+      url: URL.createObjectURL(file),
+      filename: file.name,
+      caption: '',
+      section: '',
+      is_main: false,
+      sort_order: 0, // recomputed against final order at Publish
+      rotation: 0,
+      crop: null,
+      status: 'Added',
+      localFile: file,
+    }));
+    setImages([...images.slice(0, insertAt), ...newRows, ...images.slice(insertAt)]);
+    const newIdxs = newRows.map((_, k) => insertAt + k);
+    setSelIdxs(new Set(newIdxs));
+    setSelectedIdx(newIdxs[0]);
+    setAnchor(newIdxs[0]);
+  };
+
   return (
     <div
       className="sc-img-list-editor"
@@ -668,6 +711,27 @@ export default function ShowcaseImgListEditor({
           >
             ↓
           </button>
+          {/* FIX610.3.1 <button-local-add-img>: local-app only. */}
+          {isLocalApp && (
+            <>
+              <input
+                ref={addInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleFilesPicked}
+              />
+              <button
+                type="button"
+                data-yagu-id="button-local-add-img"
+                onClick={handleAddClick}
+                title="Add image(s)"
+              >
+                Add
+              </button>
+            </>
+          )}
           {/* FIX521.2.1.4: Remove button — overlay popup confirms removing all
               selected images. */}
           <button

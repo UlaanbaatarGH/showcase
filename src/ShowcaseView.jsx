@@ -18,7 +18,10 @@ import {
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
-import { getShowcase, getFolderImages, trackVisit, setFolderZoomFactor } from './data/backend.js';
+import {
+  getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
+  acquireEditLock, heartbeatEditLock, releaseEditLock,
+} from './data/backend.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
@@ -164,6 +167,59 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [images, setImages] = useState([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
+
+  // FIX610.3.20: per-project edit lock over <panel-showcase-img-list-editor>
+  // (the Images tab in edition mode), coordinating the website and the
+  // local app so only one side can have it open at a time. One session
+  // token per browser tab; a heartbeat keeps the lease alive while the
+  // editor is open, so a crashed/closed tab is treated as released once
+  // heartbeats stop (server-side TTL) without needing an explicit release.
+  const editLockSessionRef = useRef(
+    (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  );
+  const editLockHolder = import.meta.env.DEV ? 'local' : 'website';
+  const editLockHeldRef = useRef(false);
+  useEffect(() => {
+    const projectId = data?.project?.id;
+    const editingImages = editionMode && viewerTab === 'images';
+    if (!editingImages || projectId == null) return undefined;
+    let cancelled = false;
+    const token = editLockSessionRef.current;
+    acquireEditLock(projectId, { holder: editLockHolder, session_token: token })
+      .then(() => { if (!cancelled) editLockHeldRef.current = true; })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e.message || 'This project is being edited elsewhere.');
+        setEditionMode(false);
+      });
+    const heartbeat = setInterval(() => {
+      heartbeatEditLock(projectId, { session_token: token }).catch(() => {});
+    }, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(heartbeat);
+      if (editLockHeldRef.current) {
+        releaseEditLock(projectId, { session_token: token }).catch(() => {});
+        editLockHeldRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editionMode, viewerTab, data?.project?.id]);
+  // Best-effort release if the tab closes outright (no React unmount fires).
+  useEffect(() => {
+    const onUnload = () => {
+      const projectId = data?.project?.id;
+      if (!editLockHeldRef.current || projectId == null || !navigator.sendBeacon) return;
+      try {
+        navigator.sendBeacon(
+          `/api/projects/${projectId}/edit-lock/release`,
+          new Blob([JSON.stringify({ session_token: editLockSessionRef.current })], { type: 'application/json' }),
+        );
+      } catch { /* best effort */ }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, [data?.project?.id]);
   const [sortKeys, setSortKeys] = useState([]);
   const [filters, setFilters] = useState({});
   // FIX503.3.2 <button-columns> opens a standalone <panel-showcase-view-setup>

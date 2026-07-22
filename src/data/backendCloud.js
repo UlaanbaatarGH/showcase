@@ -192,4 +192,18 @@ export default {
   createFolder: notYet('createFolder'),
   renameFolder: notYet('renameFolder'),
   setFolderProperty: notYet('setFolderProperty'),
+  // FIX610.3.20: per-project edit lock over <panel-showcase-img-list-editor>,
+  // coordinating the website and the local app. holder is 'local' | 'website'.
+  getEditLock: (projectId) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock`),
+  acquireEditLock: (projectId, body) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/acquire`, { method: 'POST', body }),
+  heartbeatEditLock: (projectId, body) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/heartbeat`, { method: 'POST', body }),
+  releaseEditLock: (projectId, body) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/release`, { method: 'POST', body }),
+  // FIX610.3.20.2: independent of the open/close lock — true whenever the
+  // local app has any staged (non-blank status) image change not yet published.
+  setEditLockPendingChanges: (projectId, body) =>
+    call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/pending-changes`, { method: 'POST', body }),
 };

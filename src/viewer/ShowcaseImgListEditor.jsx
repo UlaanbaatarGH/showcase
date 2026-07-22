@@ -513,9 +513,33 @@ export default function ShowcaseImgListEditor({
     }
   };
 
+  // FIX610.3.2 <button-local-remove-img>: local-app only. A not-yet-published
+  // ('Added') row is dropped immediately (it never reached the server); a
+  // public row is soft-marked 'Removed' — actually deleted only on Publish
+  // (FIX610.3.5), so it stays undoable via Unremove (FIX610.3.3) until then.
+  const handleRemoveClick = () => {
+    if (!isLocalApp) { setRemoveConfirm(true); return; }
+    const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
+    if (targets.length === 0) return;
+    const toDrop = new Set(targets.filter(isLocalRow).map((im) => im.id));
+    const toMark = new Set(targets.filter((im) => !isLocalRow(im)).map((im) => im.id));
+    for (const im of targets) if (toDrop.has(im.id)) URL.revokeObjectURL(im.url);
+    const next = images
+      .filter((im) => !toDrop.has(im.id))
+      .map((im) => (toMark.has(im.id) ? { ...im, status: 'Removed' } : im));
+    setImages(next);
+    let newIdx = selectedIdx;
+    if (next.length === 0) newIdx = 0;
+    else if (selectedIdx >= next.length) newIdx = next.length - 1;
+    setSelectedIdx(newIdx);
+    setSelIdxs(new Set(next.length ? [newIdx] : []));
+    setAnchor(newIdx);
+  };
+
   // FIX521.2.1.4: Remove all the selected images after an overlay popup
-  // confirmation. Locked while a pending image edit exists (same lock pattern
-  // as selection / reorder).
+  // confirmation (non-local-app path only — see handleRemoveClick above).
+  // Locked while a pending image edit exists (same lock pattern as
+  // selection / reorder).
   const confirmRemove = async () => {
     const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
     if (targets.length === 0) { setRemoveConfirm(false); return; }
@@ -737,7 +761,7 @@ export default function ShowcaseImgListEditor({
           <button
             type="button"
             data-yagu-id="button-remove-image"
-            onClick={() => setRemoveConfirm(true)}
+            onClick={handleRemoveClick}
             disabled={hasPendingImageEdit || selIdxs.size === 0}
             title="Remove selected image(s)"
           >

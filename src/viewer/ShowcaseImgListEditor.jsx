@@ -497,14 +497,30 @@ export default function ShowcaseImgListEditor({
     }
   };
 
+  // FIX610.3.6: a row not already Added/Removed/Moved gets tagged 'Changed'
+  // when Section, Caption or Main is edited — those statuses already imply
+  // a pending change and take precedence over the display label (the actual
+  // field values still get published regardless of which label is shown,
+  // see confirmPublish).
+  const stageChanged = (im) =>
+    (im.status === 'Added' || im.status === 'Removed' || im.status === 'Moved')
+      ? im
+      : { ...im, status: 'Changed' };
+
   // Auto-save caption / section on blur. Updating local images state is
   // done on every keystroke for snappy UI; the PATCH is debounced to blur
   // to avoid hammering the backend while the user types.
   // FIX610.3.1: a row staged locally (status 'Added', not yet published) has
   // no real folder_image id to PATCH — its caption/section/main just sit in
   // local state until Publish (FIX610.3.5) uploads it and applies them.
+  // FIX610.3.6: in the local app, an existing public row's edit is staged
+  // (status 'Changed') instead of saved immediately — Publish applies it.
   const patchFolderImage = async (fiId, patch) => {
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
+    if (isLocalApp) {
+      setImages((prev) => prev.map((im) => (im.id === fiId ? stageChanged(im) : im)));
+      return;
+    }
     try {
       await updateFolderImage(fiId, patch);
     } catch (e) {
@@ -529,12 +545,16 @@ export default function ShowcaseImgListEditor({
   // a single PATCH (the backend re-applies the same atomic clear).
   const setMain = async (fiId, value) => {
     setImages((prev) =>
-      prev.map((im) =>
-        im.id === fiId ? { ...im, is_main: value } : { ...im, is_main: value ? false : im.is_main },
-      ),
+      prev.map((im) => {
+        if (im.id !== fiId) return { ...im, is_main: value ? false : im.is_main };
+        const next = { ...im, is_main: value };
+        // FIX610.3.6: stage in the local app instead of saving immediately.
+        return isLocalApp ? stageChanged(next) : next;
+      }),
     );
     // FIX610.3.1: a not-yet-published row has no real id to PATCH — applied at Publish instead.
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
+    if (isLocalApp) return; // FIX610.3.6: deferred to Publish
     try {
       await updateFolderImage(fiId, { is_main: value });
     } catch (e) {
@@ -634,7 +654,7 @@ export default function ShowcaseImgListEditor({
           return true;
         });
       const staged = []; // { filename, caption, section, is_main } — applied after refetch
-      const sortPatches = []; // in-scope 'Moved' rows whose sort_order must change
+      const pendingPatches = []; // in-scope existing rows needing a PATCH (move and/or field edits)
       for (let idx = 0; idx < remaining.length; idx++) {
         const { im, origIdx } = remaining[idx];
         if (isLocalRow(im)) {
@@ -664,16 +684,22 @@ export default function ShowcaseImgListEditor({
           URL.revokeObjectURL(im.url);
           done += 1;
           setPublishProgress({ done, total });
-        } else if (scope.has(origIdx) && im.status === 'Moved') {
-          // FIX610.3.4: the rotation in moveSelected already assigned the
-          // correct target sort_order locally — just push that value, not a
-          // renumbered position, so an out-of-scope row's untouched sort_order
-          // is never collided with.
-          sortPatches.push({ id: im.id, sort_order: im.sort_order });
+        } else if (scope.has(origIdx)) {
+          // FIX610.3.4 / FIX610.3.6: an in-scope existing row always gets its
+          // current caption/section/is_main pushed (a no-op if the user only
+          // moved it) plus sort_order when it's the reason it's in scope —
+          // the rotation in moveSelected already assigned the correct target
+          // value locally, so this is just that value, not a renumbered
+          // position (an out-of-scope row's untouched sort_order is never
+          // collided with). This also means a row that's both moved and
+          // edited doesn't lose the edit to 'Moved' taking display precedence.
+          const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };
+          if (im.status === 'Moved') patch.sort_order = im.sort_order;
+          pendingPatches.push({ id: im.id, patch });
         }
       }
-      for (const p of sortPatches) {
-        await updateFolderImage(p.id, { sort_order: p.sort_order });
+      for (const p of pendingPatches) {
+        await updateFolderImage(p.id, p.patch);
         done += 1;
         setPublishProgress({ done, total });
       }
@@ -693,32 +719,33 @@ export default function ShowcaseImgListEditor({
       }
 
       // Merge fresh server state back with anything intentionally left out
-      // of this pass: still-staged local rows, and public rows whose
-      // pending 'Removed' mark wasn't part of this batch (re-applied since
-      // the fresh fetch has no notion of that local-only staging tag).
+      // of this pass: still-staged local rows, and any public row with a
+      // pending status (Removed/Moved/Changed) that wasn't part of this
+      // batch — re-applied since the fresh fetch has no notion of any
+      // local-only staging. A row's caption/section/is_main are always
+      // carried over too (not just for 'Changed'), since a 'Moved' row can
+      // also have an edit pending under that same display label.
       const stillStagedLocal = images.filter((im, idx) => isLocalRow(im) && !scope.has(idx));
-      const stillPendingRemovedIds = new Set(
+      const stillPendingById = new Map(
         images
-          .filter((im, idx) => !isLocalRow(im) && im.status === 'Removed' && !scope.has(idx))
-          .map((im) => im.id),
-      );
-      // FIX610.3.4: a still-pending 'Moved' row (not part of this publish)
-      // keeps both its status and its locally-rotated sort_order — the fresh
-      // fetch only knows the still-live (unpublished) value — then the list
-      // is re-sorted so the pending reorder stays visible.
-      const stillPendingMoved = new Map(
-        images
-          .filter((im, idx) => !isLocalRow(im) && im.status === 'Moved' && !scope.has(idx))
-          .map((im) => [im.id, im.sort_order]),
+          .filter((im, idx) => !isLocalRow(im) && im.status !== '' && !scope.has(idx))
+          .map((im) => [im.id, im]),
       );
       const finalFresh = fresh
         .map((im) => {
           // FIX610.3.4: fresh is the newly-published truth — its sort_order
           // is the new baseline every future move gets rechecked against.
           const withBaseline = { ...im, origSortOrder: im.sort_order };
-          if (stillPendingRemovedIds.has(im.id)) return { ...withBaseline, status: 'Removed' };
-          if (stillPendingMoved.has(im.id)) return { ...withBaseline, status: 'Moved', sort_order: stillPendingMoved.get(im.id) };
-          return withBaseline;
+          const pending = stillPendingById.get(im.id);
+          if (!pending) return withBaseline;
+          return {
+            ...withBaseline,
+            status: pending.status,
+            sort_order: pending.status === 'Moved' ? pending.sort_order : withBaseline.sort_order,
+            caption: pending.caption,
+            section: pending.section,
+            is_main: pending.is_main,
+          };
         })
         .sort((a, b) => a.sort_order - b.sort_order);
       const finalImages = [...finalFresh, ...stillStagedLocal];

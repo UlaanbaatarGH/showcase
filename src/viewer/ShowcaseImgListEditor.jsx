@@ -536,6 +536,17 @@ export default function ShowcaseImgListEditor({
     setAnchor(newIdx);
   };
 
+  // FIX610.3.3 <button-local-unremove-img>: clears the 'Removed' status on
+  // any selected public row that has it, restoring it to the published list.
+  const handleUnremoveClick = () => {
+    const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
+    const ids = new Set(
+      targets.filter((im) => !isLocalRow(im) && im.status === 'Removed').map((im) => im.id),
+    );
+    if (ids.size === 0) return;
+    setImages(images.map((im) => (ids.has(im.id) ? { ...im, status: '' } : im)));
+  };
+
   // FIX521.2.1.4: Remove all the selected images after an overlay popup
   // confirmation (non-local-app path only — see handleRemoveClick above).
   // Locked while a pending image edit exists (same lock pattern as
@@ -767,6 +778,18 @@ export default function ShowcaseImgListEditor({
           >
             Remove
           </button>
+          {/* FIX610.3.3 <button-local-unremove-img>: local-app only. */}
+          {isLocalApp && (
+            <button
+              type="button"
+              data-yagu-id="button-local-unremove-img"
+              onClick={handleUnremoveClick}
+              disabled={hasPendingImageEdit || selIdxs.size === 0}
+              title="Unremove selected image(s)"
+            >
+              Unremove
+            </button>
+          )}
           {/* FIX521.2.1.5 <button-shrink-image-list>: shrink selected image(s).
               Enabled when 1+ rows are selected (FIX521.2.1.5.1). */}
           <button

@@ -486,7 +486,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     setDetailDraft({});
     getFolderImages(selectedFolderId)
       .then((imgs) => {
-        setImages(imgs);
+        // FIX610.3.4: baseline sort_order snapshot, so the local app can tell
+        // whether a row has actually moved from its last-published position.
+        setImages(imgs.map((im) => ({ ...im, origSortOrder: im.sort_order })));
         // FIX510.3.4: on item selection, show the Main image first;
         // when no image is flagged main, show the first image of the
         // list. The Main flag is set per row in the Image List editor

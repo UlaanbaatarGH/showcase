@@ -443,21 +443,23 @@ export default function ShowcaseImgListEditor({
     const rotated = delta < 0
       ? [...range.slice(1), range[0]] // boundary-above moves to bottom of range
       : [range[range.length - 1], ...range.slice(0, -1)]; // boundary-below moves to top
-    // FIX610.3.4: in the local app, a public row whose rank actually changes
-    // gets staged as 'Moved' instead of writing immediately — publishing
-    // that change is deferred to Publish, same as Add/Remove. A row already
-    // 'Removed' keeps that status (it's leaving anyway); an 'Added' row has
-    // no public rank yet so it's never tagged.
-    const updated = rotated.map((im, k) => {
-      const newSortOrder = orders[k];
-      if (isLocalApp && !isLocalRow(im) && im.status !== 'Removed' && newSortOrder !== im.sort_order) {
-        return { ...im, sort_order: newSortOrder, status: 'Moved' };
-      }
-      return { ...im, sort_order: newSortOrder };
-    });
+    const updated = rotated.map((im, k) => ({ ...im, sort_order: orders[k] }));
     const newImages = [...images];
     for (let k = 0; k < updated.length; k++) newImages[rangeStart + k] = updated[k];
-    setImages(newImages);
+    // FIX610.3.4: recheck EVERY row (not just the ones this rotation
+    // touched) against its last-published baseline (origSortOrder) —
+    // a move that cancels out an earlier one (up then back down) must
+    // clear 'Moved' again, not leave it stuck. A row already 'Removed'
+    // keeps that status; an 'Added' row has no public rank so it's
+    // never tagged.
+    const restaged = isLocalApp
+      ? newImages.map((im) => {
+          if (isLocalRow(im) || im.status === 'Removed') return im;
+          const baseline = im.origSortOrder ?? im.sort_order;
+          return { ...im, status: im.sort_order === baseline ? '' : 'Moved' };
+        })
+      : newImages;
+    setImages(restaged);
     const newLo = lo + delta;
     const newHi = hi + delta;
     setSelIdxs(new Set(Array.from({ length: newHi - newLo + 1 }, (_, k) => newLo + k)));
@@ -711,9 +713,12 @@ export default function ShowcaseImgListEditor({
       );
       const finalFresh = fresh
         .map((im) => {
-          if (stillPendingRemovedIds.has(im.id)) return { ...im, status: 'Removed' };
-          if (stillPendingMoved.has(im.id)) return { ...im, status: 'Moved', sort_order: stillPendingMoved.get(im.id) };
-          return im;
+          // FIX610.3.4: fresh is the newly-published truth — its sort_order
+          // is the new baseline every future move gets rechecked against.
+          const withBaseline = { ...im, origSortOrder: im.sort_order };
+          if (stillPendingRemovedIds.has(im.id)) return { ...withBaseline, status: 'Removed' };
+          if (stillPendingMoved.has(im.id)) return { ...withBaseline, status: 'Moved', sort_order: stillPendingMoved.get(im.id) };
+          return withBaseline;
         })
         .sort((a, b) => a.sort_order - b.sort_order);
       const finalImages = [...finalFresh, ...stillStagedLocal];

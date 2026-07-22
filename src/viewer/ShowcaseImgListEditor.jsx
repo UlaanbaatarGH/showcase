@@ -69,6 +69,8 @@ export default function ShowcaseImgListEditor({
   const [cropMode, setCropMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [error, setError] = useState(null);
+  // FIX610.3.5: Publish is in flight.
+  const [publishing, setPublishing] = useState(false);
 
   // FIX521.2.1.9: multi-selection for the Shrink action. selectedIdx (owned by
   // the parent) stays the *primary* row that drives the right-hand editor;
@@ -547,6 +549,81 @@ export default function ShowcaseImgListEditor({
     setImages(images.map((im) => (ids.has(im.id) ? { ...im, status: '' } : im)));
   };
 
+  // FIX610.3.5: Publish the batch to the website, then clear all status
+  // values. Order: deletions first, then uploads in final display order (so
+  // sort_order — renumbered for every remaining row — matches the list the
+  // user built). confirmImage doesn't accept caption/section/is_main, so
+  // those are applied with a follow-up PATCH once the fresh list gives us the
+  // new row's real id (matched by filename, since a folder holds no two
+  // images of the same name).
+  const handlePublish = async () => {
+    if (!isLocalApp || publishing) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      const toDelete = images.filter((im) => im.status === 'Removed' && !isLocalRow(im));
+      for (const im of toDelete) await deleteFolderImage(im.id);
+
+      const remaining = images.filter((im) => im.status !== 'Removed');
+      const staged = []; // { filename, caption, section, is_main } — applied after refetch
+      const sortPatches = []; // existing rows whose sort_order must change
+      for (let idx = 0; idx < remaining.length; idx++) {
+        const im = remaining[idx];
+        if (isLocalRow(im)) {
+          const sign = await signUpload({
+            project_id: projectId,
+            item_name: itemName,
+            filename: im.filename,
+          });
+          const putRes = await fetch(sign.signed_url, {
+            method: 'PUT',
+            headers: { 'Content-Type': im.localFile.type || 'application/octet-stream' },
+            body: im.localFile,
+          });
+          if (!putRes.ok) throw new Error(`Upload failed (${putRes.status}) for ${im.filename}`);
+          const dims = dimsByUrl[im.url];
+          await confirmImage({
+            project_id: projectId,
+            item_name: itemName,
+            storage_key: sign.storage_key,
+            sort_order: idx,
+            replaces_image_id: null,
+            zoom_factor: dims ? zoomFactor(dims.w, dims.h) : null,
+          });
+          if (im.caption || im.section || im.is_main) {
+            staged.push({ filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main });
+          }
+          URL.revokeObjectURL(im.url);
+        } else if (im.sort_order !== idx) {
+          sortPatches.push({ id: im.id, sort_order: idx });
+        }
+      }
+      for (const p of sortPatches) await updateFolderImage(p.id, { sort_order: p.sort_order });
+
+      let fresh = await getFolderImages(folderId);
+      if (staged.length) {
+        for (const s of staged) {
+          const row = fresh.find((f) => f.filename === s.filename);
+          if (!row) continue;
+          await updateFolderImage(row.id, {
+            caption: s.caption || null,
+            section: s.section || null,
+            is_main: s.is_main,
+          });
+        }
+        fresh = await getFolderImages(folderId);
+      }
+      setImages(fresh);
+      setSelIdxs(new Set(fresh.length ? [0] : []));
+      setSelectedIdx(0);
+      setAnchor(0);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // FIX521.2.1.4: Remove all the selected images after an overlay popup
   // confirmation (non-local-app path only — see handleRemoveClick above).
   // Locked while a pending image edit exists (same lock pattern as
@@ -812,6 +889,18 @@ export default function ShowcaseImgListEditor({
           >
             File details
           </button>
+          {/* FIX610.3.5: publish staged Add/Remove changes to the website. */}
+          {isLocalApp && (
+            <button
+              type="button"
+              data-yagu-id="button-local-publish"
+              onClick={handlePublish}
+              disabled={hasPendingImageEdit || publishing}
+              title="Publish staged changes to the website"
+            >
+              {publishing ? 'Publishing…' : 'Publish'}
+            </button>
+          )}
           <button
             type="button"
             className="sc-img-list-done"

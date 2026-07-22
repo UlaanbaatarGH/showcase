@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
-  getFolderImages, signUpload, confirmImage,
+  getFolderImages, signUpload, confirmImage, setEditLockPendingChanges,
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 
@@ -60,6 +60,21 @@ export default function ShowcaseImgListEditor({
   // string id in this form so they can be told apart from real folder_image
   // ids (numeric) without a separate flag on every row.
   const isLocalRow = (im) => typeof im.id === 'string' && im.id.startsWith('local-');
+
+  // FIX610.3.20.2: report to the server whenever this item's staged status
+  // set transitions between "something pending" and "nothing pending", so
+  // the website can be blocked while the local app has unpublished changes
+  // — independent of whether this editor is currently open. Known scope
+  // limit: this only tracks the *currently open* item, since switching
+  // items today discards the previous item's staged state entirely (it was
+  // never persisted anywhere); it does not track pending changes across
+  // multiple items at once.
+  useEffect(() => {
+    if (!isLocalApp || projectId == null) return;
+    const pending = images.some((im) => im.status);
+    setEditLockPendingChanges(projectId, { pending }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, isLocalApp, projectId]);
 
   // Image-editor state (right panel). null until the user touches
   // rotate/crop; pinned to the currently selected folder_image.id via

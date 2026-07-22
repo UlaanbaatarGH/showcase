@@ -1027,6 +1027,8 @@ export default function ShowcaseImgListEditor({
         <table className="sc-img-list-table" data-yagu-id="table-item-img-info">
           <thead>
             <tr>
+              {/* FIX610.3.11: rank column, local-app only, first column. */}
+              {isLocalApp && <th title="Rank, as it is on the website">#</th>}
               {/* FIX521.2.1.9.2 / .9.3: leftmost select column with a select-all
                   checkbox in the header. */}
               <th style={{ textAlign: 'center' }} title="Select all rows">
@@ -1055,7 +1057,10 @@ export default function ShowcaseImgListEditor({
             </tr>
           </thead>
           <tbody>
-            {images.map((im, idx) => {
+            {(() => { let publicRank = 0; return images.map((im, idx) => {
+              // FIX610.3.11: 1-based rank among rows actually live on the
+              // website — an 'Added' row has no public rank yet.
+              const rank = im.status === 'Added' ? '' : ++publicRank;
               const isSelected = selIdxs.has(idx);
               const dimsZ = dimsByUrl[im.url];
               const zf = dimsZ ? zoomFactor(dimsZ.w, dimsZ.h) : null; // FIX521.2.1.1.7
@@ -1071,6 +1076,8 @@ export default function ShowcaseImgListEditor({
                     className={rowClass}
                     onClick={(e) => onRowClick(e, idx)}
                   >
+                    {/* FIX610.3.11: rank column, local-app only, first column. */}
+                    {isLocalApp && <td style={{ textAlign: 'center' }} className="sc-img-list-rank">{rank}</td>}
                     {/* FIX521.2.1.9.2: easy row selection via a toggle BUTTON
                         (not a checkbox) so it is visually distinct from the Main
                         checkbox on the same row, which is real data. Plain click
@@ -1140,9 +1147,10 @@ export default function ShowcaseImgListEditor({
                       className={`${rowClass} sc-img-list-detail-row`}
                       onClick={(e) => onRowClick(e, idx)}
                     >
-                      {/* Blank cell under the select column — the detail
-                          line spreads from under Section, not the row
-                          selector. */}
+                      {/* Blank cells under the rank (FIX610.3.11) and select
+                          columns — the detail line spreads from under
+                          Section, not the row selector. */}
+                      {isLocalApp && <td></td>}
                       <td></td>
                       <td colSpan={isLocalApp ? 4 : 3} className="sc-img-list-detail-cell">
                         {/* FIX521.2.1.1.1: File name (read-only). */}
@@ -1166,10 +1174,10 @@ export default function ShowcaseImgListEditor({
                   )}
                 </Fragment>
               );
-            })}
+            }); })()}
             {images.length === 0 && (
               <tr>
-                <td colSpan={isLocalApp ? 5 : 4} className="empty">No images in this item.</td>
+                <td colSpan={isLocalApp ? 6 : 4} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

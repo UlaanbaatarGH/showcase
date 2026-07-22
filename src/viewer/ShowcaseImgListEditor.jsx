@@ -549,22 +549,41 @@ export default function ShowcaseImgListEditor({
     setImages(images.map((im) => (ids.has(im.id) ? { ...im, status: '' } : im)));
   };
 
-  // FIX610.3.5: Publish the batch to the website, then clear all status
-  // values. Order: deletions first, then uploads in final display order (so
-  // sort_order — renumbered for every remaining row — matches the list the
-  // user built). confirmImage doesn't accept caption/section/is_main, so
-  // those are applied with a follow-up PATCH once the fresh list gives us the
-  // new row's real id (matched by filename, since a folder holds no two
-  // images of the same name).
+  // FIX610.3.5 <button-publish-img>: Publish only the *selected* images that
+  // carry a status — selecting everything naturally reduces to "every staged
+  // row" since blank-status rows have nothing to publish. Order: deletions
+  // in scope first, then uploads/renumbering in final display order (so
+  // sort_order matches the list the user built) for every row that will
+  // still be public afterwards — including out-of-scope rows left staged.
+  // confirmImage doesn't accept caption/section/is_main, so those are
+  // applied with a follow-up PATCH once the fresh list gives us the new
+  // row's real id (matched by filename, since a folder holds no two images
+  // of the same name).
+  const publishScopeIdxs = () =>
+    images.map((_, idx) => idx).filter((idx) => selIdxs.has(idx) && images[idx].status !== '');
+
   const handlePublish = async () => {
     if (!isLocalApp || publishing) return;
+    const scope = new Set(publishScopeIdxs());
+    if (scope.size === 0) return;
     setPublishing(true);
     setError(null);
     try {
-      const toDelete = images.filter((im) => im.status === 'Removed' && !isLocalRow(im));
-      for (const im of toDelete) await deleteFolderImage(im.id);
+      for (let idx = 0; idx < images.length; idx++) {
+        const im = images[idx];
+        if (scope.has(idx) && im.status === 'Removed' && !isLocalRow(im)) {
+          await deleteFolderImage(im.id);
+        }
+      }
 
-      const remaining = images.filter((im) => im.status !== 'Removed');
+      // Rows still public (or about to become public) after this pass, in
+      // display order: excludes what was just deleted and any Added row
+      // left out of scope (still staged for a future Publish).
+      const remaining = images.filter((im, idx) => {
+        if (scope.has(idx) && im.status === 'Removed') return false;
+        if (isLocalRow(im) && !scope.has(idx)) return false;
+        return true;
+      });
       const staged = []; // { filename, caption, section, is_main } — applied after refetch
       const sortPatches = []; // existing rows whose sort_order must change
       for (let idx = 0; idx < remaining.length; idx++) {
@@ -613,8 +632,23 @@ export default function ShowcaseImgListEditor({
         }
         fresh = await getFolderImages(folderId);
       }
-      setImages(fresh);
-      setSelIdxs(new Set(fresh.length ? [0] : []));
+
+      // Merge fresh server state back with anything intentionally left out
+      // of this pass: still-staged local rows, and public rows whose
+      // pending 'Removed' mark wasn't part of this batch (re-applied since
+      // the fresh fetch has no notion of that local-only staging tag).
+      const stillStagedLocal = images.filter((im, idx) => isLocalRow(im) && !scope.has(idx));
+      const stillPendingRemovedIds = new Set(
+        images
+          .filter((im, idx) => !isLocalRow(im) && im.status === 'Removed' && !scope.has(idx))
+          .map((im) => im.id),
+      );
+      const finalFresh = fresh.map((im) =>
+        stillPendingRemovedIds.has(im.id) ? { ...im, status: 'Removed' } : im,
+      );
+      const finalImages = [...finalFresh, ...stillStagedLocal];
+      setImages(finalImages);
+      setSelIdxs(new Set(finalImages.length ? [0] : []));
       setSelectedIdx(0);
       setAnchor(0);
     } catch (e) {
@@ -893,9 +927,9 @@ export default function ShowcaseImgListEditor({
           {isLocalApp && (
             <button
               type="button"
-              data-yagu-id="button-local-publish"
+              data-yagu-id="button-publish-img"
               onClick={handlePublish}
-              disabled={hasPendingImageEdit || publishing}
+              disabled={hasPendingImageEdit || publishing || publishScopeIdxs().length === 0}
               title="Publish staged changes to the website"
             >
               {publishing ? 'Publishing…' : 'Publish'}

@@ -74,6 +74,9 @@ export default function ShowcaseImgListEditor({
   // FIX610.3.5.1: recap popup shown on <button-publish-img> click, before
   // anything is actually sent — { addCount, removeCount } or null when closed.
   const [publishRecap, setPublishRecap] = useState(null);
+  // FIX610.3.5.2: { done, total } counting in-scope deletes/uploads only —
+  // not the incidental sort_order renumbering of out-of-scope public rows.
+  const [publishProgress, setPublishProgress] = useState(null);
 
   // FIX521.2.1.9: multi-selection for the Shrink action. selectedIdx (owned by
   // the parent) stays the *primary* row that drives the right-hand editor;
@@ -581,13 +584,18 @@ export default function ShowcaseImgListEditor({
     setPublishRecap(null);
     const scope = new Set(publishScopeIdxs());
     if (scope.size === 0) return;
+    const total = scope.size; // FIX610.3.5.2: one unit per in-scope delete/upload
+    let done = 0;
     setPublishing(true);
+    setPublishProgress({ done, total });
     setError(null);
     try {
       for (let idx = 0; idx < images.length; idx++) {
         const im = images[idx];
         if (scope.has(idx) && im.status === 'Removed' && !isLocalRow(im)) {
           await deleteFolderImage(im.id);
+          done += 1;
+          setPublishProgress({ done, total });
         }
       }
 
@@ -628,6 +636,8 @@ export default function ShowcaseImgListEditor({
             staged.push({ filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main });
           }
           URL.revokeObjectURL(im.url);
+          done += 1;
+          setPublishProgress({ done, total });
         } else if (im.sort_order !== idx) {
           sortPatches.push({ id: im.id, sort_order: idx });
         }
@@ -670,6 +680,7 @@ export default function ShowcaseImgListEditor({
       setError(e.message || String(e));
     } finally {
       setPublishing(false);
+      setPublishProgress(null);
     }
   };
 
@@ -1307,6 +1318,18 @@ export default function ShowcaseImgListEditor({
               <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
               <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FIX610.3.5.2: progress message — % of in-scope changes published. */}
+      {publishing && publishProgress && (
+        <div className="setup-overlay">
+          <div className="sc-shrink-box">
+            <p>
+              Publishing… {Math.round((publishProgress.done / publishProgress.total) * 100)}%
+              {' '}({publishProgress.done}/{publishProgress.total})
+            </p>
           </div>
         </div>
       )}

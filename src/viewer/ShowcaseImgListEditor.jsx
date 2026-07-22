@@ -1,7 +1,14 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
-import { updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes } from '../data/backend.js';
+import {
+  updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
+  getFolderImages, signUpload, confirmImage,
+} from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
+
+// FIX600 / FIX600.1 <panel-showcase-img-list-editor> local-app extension:
+// manage image addition/update/removal locally, staged with a Status column,
+// then publish the batch to the website in one action (FIX610).
 
 // FIX521.2.1.1.2 File Size column. Size isn't stored in the DB — fetch
 // it via HEAD request to the public Supabase URL. Cached in-memory by

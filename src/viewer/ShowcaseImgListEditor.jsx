@@ -1403,7 +1403,6 @@ export default function ShowcaseImgListEditor({
             <p>Ref {itemName}: {publishRecap.addCount} new</p>
             <p>Ref {itemName}: {publishRecap.removeCount} remove</p>
             <p>Ref {itemName}: {publishRecap.moveCount} move</p>
-            <p>Ref {itemName}: 0 other change to come</p>
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
               <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>

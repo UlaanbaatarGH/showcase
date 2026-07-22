@@ -518,7 +518,8 @@ export default function PhotoModule({ onClose }) {
   // Bump this to force FolderPanel to re-read its files after a setup save
   const [folderPanelRefresh, setFolderPanelRefresh] = useState(0);
   // FIX500.1.1: Menu + view switching
-  const [currentView, setCurrentView] = useState('file-explorer'); // 'file-explorer' | 'showcase'
+  // FIX500.1.1.1.2: Showcase is the default view opened at app startup.
+  const [currentView, setCurrentView] = useState('showcase'); // 'file-explorer' | 'showcase'
   const [menuOpen, setMenuOpen] = useState(null); // null | 'view'
   // FIX501.3.3.6 / FIX510.3.1: cross-view navigation
   const [showcaseSelectedPath, setShowcaseSelectedPath] = useState(null);

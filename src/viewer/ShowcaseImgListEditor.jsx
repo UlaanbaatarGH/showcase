@@ -1360,9 +1360,10 @@ export default function ShowcaseImgListEditor({
       {publishRecap && (
         <div className="setup-overlay" onMouseDown={() => setPublishRecap(null)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <p>{itemName} {publishRecap.addCount} new</p>
-            <p>{itemName} {publishRecap.removeCount} remove</p>
-            <p>{itemName} 0 other change to come</p>
+            <p>Ref {itemName}: {publishRecap.addCount} new</p>
+            <p>Ref {itemName}: {publishRecap.removeCount} remove</p>
+            <p>Ref {itemName}: {publishRecap.moveCount} move</p>
+            <p>Ref {itemName}: 0 other change to come</p>
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
               <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>

@@ -1451,6 +1451,14 @@ body {
 .sc-img-list-reorder .sc-img-list-done {
   margin-left: auto;
 }
+/* FIX620.3.4 <button-auto-insert-img>: flashes yellow text while listening. */
+.sc-flash-yellow { animation: sc-flash-yellow-anim 1s step-start infinite; }
+@keyframes sc-flash-yellow-anim {
+  50% { color: #f4d03f; }
+}
+/* FIX620.3.2: folder input spans the popup's full (window-wide) width. */
+.sc-auto-insert-popup { width: 90vw; }
+.sc-auto-insert-folder-input { width: 100%; box-sizing: border-box; }
 .sc-img-list-editor-pane {
   flex: 1 1 auto;
   min-width: 0;

@@ -6,6 +6,12 @@ import {
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 import { publishItemImages, isLocalRow } from './publishItemImages.js';
+import { isAcceptedImage } from '../images/importImages.js';
+
+// FIX620 <process-automatic-img-insertion>: local-app only. The folder is
+// entered by the user at activation time (FIX620.3.2), not fixed config.
+const AGENT_URL = 'http://localhost:3001';
+const AUTO_INSERT_LAST_FOLDER_KEY = 'sc-auto-insert-last-folder';
 
 // FIX600 / FIX600.1 <panel-showcase-img-list-editor> local-app extension:
 // manage image addition/update/removal locally, staged with a Status column,
@@ -816,33 +822,145 @@ export default function ShowcaseImgListEditor({
   // just a client-side preview (object URL) until Publish (FIX610.3.5).
   const addInputRef = useRef(null);
   const localIdRef = useRef(0);
+  const makeLocalRow = (filename, file) => ({
+    id: `local-${Date.now()}-${localIdRef.current++}`,
+    image_id: null,
+    url: URL.createObjectURL(file),
+    filename,
+    caption: '',
+    section: '',
+    is_main: false,
+    sort_order: 0, // recomputed against final order at Publish
+    rotation: 0,
+    crop: null,
+    status: 'Added',
+    localFile: file,
+  });
+
+  // Mirror of selIdxs so the async auto-insertion poller below (FIX620.4.2)
+  // — whose closure would otherwise go stale across setInterval ticks —
+  // always inserts after the live current selection.
+  const selIdxsRef = useRef(selIdxs);
+  useEffect(() => { selIdxsRef.current = selIdxs; }, [selIdxs]);
+
+  // FIX610.3.1 / FIX620.4.3: shared by the manual file picker and the
+  // auto-insertion listener — insert right after the single selected row
+  // (or at the end when none/multiple are selected), then move the
+  // selection to what was just inserted.
+  //
+  // The setImages updater below must stay pure (only compute the next array
+  // from `prev` — no other setState calls, no ref writes inside it): React
+  // 18 StrictMode double-invokes updater functions in dev to catch exactly
+  // this, and an impure one here was silently corrupting insertAt across
+  // the two invocations, scattering auto-inserted rows through the list
+  // instead of stacking them in order. selIdxsRef is only *read* here, and
+  // is written back synchronously below, outside the updater.
+  const insertLocalRows = (rows) => {
+    const singleSelected = selIdxsRef.current.size === 1 ? [...selIdxsRef.current][0] : null;
+    let insertAt = -1;
+    setImages((prev) => {
+      insertAt = singleSelected != null ? singleSelected + 1 : prev.length;
+      return [...prev.slice(0, insertAt), ...rows, ...prev.slice(insertAt)];
+    });
+    const newIdxs = rows.map((_, k) => insertAt + k);
+    selIdxsRef.current = new Set(newIdxs);
+    setSelIdxs(new Set(newIdxs));
+    setSelectedIdx(newIdxs[0]);
+    setAnchor(newIdxs[0]);
+  };
   const handleAddClick = () => addInputRef.current?.click();
   const handleFilesPicked = (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
     if (files.length === 0) return;
-    const singleSelected = selIdxs.size === 1 ? [...selIdxs][0] : null;
-    const insertAt = singleSelected != null ? singleSelected + 1 : images.length;
-    const newRows = files.map((file) => ({
-      id: `local-${Date.now()}-${localIdRef.current++}`,
-      image_id: null,
-      url: URL.createObjectURL(file),
-      filename: file.name,
-      caption: '',
-      section: '',
-      is_main: false,
-      sort_order: 0, // recomputed against final order at Publish
-      rotation: 0,
-      crop: null,
-      status: 'Added',
-      localFile: file,
-    }));
-    setImages([...images.slice(0, insertAt), ...newRows, ...images.slice(insertAt)]);
-    const newIdxs = newRows.map((_, k) => insertAt + k);
-    setSelIdxs(new Set(newIdxs));
-    setSelectedIdx(newIdxs[0]);
-    setAnchor(newIdxs[0]);
+    insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
   };
+
+  // FIX620 <process-automatic-img-insertion>: <button-auto-insert-img>.
+  // FIX620.3.2: pushing down while off opens a popup to enter/confirm the
+  // watched folder. FIX620.3.3: pushing up while on immediately stops, no
+  // popup. autoInsertPopup: null | { folder, error, checking }.
+  const [autoInsertActive, setAutoInsertActive] = useState(false);
+  const [autoInsertPopup, setAutoInsertPopup] = useState(null);
+  const [autoInsertDir, setAutoInsertDir] = useState('');
+  const seenNamesRef = useRef(null);
+  const pollingRef = useRef(false); // guards against overlapping poll ticks
+
+  const handleToggleAutoInsert = () => {
+    if (autoInsertActive) {
+      setAutoInsertActive(false); // FIX620.3.3
+      return;
+    }
+    const lastFolder = localStorage.getItem(AUTO_INSERT_LAST_FOLDER_KEY) || '';
+    setAutoInsertPopup({ folder: lastFolder, error: null, checking: false });
+  };
+  // FIX620.3.2: Start checks the folder is valid and can be listened.
+  const handleStartListening = async () => {
+    const folder = (autoInsertPopup?.folder || '').trim();
+    if (!folder) {
+      setAutoInsertPopup((p) => ({ ...p, error: 'Enter a folder path' }));
+      return;
+    }
+    setAutoInsertPopup((p) => ({ ...p, checking: true, error: null }));
+    try {
+      const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(folder)}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setAutoInsertPopup((p) => ({ ...p, checking: false, error: body.error || 'Folder not found or not accessible' }));
+        return;
+      }
+      localStorage.setItem(AUTO_INSERT_LAST_FOLDER_KEY, folder);
+      seenNamesRef.current = null; // seeded on the first poll tick below
+      setAutoInsertDir(folder);
+      setAutoInsertPopup(null);
+      setAutoInsertActive(true);
+    } catch {
+      setAutoInsertPopup((p) => ({ ...p, checking: false, error: 'Folder not found or not accessible' }));
+    }
+  };
+  // FIX620.4: sync process — poll the folder while active, stage each newly
+  // arrived supported-extension file exactly like <button-local-add-img>.
+  useEffect(() => {
+    if (!autoInsertActive || !autoInsertDir) return undefined;
+    const poll = async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(autoInsertDir)}`);
+        if (!res.ok) return;
+        const { entries } = await res.json();
+        const names = (entries || [])
+          .filter((e) => e.type === 'file' && isAcceptedImage(e.name))
+          .map((e) => e.name)
+          .sort();
+        // First tick after Start: everything already there is the baseline,
+        // not a "new" arrival — only names seen from here on count.
+        if (seenNamesRef.current === null) {
+          seenNamesRef.current = new Set(names);
+          return;
+        }
+        const fresh = names.filter((n) => !seenNamesRef.current.has(n));
+        for (const name of fresh) {
+          seenNamesRef.current.add(name); // mark seen before the await below
+          const imgRes = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(`${autoInsertDir}/${name}`)}`);
+          if (!imgRes.ok) continue;
+          const blob = await imgRes.blob();
+          // One at a time so a burst within the same tick chains correctly:
+          // each insert moves the selection (FIX620.4.2), and the next one
+          // reads that as its "last selected image".
+          insertLocalRows([makeLocalRow(name, blob)]);
+        }
+      } catch {
+        // Agent unreachable this tick — try again next tick.
+      } finally {
+        pollingRef.current = false;
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 4000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoInsertActive, autoInsertDir]);
 
   return (
     <div
@@ -897,6 +1015,20 @@ export default function ShowcaseImgListEditor({
                 Add
               </button>
             </>
+          )}
+          {/* FIX620.3.1 <button-auto-insert-img>: local-app only.
+              FIX620.3.4: flashes yellow text while listening is active. */}
+          {isLocalApp && (
+            <button
+              type="button"
+              data-yagu-id="button-auto-insert-img"
+              onClick={handleToggleAutoInsert}
+              disabled={interactionLocked && !autoInsertActive}
+              title="Auto-insertion"
+              className={autoInsertActive ? 'active sc-flash-yellow' : ''}
+            >
+              Auto-insertion
+            </button>
           )}
           {/* FIX521.2.1.4: Remove button — overlay popup confirms removing all
               selected images. */}
@@ -1331,6 +1463,33 @@ export default function ShowcaseImgListEditor({
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
               <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FIX620.3.2: <button-auto-insert-img> popup, shown on push-down while
+          off. Cancel closes without starting; Start listening validates the
+          folder first (via the Local Agent) before arming the poll. */}
+      {autoInsertPopup && (
+        <div className="setup-overlay" onMouseDown={() => setAutoInsertPopup(null)}>
+          <div className="sc-shrink-box sc-auto-insert-popup" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Automatic insertion of images dropped in folder:</p>
+            <input
+              type="text"
+              className="sc-auto-insert-folder-input"
+              value={autoInsertPopup.folder}
+              onChange={(e) => setAutoInsertPopup((p) => ({ ...p, folder: e.target.value }))}
+              disabled={autoInsertPopup.checking}
+            />
+            {autoInsertPopup.error && <div className="sc-viewer-err">{autoInsertPopup.error}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setAutoInsertPopup(null)} disabled={autoInsertPopup.checking}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={handleStartListening} disabled={autoInsertPopup.checking}>
+                Start listening
+              </button>
             </div>
           </div>
         </div>

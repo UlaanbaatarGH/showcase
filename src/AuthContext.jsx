@@ -118,8 +118,18 @@ export function AuthProvider({ children }) {
 
   // Whenever we have a fresh session, ensure the app_user row exists
   // (self-heals if it was never created) and cache the profile for the UI.
+  //
+  // TECH2: this fetch is hand-rolled (predates the token existing, so it
+  // can't go through backendCloud.js's call() wrapper) and so was missing
+  // the 401 recovery every other backend call gets — a stale/invalid
+  // token at startup just left `session` set with `profile` silently
+  // null forever (Edit button gone, no visible reason, only fixed by a
+  // manual sign-out/in). Detect it here the same way call() does: clear
+  // the token and dispatch 'auth:invalid' so AuthContext's own listener
+  // below signs out and the UI falls back to the working anonymous state.
   useEffect(() => {
-    if (!session) { setProfile(null); return; }
+    if (!session) { setProfile(null); return undefined; }
+    let cancelled = false;
     const { access_token, user } = session;
     const loginName =
       (user?.email || '').replace(/@showcase\.(app|local)$/, '') || user?.id || 'user';
@@ -131,9 +141,20 @@ export function AuthProvider({ children }) {
       },
       body: JSON.stringify({ login_name: loginName }),
     })
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setProfile)
-      .catch(() => setProfile(null));
+      .then((r) => {
+        if (cancelled) return null;
+        if (r.status === 401) {
+          setAuthToken(null);
+          window.dispatchEvent(new CustomEvent('auth:invalid', {
+            detail: { reason: 'stale session at startup' },
+          }));
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
+      .then((p) => { if (!cancelled) setProfile(p); })
+      .catch(() => { if (!cancelled) setProfile(null); });
+    return () => { cancelled = true; };
   }, [session]);
 
   const signIn = useCallback(async (loginName, password) => {

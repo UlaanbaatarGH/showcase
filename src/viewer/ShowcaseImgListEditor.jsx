@@ -471,7 +471,10 @@ export default function ShowcaseImgListEditor({
       ? newImages.map((im) => {
           if (isLocalRow(im) || im.status === 'Removed') return im;
           const baseline = im.origSortOrder ?? im.sort_order;
-          return { ...im, status: im.sort_order === baseline ? '' : 'Moved' };
+          // FIX610.3.7: a move that cancels out shouldn't drop a still-pending
+          // field edit — fall back to 'Changed' rather than '' when so.
+          const atBaseline = im.sort_order === baseline;
+          return { ...im, status: atBaseline ? (im.fieldsChanged ? 'Changed' : '') : 'Moved' };
         })
       : newImages;
     setImages(restaged);
@@ -513,13 +516,15 @@ export default function ShowcaseImgListEditor({
   };
 
   // FIX610.3.6: a row not already Added/Removed/Moved gets tagged 'Changed'
-  // when Section, Caption or Main is edited — those statuses already imply
-  // a pending change and take precedence over the display label (the actual
-  // field values still get published regardless of which label is shown,
-  // see confirmPublish).
+  // when Section, Caption or Main is edited. FIX610.3.7: a row already
+  // Added/Removed/Moved instead gets `fieldsChanged: true` so the status
+  // badge can cumulate ("Moved, Changed") instead of the field edit being
+  // silently dropped from the display — the actual field values were
+  // always published regardless of which label was shown (see
+  // confirmPublish), only the on-screen status was losing information.
   const stageChanged = (im) =>
     (im.status === 'Added' || im.status === 'Removed' || im.status === 'Moved')
-      ? im
+      ? { ...im, fieldsChanged: true }
       : { ...im, status: 'Changed' };
 
   // Auto-save caption / section on blur. Updating local images state is
@@ -634,6 +639,9 @@ export default function ShowcaseImgListEditor({
       addCount: scope.filter((idx) => images[idx].status === 'Added').length,
       removeCount: scope.filter((idx) => images[idx].status === 'Removed').length,
       moveCount: scope.filter((idx) => images[idx].status === 'Moved').length,
+      // FIX610.3.7: a Moved/Added/Removed row with a pending field edit
+      // counts toward "change" too, not just its move/add/remove count.
+      changeCount: scope.filter((idx) => images[idx].status === 'Changed' || images[idx].fieldsChanged).length,
     });
   };
 
@@ -1076,8 +1084,16 @@ export default function ShowcaseImgListEditor({
                         disabled={publishing}
                       />
                     </td>
-                    {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'. */}
-                    {isLocalApp && <td className="sc-img-list-status">{im.status || ''}</td>}
+                    {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'.
+                        FIX610.3.7: cumulates with ', Changed' when a
+                        Added/Removed/Moved row also has a pending field edit. */}
+                    {isLocalApp && (
+                      <td className="sc-img-list-status">
+                        {[im.status, (im.fieldsChanged && im.status !== 'Changed') ? 'Changed' : '']
+                          .filter(Boolean)
+                          .join(', ')}
+                      </td>
+                    )}
                   </tr>
                   {/* FIX521.2.1.1.13: card line 2 — unlabeled File name /
                       File Size / Resolution / Zoom factor, shown only when
@@ -1311,6 +1327,7 @@ export default function ShowcaseImgListEditor({
             <p>Ref {itemName}: {publishRecap.addCount} new</p>
             <p>Ref {itemName}: {publishRecap.removeCount} remove</p>
             <p>Ref {itemName}: {publishRecap.moveCount} move</p>
+            <p>Ref {itemName}: {publishRecap.changeCount} change</p>
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
               <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>

@@ -263,6 +263,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
         removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
         moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
+        // FIX610.3.7: same cumulate rule as the per-item recap.
+        changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
       });
     }
     // Show the recap regardless — an empty plan just shows all-zero counts
@@ -2186,11 +2188,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         <div className="setup-overlay" onMouseDown={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
             {crossPublishPlan.length === 0 ? (
-              <p>0 new, 0 remove, 0 move</p>
+              <p>0 new, 0 remove, 0 move, 0 change</p>
             ) : (
               crossPublishPlan.map((p) => (
                 <p key={p.folderId}>
-                  Ref {p.name}: {p.addCount} new, {p.removeCount} remove, {p.moveCount} move
+                  Ref {p.name}: {p.addCount} new, {p.removeCount} remove, {p.moveCount} move, {p.changeCount} change
                 </p>
               ))
             )}

@@ -1612,10 +1612,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             </button>
             {/* FIX515.4.3 keeps the Images-tab Edit visible to any
                 logged-in user; FIX518.4.7 narrows the Details-tab
-                Edit to admin-only. */}
+                Edit to admin-only. The local app has no login process,
+                so <button-edit> stays visible there regardless of profile. */}
             {!editionMode && (viewerTab === 'details'
               ? profile?.profile === 'admin'
-              : !!profile) && (
+              : (isLocalApp || !!profile)) && (
               <button
                 type="button"
                 className="sc-viewer-edit-btn"

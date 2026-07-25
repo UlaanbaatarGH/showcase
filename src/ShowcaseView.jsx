@@ -181,6 +181,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   );
   const editLockHolder = isLocalApp ? 'local' : 'website';
   const editLockHeldRef = useRef(false);
+  // FIX610.3.20.1/.2: a failed acquire (locked by the other side, or the
+  // local app has unpublished changes) is a normal, expected outcome, not
+  // an app-breaking error — show it as a dismissable popup and drop back
+  // out of edition mode, instead of replacing the whole view (setError).
+  const [editLockError, setEditLockError] = useState(null);
   useEffect(() => {
     const projectId = data?.project?.id;
     const editingImages = editionMode && viewerTab === 'images';
@@ -191,7 +196,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       .then(() => { if (!cancelled) editLockHeldRef.current = true; })
       .catch((e) => {
         if (cancelled) return;
-        setError(e.message || 'This project is being edited elsewhere.');
+        setEditLockError(e.message || 'This project is being edited elsewhere.');
         setEditionMode(false);
       });
     const heartbeat = setInterval(() => {
@@ -2381,6 +2386,21 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 aria-label="Next image"
               >
                 ›
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX610.3.20.1/.2 <button-edit>: acquiring the cross-side edit
+          lock failed (held by the other side, or local has unpublished
+          changes) — a dismissable popup, not a page-replacing error. */}
+      {editLockError && (
+        <div className="setup-overlay" onMouseDown={() => setEditLockError(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="sc-viewer-err">{editLockError}</div>
+            <div className="sc-shrink-actions">
+              <button type="button" className="primary" onClick={() => setEditLockError(null)}>
+                OK
               </button>
             </div>
           </div>

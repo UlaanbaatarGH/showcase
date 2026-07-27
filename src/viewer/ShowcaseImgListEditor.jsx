@@ -7,6 +7,7 @@ import {
 import { zoomFactor } from '../zoom.js';
 import { publishItemImages, isLocalRow } from './publishItemImages.js';
 import { isAcceptedImage } from '../images/importImages.js';
+import { IconCamera } from '../Icons.jsx';
 
 // FIX620 <process-automatic-img-insertion>: local-app only. The folder is
 // entered by the user at activation time (FIX620.3.2), not fixed config.
@@ -119,6 +120,22 @@ export default function ShowcaseImgListEditor({
   // the file-name/size/resolution/zoom-factor detail line per row
   // (FIX521.2.1.1.13) — off by default keeps rows to a single line.
   const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
+
+  // Every toolbar command except the arrow-up/arrow-down reorder buttons
+  // now lives in this dropdown — the flat button row used to overflow and
+  // overlap the image editor pane on the right once enough of them (Add,
+  // Capture, Remove, Unremove, Shrink, File details, Publish, Done) were
+  // visible at once.
+  const [commandsMenuOpen, setCommandsMenuOpen] = useState(false);
+  const commandsMenuRef = useRef(null);
+  useEffect(() => {
+    if (!commandsMenuOpen) return undefined;
+    const onDown = (e) => {
+      if (commandsMenuRef.current && !commandsMenuRef.current.contains(e.target)) setCommandsMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [commandsMenuOpen]);
 
   // FIX521.3.5: Shrink flow. stage: 'input' ('Image max zoom factor'), 'confirm'
   // (FIX521.3.5.4.1, cannot be undone), 'running' (progress). shrinkRatio is the
@@ -1017,108 +1034,147 @@ export default function ShowcaseImgListEditor({
           >
             ↓
           </button>
-          {/* FIX610.3.1 <button-local-add-img>: local-app only. */}
-          {isLocalApp && (
-            <>
-              <input
-                ref={addInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                style={{ display: 'none' }}
-                onChange={handleFilesPicked}
-              />
-              <button
-                type="button"
-                data-yagu-id="button-local-add-img"
-                onClick={handleAddClick}
-                disabled={interactionLocked}
-                title="Add image(s)"
-              >
-                Add
-              </button>
-            </>
-          )}
-          {/* FIX620.3.1 <button-auto-insert-img>: local-app only.
-              FIX620.3.4: flashes yellow text while listening is active. */}
+          {/* FIX620.2.1.1 <button-auto-insert-img>: local-app only, kept
+              outside the Commands menu (unlike every other command) so its
+              flashing active status stays visible without opening the menu.
+              Red flash, matching FIX653.3's project-wide capture icon —
+              previously yellow (FIX620.3.4) to stay visually distinct from
+              it, now made the same colour per direct instruction. */}
           {isLocalApp && (
             <button
               type="button"
               data-yagu-id="button-auto-insert-img"
               onClick={handleToggleAutoInsert}
               disabled={interactionLocked && !autoInsertActive}
-              title="Auto-insertion"
-              className={autoInsertActive ? 'active sc-flash-yellow' : ''}
+              title="Capture live images"
+              aria-label="Capture live images"
+              className={autoInsertActive ? 'active sc-flash-red' : ''}
             >
-              Auto-insertion
+              <IconCamera size={18} />
             </button>
           )}
-          {/* FIX521.2.1.4: Remove button — overlay popup confirms removing all
-              selected images. */}
-          <button
-            type="button"
-            data-yagu-id="button-remove-image"
-            onClick={handleRemoveClick}
-            disabled={interactionLocked || selIdxs.size === 0}
-            title="Remove selected image(s)"
-          >
-            Remove
-          </button>
-          {/* FIX610.3.3 <button-local-unremove-img>: local-app only. */}
+          {/* FIX610.3.1 <button-local-add-img>: hidden input stays mounted
+              regardless of the commands menu's open state. */}
           {isLocalApp && (
+            <input
+              ref={addInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFilesPicked}
+            />
+          )}
+          {/* Every command except the two reorder arrows above lives here —
+              they used to overflow the toolbar and overlap the image editor
+              pane on the right. */}
+          <div className="sc-menu sc-img-list-commands-menu" ref={commandsMenuRef}>
             <button
               type="button"
-              data-yagu-id="button-local-unremove-img"
-              onClick={handleUnremoveClick}
-              disabled={interactionLocked || selIdxs.size === 0}
-              title="Unremove selected image(s)"
+              className="sc-menu-trigger"
+              onClick={() => setCommandsMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={commandsMenuOpen}
+              title="Commands"
             >
-              Unremove
+              Commands ▾
             </button>
-          )}
-          {/* FIX521.2.1.5 <button-shrink-image-list>: shrink selected image(s).
-              Enabled when 1+ rows are selected (FIX521.2.1.5.1). */}
-          <button
-            type="button"
-            data-yagu-id="button-shrink-image-list"
-            onClick={() => { setShrinkRatio(''); setShrinkStage('input'); }}
-            disabled={interactionLocked || selIdxs.size === 0}
-            title="Shrink selected image(s)"
-          >
-            Shrink
-          </button>
-          {/* FIX521.2.1.6 <button-file-details>: toggle, off by default. */}
-          <button
-            type="button"
-            data-yagu-id="button-file-details"
-            className={fileDetailsOpen ? 'active' : ''}
-            aria-pressed={fileDetailsOpen}
-            onClick={() => setFileDetailsOpen((v) => !v)}
-            title="Show file name, size, resolution and zoom factor"
-          >
-            File details
-          </button>
-          {/* FIX610.3.5: publish staged Add/Remove changes to the website. */}
-          {isLocalApp && (
-            <button
-              type="button"
-              data-yagu-id="button-publish-img"
-              onClick={handlePublishClick}
-              disabled={interactionLocked || publishScopeIdxs().length === 0}
-              title="Publish staged changes to the website"
-            >
-              {publishing ? 'Publishing…' : 'Publish'}
-            </button>
-          )}
-          <button
-            type="button"
-            className="sc-img-list-done"
-            onClick={onExitEdit}
-            disabled={interactionLocked}
-            title="Done editing"
-          >
-            Done
-          </button>
+            {commandsMenuOpen && (
+              <ul className="sc-menu-items" role="menu">
+                {/* FIX610.3.1 <button-local-add-img>: local-app only. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="button-local-add-img"
+                      onClick={() => { setCommandsMenuOpen(false); handleAddClick(); }}
+                      disabled={interactionLocked}
+                    >
+                      Add
+                    </button>
+                  </li>
+                )}
+                {/* FIX521.2.1.4: Remove — overlay popup confirms removing all
+                    selected images. */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="button-remove-image"
+                    onClick={() => { setCommandsMenuOpen(false); handleRemoveClick(); }}
+                    disabled={interactionLocked || selIdxs.size === 0}
+                  >
+                    Remove
+                  </button>
+                </li>
+                {/* FIX610.3.3 <button-local-unremove-img>: local-app only. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="button-local-unremove-img"
+                      onClick={() => { setCommandsMenuOpen(false); handleUnremoveClick(); }}
+                      disabled={interactionLocked || selIdxs.size === 0}
+                    >
+                      Unremove
+                    </button>
+                  </li>
+                )}
+                {/* FIX521.2.1.5 <button-shrink-image-list>: enabled when 1+
+                    rows are selected (FIX521.2.1.5.1). */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="button-shrink-image-list"
+                    onClick={() => { setCommandsMenuOpen(false); setShrinkRatio(''); setShrinkStage('input'); }}
+                    disabled={interactionLocked || selIdxs.size === 0}
+                  >
+                    Shrink
+                  </button>
+                </li>
+                {/* FIX521.2.1.6 <button-file-details>: toggle, off by default. */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="button-file-details"
+                    aria-pressed={fileDetailsOpen}
+                    onClick={() => { setCommandsMenuOpen(false); setFileDetailsOpen((v) => !v); }}
+                  >
+                    {fileDetailsOpen ? '✓ ' : ''}File details
+                  </button>
+                </li>
+                {/* FIX610.3.5: publish staged Add/Remove changes to the website. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="button-publish-img"
+                      onClick={() => { setCommandsMenuOpen(false); handlePublishClick(); }}
+                      disabled={interactionLocked || publishScopeIdxs().length === 0}
+                    >
+                      {publishing ? 'Publishing…' : 'Publish'}
+                    </button>
+                  </li>
+                )}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="button-done-editing"
+                    onClick={() => { setCommandsMenuOpen(false); onExitEdit(); }}
+                    disabled={interactionLocked}
+                  >
+                    Done
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
         </div>
         {/* FIX521.2.1.1.11 / FIX521.2.1.1.12: a scrolling wrapper holds
             the whole table — <table> itself doesn't honor overflow, so

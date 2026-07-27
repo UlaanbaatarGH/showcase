@@ -1448,9 +1448,6 @@ body {
   background: var(--color-selected);
   border-color: var(--color-selected-border);
 }
-.sc-img-list-reorder .sc-img-list-done {
-  margin-left: auto;
-}
 /* FIX653.3 / FIX620.2.1.1: both camera-capture icons (project-wide and
    per-item) flash the same red — previously the per-item one used yellow
    to stay visually distinct, now unified per direct instruction. */

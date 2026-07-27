@@ -1443,7 +1443,7 @@ body {
 }
 .sc-img-list-reorder button:disabled { opacity: 0.4; cursor: not-allowed; }
 .sc-img-list-reorder button:not(:disabled):hover { background: var(--color-bg-lighter); }
-/* FIX521.2.1.6 <button-file-details>: toggle-pressed state. */
+/* FIX620.2.1.1 <button-auto-insert-img>: highlighted background while active. */
 .sc-img-list-reorder button.active {
   background: var(--color-selected);
   border-color: var(--color-selected-border);
@@ -1451,10 +1451,12 @@ body {
 .sc-img-list-reorder .sc-img-list-done {
   margin-left: auto;
 }
-/* FIX620.3.4 <button-auto-insert-img>: flashes yellow text while listening. */
-.sc-flash-yellow { animation: sc-flash-yellow-anim 1s step-start infinite; }
-@keyframes sc-flash-yellow-anim {
-  50% { color: #f4d03f; }
+/* FIX653.3 / FIX620.2.1.1: both camera-capture icons (project-wide and
+   per-item) flash the same red — previously the per-item one used yellow
+   to stay visually distinct, now unified per direct instruction. */
+.sc-flash-red { animation: sc-flash-red-anim 1s step-start infinite; }
+@keyframes sc-flash-red-anim {
+  50% { color: #dc2626; }
 }
 /* FIX620.3.2: folder input spans the popup's full (window-wide) width. */
 .sc-auto-insert-popup { width: 90vw; }
@@ -1956,6 +1958,9 @@ body {
 .sc-menu-items li { margin: 0; }
 .sc-menu-items button {
   width: 100%;
+  /* FIX653.2: menu items pairing an icon with text (e.g. Camera capture)
+     must not wrap the icon/text onto separate lines. */
+  white-space: nowrap;
   text-align: left;
   background: transparent;
   color: var(--color-text);

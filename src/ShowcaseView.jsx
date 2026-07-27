@@ -4,7 +4,7 @@ import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
 import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
-import { publishItemImages } from './viewer/publishItemImages.js';
+import { publishItemImages, isLocalRow } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
@@ -14,6 +14,7 @@ import {
   IconAbout,
   IconContact,
   IconSignOut,
+  IconCamera,
   RichText,
 } from './Icons.jsx';
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
@@ -21,11 +22,43 @@ import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
-  acquireEditLock, heartbeatEditLock, releaseEditLock,
+  acquireEditLock, heartbeatEditLock, releaseEditLock, listProjects,
+  createFolder,
 } from './data/backend.js';
+import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
+import { isAcceptedImage } from './images/importImages.js';
+
+// FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
+// Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
+// to — no shared module for this literal, matching the existing per-file
+// redeclaration convention.
+const AGENT_URL = 'http://localhost:3001';
+const CAMERA_CAPTURE_LAST_FOLDER_KEY = 'sc-camera-capture-last-folder';
+
+// FIX653 durable capture staging: a captured photo used to live only as an
+// in-memory URL.createObjectURL blob until Publish — gone on reload/crash/
+// closing the app, even though its item Ref had already been created on the
+// server, leaving a permanently empty orphan item. Copying the file into a
+// stable staging root under the project itself (tech/data, resolved by the
+// Agent from its own __dirname — see /agent/status), independent of whichever
+// folder is currently being watched, lets a project reload rebuild the staged
+// rows from disk instead. dataRoot is cached module-wide — it can't change
+// mid-session.
+let cachedAgentDataRoot = null;
+async function getStagingRoot() {
+  if (cachedAgentDataRoot == null) {
+    const res = await fetch(`${AGENT_URL}/agent/status`);
+    const body = await res.json();
+    cachedAgentDataRoot = body.dataRoot;
+  }
+  return `${cachedAgentDataRoot}/capture-staging`;
+}
+function stagingItemDir(root, projectId, itemName) {
+  return `${root}/${projectId}/${itemName}`;
+}
 
 // Live viewport-size listener; pairs with FIX503.5.4 (long vs short
 // project title pick). Returns `true` when the media query matches
@@ -142,6 +175,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // is derived as the head of this list.
   const [selectedFolderIds, setSelectedFolderIds] = useState([]);
   const selectedFolderId = selectedFolderIds[0] ?? null;
+  // Mirror of selectedFolderId for the FIX653 reconciliation effect below —
+  // its async fetch chain would otherwise close over whatever selectedFolderId
+  // was at effect-start (often still null, since the auto-select-first-item
+  // effect's own selectOnly() call hasn't landed in a render yet), and compare
+  // against that stale value once the fetches finally resolve. Same pattern
+  // as ShowcaseImgListEditor.jsx's selIdxsRef.
+  const selectedFolderIdRef = useRef(null);
+  useEffect(() => {
+    selectedFolderIdRef.current = selectedFolderId;
+  }, [selectedFolderId]);
   const selectOnly = (id) =>
     setSelectedFolderIds(id == null ? [] : [id]);
   const toggleSelected = (id) => {
@@ -157,6 +200,30 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // currently open tab. Reset when the user switches tabs or items so
   // unsaved edits don't silently follow the selection.
   const [editionMode, setEditionMode] = useState(false);
+  // FIX654 <local-setup-menu>: local-app Setup menu On/Off options,
+  // persisted as browser prefs (like sc-list-width below).
+  const [stayInEdition, setStayInEdition] = useState(
+    () => localStorage.getItem('sc-stay-in-edition') === '1',
+  );
+  const [hideSections, setHideSections] = useState(
+    () => localStorage.getItem('sc-hide-sections') === '1',
+  );
+  const [setupMenuOpen, setSetupMenuOpen] = useState(false);
+  const setupMenuRef = useRef(null);
+  const toggleStayInEdition = () => {
+    setStayInEdition((v) => {
+      const next = !v;
+      localStorage.setItem('sc-stay-in-edition', next ? '1' : '0');
+      return next;
+    });
+  };
+  const toggleHideSections = () => {
+    setHideSections((v) => {
+      const next = !v;
+      localStorage.setItem('sc-hide-sections', next ? '1' : '0');
+      return next;
+    });
+  };
   // FIX518.4.6: local buffer of property overrides applied in edit mode.
   // Keyed by property id → string. Saved into the in-memory folder when
   // the user clicks Save (no cloud persistence yet — see
@@ -228,7 +295,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     return () => window.removeEventListener('beforeunload', onUnload);
   }, [data?.project?.id]);
 
-  // FIX375: staged (non-blank status) image changes need to survive
+  // FIX652 [ex-FIX375]: staged (non-blank status) image changes need to survive
   // switching items within the local app so <cmd-publish-changes> has
   // something cross-item to act on — session-only (browser memory), same
   // as every other FIX610 staging; lost on reload like the rest of it.
@@ -237,6 +304,80 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   useEffect(() => {
     imagesByFolderRef.current = {};
   }, [data?.project?.id]);
+
+  // FIX653 durable capture staging: on opening a project, rebuild any
+  // staged-but-unpublished captures from the staging root on disk — covers
+  // reopening the app after a reload, a crash, or a multi-day gap, when the
+  // in-memory blobs from the capture session are long gone but the copied
+  // files (and their empty draft Refs, created eagerly at capture time)
+  // are still sitting there.
+  useEffect(() => {
+    const pid = data?.project?.id;
+    const folders = data?.folders;
+    if (!isLocalApp || pid == null || !folders) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const root = await getStagingRoot();
+        const projectDir = `${root}/${pid}`;
+        const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(projectDir)}`);
+        if (!res.ok) return; // nothing staged for this project, or agent unreachable
+        const { entries } = await res.json();
+        for (const entry of entries || []) {
+          if (cancelled) return;
+          if (entry.type !== 'folder') continue;
+          const folder = folders.find((f) => f.name === entry.name);
+          // FIX653: only skip if local rows are already there (already
+          // reconciled) — an empty array is a legitimate cache entry the
+          // sibling per-item images-fetch effect may have raced in first,
+          // and must not be mistaken for "already reconciled".
+          if (!folder || (imagesByFolderRef.current[folder.id] || []).some(isLocalRow)) continue;
+          const itemDir = `${projectDir}/${entry.name}`;
+          const filesRes = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(itemDir)}`);
+          if (!filesRes.ok) continue;
+          const { entries: fileEntries } = await filesRes.json();
+          const rows = [];
+          for (const fe of fileEntries || []) {
+            if (cancelled) return;
+            if (fe.type !== 'file' || !isAcceptedImage(fe.name)) continue;
+            const filePath = `${itemDir}/${fe.name}`;
+            const imgRes = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(filePath)}`);
+            if (!imgRes.ok) continue;
+            const blob = await imgRes.blob();
+            rows.push({
+              id: `local-${Date.now()}-${camLocalIdRef.current++}`,
+              image_id: null,
+              url: URL.createObjectURL(blob),
+              filename: fe.name,
+              caption: '',
+              section: '',
+              is_main: false,
+              sort_order: 0,
+              rotation: 0,
+              crop: null,
+              status: 'Added',
+              localFile: blob,
+              stagedPath: filePath,
+            });
+          }
+          if (rows.length === 0 || cancelled) continue;
+          // FIX653: merge onto whatever's already cached (e.g. the sibling
+          // effect's empty server-truth baseline, if it raced in first)
+          // instead of replacing it outright.
+          const existing = (imagesByFolderRef.current[folder.id] || []).filter((im) => !isLocalRow(im));
+          const merged = [...existing, ...rows];
+          imagesByFolderRef.current[folder.id] = merged;
+          if (folder.id === selectedFolderIdRef.current) setImages(merged);
+        }
+      } catch {
+        // Agent unreachable — reconciliation just skips this time; the
+        // staged files on disk aren't touched, so nothing is lost.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.project?.id, isLocalApp]);
+
   // Wraps setImages so every update to the current folder's images is also
   // mirrored into the cross-item cache, without ShowcaseImgListEditor (or
   // anything else calling this) needing to know the cache exists.
@@ -248,7 +389,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     });
   };
 
-  // FIX375 <cmd-publish-changes>: publish every item's staged changes,
+  // FIX652 [ex-FIX375] <cmd-publish-changes>: publish every item's staged changes,
   // project-wide, local-app only — "exactly what <button-publish-img>
   // does but cross-items" (publishItemImages is the same function the
   // per-item Publish button calls). null | 'recap' | 'running'.
@@ -324,6 +465,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // <project-introduction>.
   const [aboutOpen, setAboutOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // FIX650.1.2.1 / FIX651 <menu-projects>: local-app-only project switcher,
+  // replaces the website's <button-home> + project list.
+  const [projectsMenuOpen, setProjectsMenuOpen] = useState(false);
+  const [allProjects, setAllProjects] = useState([]);
+  // FIX653 / FIX620.4.2.2 <cmd-capture-cam-img>: "Create item mode" — unlike
+  // FIX620's per-item "Update item mode" (ShowcaseImgListEditor.jsx, edits an
+  // already-open item), a captured photo here has no item to attach to yet,
+  // so each one immediately becomes a brand-new item (next Ref, blank
+  // properties) via the same auto-create-on-unknown-item-name behavior
+  // /api/images/confirm already has for FIX371's hard-disk import — no
+  // staging, no manual Publish step.
+  const [cameraCaptureActive, setCameraCaptureActive] = useState(false);
+  const [cameraCapturePopup, setCameraCapturePopup] = useState(null); // null | {folder, error, checking}
+  const [cameraCaptureDir, setCameraCaptureDir] = useState('');
+  const camSeenNamesRef = useRef(null);
+  const camPollingRef = useRef(false);
+  const nextRefRef = useRef(1);
+  const camLocalIdRef = useRef(0);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
   // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
@@ -347,6 +506,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [fsZoomLevel, setFsZoomLevel] = useState(1);
   const [fsIsPanning, setFsIsPanning] = useState(false);
   const menuRef = useRef(null);
+  const projectsMenuRef = useRef(null);
   const mainRef = useRef(null);
   const selectedRowRef = useRef(null);
   // Swipe-to-navigate on the viewer image (FIX520 mobile UX). Refs so we
@@ -623,11 +783,199 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   }, [menuOpen]);
 
   useEffect(() => {
-    if (selectedFolderId == null) return;
-    // Exit edition when moving to another item.
-    setEditionMode(false);
+    if (!projectsMenuOpen) return;
+    const onDown = (e) => {
+      if (projectsMenuRef.current && !projectsMenuRef.current.contains(e.target)) {
+        setProjectsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [projectsMenuOpen]);
+
+  // FIX654 <local-setup-menu>: outside-click close, same pattern as
+  // <menu-projects>/<menu-import> above.
+  useEffect(() => {
+    if (!setupMenuOpen) return;
+    const onDown = (e) => {
+      if (setupMenuRef.current && !setupMenuRef.current.contains(e.target)) setSetupMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [setupMenuOpen]);
+
+  // FIX651: local app lists every project, unfiltered — there's no
+  // sign-in/visibility gate to apply once login is dropped.
+  useEffect(() => {
+    if (!isLocalApp) return;
+    listProjects().then(setAllProjects).catch(() => setAllProjects([]));
+  }, []);
+
+  // FIX653 <cmd-capture-cam-img>: same shape as FIX620's per-item toggle
+  // (ShowcaseImgListEditor.jsx handleToggleAutoInsert/handleStartListening) —
+  // push while off opens the folder popup, push while on stops immediately.
+  const handleToggleCameraCapture = () => {
+    if (cameraCaptureActive) {
+      setCameraCaptureActive(false); // FIX653.2 off
+      return;
+    }
+    const lastFolder = localStorage.getItem(CAMERA_CAPTURE_LAST_FOLDER_KEY) || '';
+    setCameraCapturePopup({ folder: lastFolder, error: null, checking: false });
+  };
+  const handleStartCameraCapture = async () => {
+    const folder = (cameraCapturePopup?.folder || '').trim();
+    if (!folder) {
+      setCameraCapturePopup((p) => ({ ...p, error: 'Enter a folder path' }));
+      return;
+    }
+    setCameraCapturePopup((p) => ({ ...p, checking: true, error: null }));
+    try {
+      const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(folder)}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setCameraCapturePopup((p) => ({ ...p, checking: false, error: body.error || 'Folder not found or not accessible' }));
+        return;
+      }
+      localStorage.setItem(CAMERA_CAPTURE_LAST_FOLDER_KEY, folder);
+      camSeenNamesRef.current = null; // seeded on the first poll tick below
+      // FIX620.4.2.2: seed the next-Ref counter from the current items —
+      // kept in-memory (not re-derived from `data` per file) so a burst of
+      // several photos in one tick gets distinct sequential Refs even
+      // though `data.folders` won't have refreshed mid-loop.
+      const existingRefs = (data?.folders || [])
+        .map((f) => Number(f.name))
+        .filter((n) => Number.isFinite(n));
+      nextRefRef.current = (existingRefs.length ? Math.max(...existingRefs) : 0) + 1;
+      setCameraCaptureDir(folder);
+      setCameraCapturePopup(null);
+      setCameraCaptureActive(true);
+    } catch {
+      setCameraCapturePopup((p) => ({ ...p, checking: false, error: 'Folder not found or not accessible' }));
+    }
+  };
+  // FIX620.4 / FIX620.4.2.2: sync process for "Create item mode" — poll the
+  // watched folder, and for each newly arrived supported-extension file,
+  // allocate the next 3-digit Ref, create the (blank-property) item, and
+  // stage the image locally with status 'Added' — same staged-until-Publish
+  // posture as every other FIX610 affordance (FIX610.3.1's manual Add,
+  // FIX620's per-item Update mode). Nothing is uploaded to R2 until the
+  // user actually Publishes (per-item or cross-item, FIX652).
+  useEffect(() => {
+    // NOTE: `data?.project?.id` used directly rather than the `projectId`
+    // const below (line ~854) — that binding isn't declared yet at this
+    // point in the component body.
+    const capProjectId = data?.project?.id ?? null;
+    if (!cameraCaptureActive || !cameraCaptureDir || !capProjectId) return undefined;
+    const poll = async () => {
+      if (camPollingRef.current) return;
+      camPollingRef.current = true;
+      try {
+        const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(cameraCaptureDir)}`);
+        if (!res.ok) return;
+        const { entries } = await res.json();
+        const names = (entries || [])
+          .filter((e) => e.type === 'file' && isAcceptedImage(e.name))
+          .map((e) => e.name)
+          .sort();
+        // First tick after Start: everything already there is the
+        // baseline, not a "new" arrival — only names seen from here on count.
+        if (camSeenNamesRef.current === null) {
+          camSeenNamesRef.current = new Set(names);
+          return;
+        }
+        const fresh = names.filter((n) => !camSeenNamesRef.current.has(n));
+        if (fresh.length === 0) return;
+        for (const name of fresh) {
+          camSeenNamesRef.current.add(name); // mark seen before the await below
+          const imgRes = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(`${cameraCaptureDir}/${name}`)}`);
+          if (!imgRes.ok) continue;
+          const blob = await imgRes.blob();
+          const itemName = String(nextRefRef.current).padStart(3, '0');
+          nextRefRef.current += 1;
+          try {
+            // FIX620.4.2.2: bare item creation (blank properties) — no
+            // image involved yet, unlike /api/images/confirm's auto-create.
+            // FIX620.4.2.2: draft: true keeps the item off the public site
+            // until its image is actually published (backend clears the
+            // flag in confirm_image the moment that happens).
+            const { id: newFolderId } = await createFolder({ project_id: capProjectId, name: itemName, draft: true });
+            // FIX653 durable capture staging: copy the source file into the
+            // stable staging root so it survives a reload/crash/multi-day gap
+            // before Publish — best-effort; if it fails, behavior falls back
+            // to the old memory-only staging (still works this session).
+            let stagedPath = null;
+            try {
+              const root = await getStagingRoot();
+              const dir = stagingItemDir(root, capProjectId, itemName);
+              await fetch(`${AGENT_URL}/agent/dir/mkdir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: dir }),
+              });
+              stagedPath = `${dir}/${name}`;
+              await fetch(`${AGENT_URL}/agent/dir/copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ src: `${cameraCaptureDir}/${name}`, dst: stagedPath }),
+              });
+            } catch {
+              stagedPath = null;
+            }
+            // Same staged-row shape as ShowcaseImgListEditor.jsx's
+            // makeLocalRow — publishItemImages() (called at actual Publish
+            // time, not here) knows how to upload/confirm rows in this shape
+            // and compute zoom_factor itself.
+            const localRow = {
+              id: `local-${Date.now()}-${camLocalIdRef.current++}`,
+              image_id: null,
+              url: URL.createObjectURL(blob),
+              filename: name,
+              caption: '',
+              section: '',
+              is_main: false,
+              sort_order: 0,
+              rotation: 0,
+              crop: null,
+              status: 'Added',
+              localFile: blob,
+              stagedPath, // FIX653: durable copy on disk, cleaned up at Publish
+            };
+            imagesByFolderRef.current[newFolderId] = [localRow];
+          } catch {
+            // Agent/backend unreachable for this file — next tick won't
+            // retry it (already marked seen), matching FIX620's existing
+            // "unreachable this tick" tolerance for the Update-mode poller.
+          }
+        }
+        reloadShowcase();
+      } catch {
+        // Agent unreachable this tick — try again next tick.
+      } finally {
+        camPollingRef.current = false;
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 4000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraCaptureActive, cameraCaptureDir, data?.project?.id]);
+
+  useEffect(() => {
+    if (selectedFolderId == null) {
+      // No item selected (e.g. a project with no items yet, right after
+      // switching projects) — show a blank list instead of leaving the
+      // previous project's images on screen.
+      setImages([]);
+      setCurrentImageIdx(0);
+      return;
+    }
+    // Exit edition when moving to another item — unless FIX654.1
+    // <cmd-stay-in-edition> is On and the Images tab is the one being edited.
+    if (!(stayInEdition && viewerTab === 'images')) {
+      setEditionMode(false);
+    }
     setDetailDraft({});
-    // FIX375: reuse this item's cached (possibly still-staged) images if
+    // FIX652 [ex-FIX375]: reuse this item's cached (possibly still-staged) images if
     // we've already visited it this session, instead of refetching and
     // silently discarding any pending local-app edits.
     const cached = imagesByFolderRef.current[selectedFolderId];
@@ -643,16 +991,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         // FIX610.3.4: baseline sort_order snapshot, so the local app can tell
         // whether a row has actually moved from its last-published position.
         const withBaseline = imgs.map((im) => ({ ...im, origSortOrder: im.sort_order }));
-        imagesByFolderRef.current[selectedFolderId] = withBaseline;
-        setImages(withBaseline);
+        // FIX653: this fetch races the durable-capture reconciliation effect
+        // (both target the same just-selected folder right after a project
+        // loads) — read the cache fresh here, at resolution time, rather than
+        // blindly overwriting it, so whichever of the two finishes second
+        // doesn't erase what the other already staged.
+        const stagedLocal = (imagesByFolderRef.current[selectedFolderId] || []).filter(isLocalRow);
+        const merged = [...withBaseline, ...stagedLocal];
+        imagesByFolderRef.current[selectedFolderId] = merged;
+        setImages(merged);
         // FIX510.3.4: on item selection, show the Main image first;
         // when no image is flagged main, show the first image of the
         // list. The Main flag is set per row in the Image List editor
         // (FIX521.2.1.1.5 / <item-main-img>, FIX521.5.6).
-        const mainIdx = imgs.findIndex((i) => i.is_main);
+        const mainIdx = merged.findIndex((i) => i.is_main);
         setCurrentImageIdx(mainIdx >= 0 ? mainIdx : 0);
       })
       .catch((e) => setError(e.message || String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFolderId]);
 
   // FIX520.3.3: zoom is per-image — reset to fit whenever the displayed
@@ -908,11 +1264,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX508.2.3 / <setup-select-first-item>: when the option is on, keep
   // the first *displayed* item selected. Runs against displayedFolders
   // (after grouping, bucket and column filters) so the spec's "1st
-  // listed item" matches what the user actually sees. Skipped entirely
-  // when the option is off — the selection then stays empty, or wherever
-  // the user has explicitly clicked.
+  // listed item" matches what the user actually sees. Skipped on the
+  // website when the option is off — the selection then stays empty, or
+  // wherever the user has explicitly clicked.
+  // The local app has no such option to turn off — opening another
+  // project must always land on its first Ref so the image list follows
+  // the switch, instead of staying on whatever was selected (or blank)
+  // in the previous project.
   useEffect(() => {
-    if (!data?.view_setup?.select_first_item) return;
+    if (!isLocalApp && !data?.view_setup?.select_first_item) return;
     if (displayedFolders.length === 0) return;
     const stillVisible = displayedFolders.some((f) => f.id === selectedFolderId);
     if (stillVisible) return;
@@ -1179,9 +1539,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     if (w) cellStyle.width = w;
     if (col.wrap) cellStyle.whiteSpace = 'normal';
     if (col.type === 'folder_name') {
+      // FIX620.4.2.2: flag any item with a staged 'Added' image pending —
+      // not yet Published — right in the list, no need to open it. Red
+      // text rather than a suffix: the Ref column is too narrow for extra
+      // words.
+      const hasAdded = (imagesByFolderRef.current[folder.id] || [])
+        .some((im) => im.status === 'Added');
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
-          {folder.name}
+          <span style={hasAdded ? { color: '#dc2626' } : undefined}>{folder.name}</span>
         </td>
       );
     }
@@ -1237,107 +1603,151 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             <label-project-name>, <button-project-about>.
           All other elements are right-aligned (FIX503.2.20). */}
       <div className="sc-topbar" data-yagu-id="panel-showcase-header">
-        {/* FIX503.2.1 + FIX503.2.1.0 + FIX503.2.1.1 + FIX503.3.1
-            <button-home>: icon button, navigates to the home page. */}
-        <button
-          type="button"
-          className="sc-icon-btn"
-          data-yagu-id="button-home"
-          onClick={() => onNavigateHome?.()}
-          aria-label="Home"
-          title="Home"
-        >
-          <IconHome size={22} />
-        </button>
-        {/* FIX503.2.2 + FIX503.2.2.0 <label-project-name>. */}
-        <h1 className="sc-project-title" data-yagu-id="label-project-name">
-          {data.project?.name ?? 'Showcase'}
-        </h1>
-        {/* FIX503.2.12 [ex-503.2.11(dup)] + FIX503.3.5 + FIX503.5.3 +
-            FIX503.2.20.1 <button-project-about>: info '?' icon,
-            left-aligned next to the project name. Visible only when
-            the project has a non-empty <project-introduction>;
-            clicking opens a layer popup with the introduction text
-            and an Ok button. */}
-        {(data.project?.introduction || '').trim() && (
-          <button
-            type="button"
-            className="sc-icon-btn"
-            data-yagu-id="button-project-about"
-            onClick={() => setAboutOpen(true)}
-            aria-label="About this project"
-            title="About"
-          >
-            <IconAbout size={22} />
-          </button>
-        )}
-        {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.5.4
-            <label-project-title>: decorative label rendered in the
-            left cluster after the About button. Long text on PC
-            viewports, short text on smartphone (matched against
-            min/max-width: 600px). When a project only has one of
-            the two, that one is shown on both — keeps existing
-            single-title projects working. */}
-        {(() => {
-          const longTxt = (data.project?.title_long_text || '').trim();
-          const shortTxt = (data.project?.title_short_text || '').trim();
-          const picked = isSmallScreen
-            ? (shortTxt || longTxt)
-            : (longTxt || shortTxt);
-          if (!picked) return null;
-          return (
-            <span
-              className="sc-project-title-deco"
-              data-yagu-id="label-project-title"
-              style={{
-                fontSize: data.project.title_size
-                  ? `${data.project.title_size}px`
-                  : undefined,
-                color: data.project.title_colour || undefined,
-                fontWeight: data.project.title_is_bold ? 700 : 400,
-              }}
+        {/* FIX650.1 / FIX650.1.2.1 / FIX651 <menu-projects>: the local
+            app's entire header is this switcher + <menu-import> + the
+            FIX654 <local-setup-menu> below — no Home/About/Title/Columns/
+            Grouping/website-Admin/website-Setup/sign-out, matching the
+            (updated) FIX650.1 mockup's 'Projects Import Setup' row. */}
+        {isLocalApp && (
+          <div className="sc-menu" data-yagu-id="menu-projects" ref={projectsMenuRef}>
+            <button
+              type="button"
+              className="sc-menu-trigger"
+              onClick={() => setProjectsMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={projectsMenuOpen}
             >
-              {/* FIX352.3.4.4: '{icon-contact}' placeholders are
-                  substituted by the inline envelope icon. */}
-              <RichText text={picked} />
-            </span>
-          );
-        })()}
-        {/* FIX503.2.20: spacer pushes the rest of the header to the
-            right edge. */}
-        <span className="sc-topbar-spacer" />
-        {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.5.1.4
-            <button-columns>: opens the standalone
-            <panel-showcase-view-setup> popup. Now gated to admin /
-            project-manager (FIX503.5.1.4 dup). */}
-        {isAdminOrManager && (
-          <button
-            type="button"
-            className="sc-menu-trigger"
-            data-yagu-id="button-columns"
-            onClick={() => setShowColumns(true)}
-          >
-            Columns
-          </button>
+              Projects ▾
+            </button>
+            {projectsMenuOpen && (
+              <ul className="sc-menu-items" role="menu">
+                {allProjects.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setProjectsMenuOpen(false);
+                        navigate(`/${p.official_slug || projectSlug(p.name)}`);
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
-        {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.5.1 (.4.1.2)
-            <button-item-grouping>: opens <panel-item-grouping-setup> in a
-            layer popup, admin- or project-manager-only. */}
-        {isAdminOrManager && (
-          <button
-            type="button"
-            className="sc-menu-trigger"
-            data-yagu-id="button-item-grouping"
-            onClick={() => setShowGrouping(true)}
-          >
-            Grouping
-          </button>
+        {!isLocalApp && (
+          <>
+            {/* FIX503.2.1 + FIX503.2.1.0 + FIX503.2.1.1 + FIX503.3.1
+                <button-home>: icon button, navigates to the home page. */}
+            <button
+              type="button"
+              className="sc-icon-btn"
+              data-yagu-id="button-home"
+              onClick={() => onNavigateHome?.()}
+              aria-label="Home"
+              title="Home"
+            >
+              <IconHome size={22} />
+            </button>
+            {/* FIX503.2.2 + FIX503.2.2.0 <label-project-name>. */}
+            <h1 className="sc-project-title" data-yagu-id="label-project-name">
+              {data.project?.name ?? 'Showcase'}
+            </h1>
+            {/* FIX503.2.12 [ex-503.2.11(dup)] + FIX503.3.5 + FIX503.5.3 +
+                FIX503.2.20.1 <button-project-about>: info '?' icon,
+                left-aligned next to the project name. Visible only when
+                the project has a non-empty <project-introduction>;
+                clicking opens a layer popup with the introduction text
+                and an Ok button. */}
+            {(data.project?.introduction || '').trim() && (
+              <button
+                type="button"
+                className="sc-icon-btn"
+                data-yagu-id="button-project-about"
+                onClick={() => setAboutOpen(true)}
+                aria-label="About this project"
+                title="About"
+              >
+                <IconAbout size={22} />
+              </button>
+            )}
+            {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.5.4
+                <label-project-title>: decorative label rendered in the
+                left cluster after the About button. Long text on PC
+                viewports, short text on smartphone (matched against
+                min/max-width: 600px). When a project only has one of
+                the two, that one is shown on both — keeps existing
+                single-title projects working. */}
+            {(() => {
+              const longTxt = (data.project?.title_long_text || '').trim();
+              const shortTxt = (data.project?.title_short_text || '').trim();
+              const picked = isSmallScreen
+                ? (shortTxt || longTxt)
+                : (longTxt || shortTxt);
+              if (!picked) return null;
+              return (
+                <span
+                  className="sc-project-title-deco"
+                  data-yagu-id="label-project-title"
+                  style={{
+                    fontSize: data.project.title_size
+                      ? `${data.project.title_size}px`
+                      : undefined,
+                    color: data.project.title_colour || undefined,
+                    fontWeight: data.project.title_is_bold ? 700 : 400,
+                  }}
+                >
+                  {/* FIX352.3.4.4: '{icon-contact}' placeholders are
+                      substituted by the inline envelope icon. */}
+                  <RichText text={picked} />
+                </span>
+              );
+            })()}
+            {/* FIX503.2.20: spacer pushes the rest of the header to the
+                right edge. */}
+            <span className="sc-topbar-spacer" />
+            {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.5.1.4
+                <button-columns>: opens the standalone
+                <panel-showcase-view-setup> popup. Now gated to admin /
+                project-manager (FIX503.5.1.4 dup). */}
+            {isAdminOrManager && (
+              <button
+                type="button"
+                className="sc-menu-trigger"
+                data-yagu-id="button-columns"
+                onClick={() => setShowColumns(true)}
+              >
+                Columns
+              </button>
+            )}
+            {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.5.1 (.4.1.2)
+                <button-item-grouping>: opens <panel-item-grouping-setup> in a
+                layer popup, admin- or project-manager-only. */}
+            {isAdminOrManager && (
+              <button
+                type="button"
+                className="sc-menu-trigger"
+                data-yagu-id="button-item-grouping"
+                onClick={() => setShowGrouping(true)}
+              >
+                Grouping
+              </button>
+            )}
+          </>
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Import menu, admin- or project-manager-only (FIX503.5.1).
-            FIX369.1: three options — Images, Image Properties, and (local
-            app only) Publish changes <cmd-publish-changes>. */}
-        {isAdminOrManager && (
+            Import menu. Website: admin- or project-manager-only
+            (FIX503.5.1), FIX369.1's two options — Images, Image
+            Properties. Local app: always shown (login/admin-gating
+            dropped there), but per FIX650.1.2.2 strictly — exactly two
+            options, <cmd-capture-live-img> then <cmd-publish-changes> —
+            Images/Image Properties are website-only, not part of the
+            local-app Import menu. */}
+        {(isLocalApp || isAdminOrManager) && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
               type="button"
@@ -1350,27 +1760,51 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             </button>
             {menuOpen && (
               <ul className="sc-menu-items" role="menu">
-                {/* FIX371.2.2 / FIX371.2.2.1: 'Images' placed first. */}
-                <li>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
-                  >
-                    Images
-                  </button>
-                </li>
-                {/* FIX3703.1: 'Image Properties' menu option. */}
-                <li>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { setMenuOpen(false); setImportOpen(true); }}
-                  >
-                    Image Properties
-                  </button>
-                </li>
-                {/* FIX375 / FIX375.0 <cmd-publish-changes>: local-app only. */}
+                {!isLocalApp && (
+                  <>
+                    {/* FIX371.2.2 / FIX371.2.2.1: 'Images' placed first. */}
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
+                      >
+                        Images
+                      </button>
+                    </li>
+                    {/* FIX3703.1: 'Image Properties' menu option. */}
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setMenuOpen(false); setImportOpen(true); }}
+                      >
+                        Image Properties
+                      </button>
+                    </li>
+                  </>
+                )}
+                {/* FIX650.1.2.2 <cmd-capture-live-img> (spec's own id here —
+                    note this differs from FIX653.0's <cmd-capture-cam-img>
+                    for the same command; applying FIX650.1.2.2 literally as
+                    instructed) / FIX653.1 / FIX653.2 (camera icon + text
+                    'Camera capture'): local-app only. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-capture-live-img"
+                      onClick={() => { setMenuOpen(false); handleToggleCameraCapture(); }}
+                    >
+                      {cameraCaptureActive ? '✓ ' : ''}
+                      <IconCamera size={16} style={{ verticalAlign: '-0.2em', marginRight: '0.35em' }} />
+                      Camera capture
+                    </button>
+                  </li>
+                )}
+                {/* FIX650.1.2.2 <cmd-publish-changes> / FIX652 [ex-FIX375]:
+                    local-app only. */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -1387,61 +1821,125 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             )}
           </div>
         )}
-        {/* FIX503.2.7 + FIX503.5.1 (.4.1.4) <menu-admin>: admin- or
-            project-manager-only, alongside the other admin affordances.
-            Reuses the same component instantiated on the App home page
-            (FIX410.4.1 / FIX410.4.2). */}
-        {isAdminOrManager && <AdminMenu projectId={data.project?.id ?? null} />}
-        {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
-            <button-setup>: Setup icon button, admin- or project-manager-only.
-            Opens the tabbed general panel (property list + file-explorer
-            settings, plus the Showcase tab as a convenience). */}
-        {isAdminOrManager && (
-          <button
-            type="button"
-            className="sc-setup-btn"
-            data-yagu-id="button-setup"
-            onClick={() => setShowSetup(true)}
-            aria-label="Open setup"
-            title="Setup"
-          >
-            ⚙
-          </button>
+        {/* FIX650.1 (updated) / FIX654 <local-setup-menu>: local-app-only
+            Setup menu, wheel icon trigger (matching the website's existing
+            ⚙ <button-setup> convention) — third menu in the mockup's
+            'Projects Import Setup' row. Just two On/Off options
+            (FIX654.1, FIX654.2); unrelated to the website's admin
+            <button-setup> (property/columns SetupPanel). */}
+        {isLocalApp && (
+          <div className="sc-menu" data-yagu-id="local-setup-menu" ref={setupMenuRef}>
+            <button
+              type="button"
+              className="sc-menu-trigger"
+              onClick={() => setSetupMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={setupMenuOpen}
+              aria-label="Setup"
+              title="Setup"
+            >
+              ⚙
+            </button>
+            {setupMenuOpen && (
+              <ul className="sc-menu-items" role="menu">
+                {/* FIX654.1 <cmd-stay-in-edition> */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="cmd-stay-in-edition"
+                    onClick={() => { setSetupMenuOpen(false); toggleStayInEdition(); }}
+                  >
+                    {stayInEdition ? '✓ ' : ''}Stay in edition
+                  </button>
+                </li>
+                {/* FIX654.2 <cmd-hide-sections> */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="cmd-hide-sections"
+                    onClick={() => { setSetupMenuOpen(false); toggleHideSections(); }}
+                  >
+                    {hideSections ? '✓ ' : ''}Hide Section &amp; Caption
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
         )}
-        {/* FIX503.2.11 + FIX503.3.4 <button-contact-admin>: opens
-            <panel-contact-admin>. Visible to everyone (anonymous
-            visitors included). Now an icon button (envelope). */}
-        <button
-          type="button"
-          className="sc-icon-btn"
-          data-yagu-id="button-contact-admin"
-          onClick={() => setContactOpen(true)}
-          aria-label="Contact"
-          title="Contact"
-        >
-          <IconContact size={22} />
-        </button>
-        {/* FIX503.2.9 {user}: the signed-in user's name, between
-            Contact and Sign out per the FIX503.2 layout. Only visible
-            when signed in. */}
-        {profile && (
-          <span className="sc-user-label">{profile.login_name}</span>
-        )}
-        {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6] +
-            FIX503.2.8.1 (the spec's typo'd FIX400.2.8.1) +
-            FIX400.4.10 <button-sign-out>: icon button, visible only
-            when the caller is signed in (FIX503.2.8.2). */}
-        {profile && (
-          <button
-            type="button"
-            className="sc-icon-btn"
-            data-yagu-id="button-sign-out"
-            onClick={signOut}
-            aria-label="Sign out"
-            title="Sign out"
+        {/* FIX653.3: flashing camera icon shown at the top of the app while
+            Camera capture is on — flashes red (distinct from FIX620.3.4's
+            yellow flash on <button-auto-insert-img>). */}
+        {isLocalApp && cameraCaptureActive && (
+          <span
+            className="sc-flash-red"
+            title="Camera capture active"
+            aria-label="Camera capture active"
           >
-            <IconSignOut size={22} />
-          </button>
+            <IconCamera size={20} />
+          </span>
+        )}
+        {!isLocalApp && (
+          <>
+            {/* FIX503.2.7 + FIX503.5.1 (.4.1.4) <menu-admin>: admin- or
+                project-manager-only, alongside the other admin affordances.
+                Reuses the same component instantiated on the App home page
+                (FIX410.4.1 / FIX410.4.2). FIX650: dropped entirely for the
+                local app — no admin menu there. */}
+            {isAdminOrManager && <AdminMenu projectId={data.project?.id ?? null} />}
+            {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
+                <button-setup>: Setup icon button, admin- or project-manager-only.
+                Opens the tabbed general panel (property list + file-explorer
+                settings, plus the Showcase tab as a convenience). */}
+            {isAdminOrManager && (
+              <button
+                type="button"
+                className="sc-setup-btn"
+                data-yagu-id="button-setup"
+                onClick={() => setShowSetup(true)}
+                aria-label="Open setup"
+                title="Setup"
+              >
+                ⚙
+              </button>
+            )}
+            {/* FIX503.2.11 + FIX503.3.4 <button-contact-admin>: opens
+                <panel-contact-admin>. Visible to everyone (anonymous
+                visitors included). Now an icon button (envelope). */}
+            <button
+              type="button"
+              className="sc-icon-btn"
+              data-yagu-id="button-contact-admin"
+              onClick={() => setContactOpen(true)}
+              aria-label="Contact"
+              title="Contact"
+            >
+              <IconContact size={22} />
+            </button>
+            {/* FIX503.2.9 {user}: the signed-in user's name, between
+                Contact and Sign out per the FIX503.2 layout. Only visible
+                when signed in. FIX650: local app has no sign-in concept. */}
+            {profile && (
+              <span className="sc-user-label">{profile.login_name}</span>
+            )}
+            {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6] +
+                FIX503.2.8.1 (the spec's typo'd FIX400.2.8.1) +
+                FIX400.4.10 <button-sign-out>: icon button, visible only
+                when the caller is signed in (FIX503.2.8.2). */}
+            {profile && (
+              <button
+                type="button"
+                className="sc-icon-btn"
+                data-yagu-id="button-sign-out"
+                onClick={signOut}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <IconSignOut size={22} />
+              </button>
+            )}
+          </>
         )}
       </div>
       <div
@@ -1646,6 +2144,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 folderId={selectedFolderId}
                 projectId={data.project?.id}
                 itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
+                hideSections={hideSections}
                 onItemBytesChange={(bytes) =>
                   setData((prev) =>
                     prev
@@ -2186,7 +2685,34 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           onDone={handleImportDone}
         />
       )}
-      {/* FIX375.1-ish: <cmd-publish-changes> recap — same pattern as
+      {/* FIX653 / FIX620.2.2: <cmd-capture-cam-img> popup, shown on toggling
+          Camera capture on. Cancel closes without starting; Start validates
+          the folder first (via the Local Agent) before arming the poll —
+          same pattern as FIX620's per-item auto-insert popup. */}
+      {cameraCapturePopup && (
+        <div className="setup-overlay" onMouseDown={() => setCameraCapturePopup(null)}>
+          <div className="sc-shrink-box sc-auto-insert-popup" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Automatic insertion of images dropped in folder:</p>
+            <input
+              type="text"
+              className="sc-auto-insert-folder-input"
+              value={cameraCapturePopup.folder}
+              onChange={(e) => setCameraCapturePopup((p) => ({ ...p, folder: e.target.value }))}
+              disabled={cameraCapturePopup.checking}
+            />
+            {cameraCapturePopup.error && <div className="sc-viewer-err">{cameraCapturePopup.error}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setCameraCapturePopup(null)} disabled={cameraCapturePopup.checking}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={handleStartCameraCapture} disabled={cameraCapturePopup.checking}>
+                Start listening
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX652-ish [ex-FIX375.1-ish]: <cmd-publish-changes> recap — same pattern as
           <button-publish-img>'s popup, one Ref line per item with
           pending changes. Nothing pending shows a single all-zero line
           with Confirm disabled, rather than an error. */}

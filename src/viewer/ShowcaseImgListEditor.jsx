@@ -56,6 +56,7 @@ export default function ShowcaseImgListEditor({
   folderId,   // FIX610.3.5: which item to re-fetch from after Publish
   projectId,  // FIX610.3.1 / .3.5: needed for sign-upload / confirm
   itemName,   // FIX610.3.1 / .3.5: item folder name (item_name on the API)
+  hideSections, // FIX654.2 <cmd-hide-sections>: hide Section/Caption columns
 }) {
   const currentImage = images[selectedIdx] ?? null;
 
@@ -651,7 +652,7 @@ export default function ShowcaseImgListEditor({
     });
   };
 
-  // FIX375: the actual publish pipeline now lives in publishItemImages(),
+  // FIX652 [ex-FIX375]: the actual publish pipeline now lives in publishItemImages(),
   // shared with the cross-item <cmd-publish-changes> command in
   // ShowcaseView — this just supplies the current item and the
   // selection-based scope.
@@ -1127,8 +1128,10 @@ export default function ShowcaseImgListEditor({
                   name/size/Resolution/Zoom factor moved out of the header
                   (FIX521.2.1.1.13): they're now an unlabeled detail line
                   per row, shown only via <button-file-details>. */}
-              <th>Section</th>
-              <th>Caption</th>
+              {/* FIX654.2 <cmd-hide-sections>: hide these two columns
+                  entirely when the Setup menu option is on. */}
+              {!hideSections && <th>Section</th>}
+              {!hideSections && <th>Caption</th>}
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
                   At most one is set per item (FIX521.5.6). */}
               <th title="Main image of the item">Main</th>
@@ -1180,31 +1183,37 @@ export default function ShowcaseImgListEditor({
                         {isSelected ? '✓' : ''}
                       </button>
                     </td>
-                    {/* FIX521.2.1.12: order — Section, Caption, Main. */}
-                    <td>
-                      <input
-                        type="text"
-                        value={im.section ?? ''}
-                        onChange={(e) => onSectionChange(im.id, e.target.value)}
-                        onBlur={(e) =>
-                          patchFolderImage(im.id, { section: e.target.value || null })
-                        }
-                        onFocus={() => focusRowPrimary(idx)}
-                        disabled={publishing}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        value={im.caption ?? ''}
-                        onChange={(e) => onCaptionChange(im.id, e.target.value)}
-                        onBlur={(e) =>
-                          patchFolderImage(im.id, { caption: e.target.value || null })
-                        }
-                        onFocus={() => focusRowPrimary(idx)}
-                        disabled={publishing}
-                      />
-                    </td>
+                    {/* FIX521.2.1.12: order — Section, Caption, Main.
+                        FIX654.2 <cmd-hide-sections>: both cells dropped
+                        entirely when hidden, matching the header above. */}
+                    {!hideSections && (
+                      <td>
+                        <input
+                          type="text"
+                          value={im.section ?? ''}
+                          onChange={(e) => onSectionChange(im.id, e.target.value)}
+                          onBlur={(e) =>
+                            patchFolderImage(im.id, { section: e.target.value || null })
+                          }
+                          onFocus={() => focusRowPrimary(idx)}
+                          disabled={publishing}
+                        />
+                      </td>
+                    )}
+                    {!hideSections && (
+                      <td>
+                        <input
+                          type="text"
+                          value={im.caption ?? ''}
+                          onChange={(e) => onCaptionChange(im.id, e.target.value)}
+                          onBlur={(e) =>
+                            patchFolderImage(im.id, { caption: e.target.value || null })
+                          }
+                          onFocus={() => focusRowPrimary(idx)}
+                          disabled={publishing}
+                        />
+                      </td>
+                    )}
                     <td style={{ textAlign: 'center' }}>
                       <input
                         data-yagu-id="item-main-img"
@@ -1240,7 +1249,10 @@ export default function ShowcaseImgListEditor({
                           Section, not the row selector. */}
                       {isLocalApp && <td></td>}
                       <td></td>
-                      <td colSpan={isLocalApp ? 4 : 3} className="sc-img-list-detail-cell">
+                      <td
+                        colSpan={(isLocalApp ? 4 : 3) - (hideSections ? 2 : 0)}
+                        className="sc-img-list-detail-cell"
+                      >
                         {/* FIX521.2.1.1.1: File name (read-only). */}
                         <span className="filename" title={im.filename}>
                           {im.filename ?? ''}
@@ -1265,7 +1277,7 @@ export default function ShowcaseImgListEditor({
             }); })()}
             {images.length === 0 && (
               <tr>
-                <td colSpan={isLocalApp ? 6 : 4} className="empty">No images in this item.</td>
+                <td colSpan={(isLocalApp ? 6 : 4) - (hideSections ? 2 : 0)} className="empty">No images in this item.</td>
               </tr>
             )}
           </tbody>

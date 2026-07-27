@@ -89,7 +89,13 @@ function findProjects(dir, root) {
 app.get('/agent/status', (req, res) => {
   res.json({
     ready: true,
-    targetViteRunning: targetVite !== null
+    targetViteRunning: targetVite !== null,
+    // FIX653 durable capture staging: lets the browser app build a stable
+    // staging root under the project itself (tech/data, a sibling of
+    // tech/dev where this agent lives) rather than the OS home dir —
+    // resolved from __dirname so it's correct regardless of the agent's
+    // launch cwd.
+    dataRoot: path.resolve(__dirname, '..', '..', 'data'),
   });
 });
 

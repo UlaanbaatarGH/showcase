@@ -81,6 +81,16 @@ export function IconContact(props) {
   );
 }
 
+export function IconCamera(props) {
+  // FIX620.2.1.1 / FIX653.2: camera body + viewfinder bump + lens.
+  return (
+    <Svg {...props}>
+      <path d="M4 8 H8 L10 5 H14 L16 8 H20 A1 1 0 0 1 21 9 V18 A1 1 0 0 1 20 19 H4 A1 1 0 0 1 3 18 V9 A1 1 0 0 1 4 8 Z" />
+      <circle cx="12" cy="13.5" r="3.5" />
+    </Svg>
+  );
+}
+
 export function IconSignIn(props) {
   // Arrow entering a 3-sided box on the right.
   return (

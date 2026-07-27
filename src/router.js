@@ -1,7 +1,6 @@
 // Pretty-URL routing for the SPA.
 //   `/`              → home (list of projects)
 //   `/{slug}`        → that project's home (the Showcase view)
-//   `/admin` (DEV)   → local-only admin File Explorer
 //
 // `slug` is the project name lowercased, NFD-normalized to drop
 // diacritics, and stripped to [a-z0-9]. Pure CSS / browser history
@@ -21,7 +20,6 @@ export function projectSlug(name) {
 export function parseLocation() {
   const p = window.location.pathname || '/';
   if (p === '/' || p === '') return { view: 'home' };
-  if (p === '/admin') return { view: 'admin' };
   // First path segment is the slug; the optional second segment is an item
   // id for the FIX404 direct-access deep-link (<app-url>/{id}).
   const segs = p.replace(/^\/+/, '').split('/');

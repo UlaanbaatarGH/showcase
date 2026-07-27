@@ -189,7 +189,9 @@ export default {
       body: { filename },
     }),
   // Planned writes — backend routes will be added when FIX entries land.
-  createFolder: notYet('createFolder'),
+  // FIX620.4.2.2: bare item creation (no image yet) — lets the client stage
+  // a captured photo locally before any upload happens.
+  createFolder: (body) => call('/api/folders', { method: 'POST', body }),
   renameFolder: notYet('renameFolder'),
   setFolderProperty: notYet('setFolderProperty'),
   // FIX610.3.20: per-project edit lock over <panel-showcase-img-list-editor>,

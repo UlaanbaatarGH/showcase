@@ -1,10 +1,15 @@
-// FIX610.3.5 / FIX375: the publish pipeline shared by the per-item
+// FIX610.3.5 / FIX652 [ex-FIX375]: the publish pipeline shared by the per-item
 // <button-publish-img> (ShowcaseImgListEditor) and the cross-item
-// <cmd-publish-changes> command (ShowcaseView) — FIX375 explicitly requires
+// <cmd-publish-changes> command (ShowcaseView) — FIX652 explicitly requires
 // the two to do "exactly" the same thing, just over a different scope of
 // rows, so this is the one implementation both call into.
-import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages } from '../data/backend.js';
+import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, updateImage } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
+
+// FIX653 durable capture staging: same local Agent server ShowcaseView.jsx
+// talks to — no shared module for this literal, matching the existing
+// per-file redeclaration convention.
+const AGENT_URL = 'http://localhost:3001';
 
 // FIX610.3.1: rows staged locally (not yet uploaded) carry a synthetic
 // string id in this form.
@@ -74,10 +79,28 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
         replaces_image_id: null,
         zoom_factor: dims ? zoomFactor(dims.w, dims.h) : null,
       });
-      if (im.caption || im.section || im.is_main) {
-        staged.push({ filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main });
+      // confirmImage doesn't accept rotation/crop either — carried through
+      // the same follow-up-PATCH mechanism as caption/section/is_main
+      // below, otherwise a crop/rotation staged on a not-yet-published row
+      // (ShowcaseImgListEditor.jsx's saveImageEdit) would silently vanish
+      // the moment Publish actually uploads it.
+      if (im.caption || im.section || im.is_main || im.rotation || im.crop) {
+        staged.push({
+          filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main,
+          rotation: im.rotation, crop: im.crop,
+        });
       }
       URL.revokeObjectURL(im.url);
+      // FIX653 durable capture staging: the server now has its own durable
+      // copy (uploaded above), so the local staged file is no longer
+      // needed — best-effort, doesn't block Publish if it fails.
+      if (im.stagedPath) {
+        fetch(`${AGENT_URL}/agent/dir/rmdir`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: im.stagedPath }),
+        }).catch(() => {});
+      }
       bump();
     } else if (scope.has(origIdx)) {
       const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };
@@ -100,6 +123,9 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
         section: s.section || null,
         is_main: s.is_main,
       });
+      if ((s.rotation || s.crop) && row.image_id) {
+        await updateImage(row.image_id, { rotation: s.rotation ?? 0, crop: s.crop ?? null });
+      }
     }
     fresh = await getFolderImages(folderId);
   }

@@ -47,12 +47,23 @@ export default function ShowcaseImageCanvas({
     return () => { alive = false; };
   }, [url]);
 
+  // Offscreen buffer holding just the (expensive) rotated/cropped base
+  // image — rendered once per img/rotation/crop/cropMode change, not on
+  // every mouse move.
+  const bufferRef = useRef(null);
+
+  // Expensive draw: decode + rotate + (optionally) crop the source image.
+  // Deliberately excludes mousePos/firstCorner from its deps — those used
+  // to be in the SAME effect as this drawImage call, so every mouse move
+  // re-ran a full-resolution rotate+draw (plus a canvas.width reset, which
+  // forces a full buffer reallocation) just to move a crosshair. On a real
+  // multi-megapixel photo that's slow enough that the redraw visibly can't
+  // keep up with the cursor — the reported "crop rectangle doesn't follow
+  // the mouse" bug was this lag, not a coordinate error.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (!img) {
-      // No image yet — wipe the canvas so the previous frame doesn't
-      // linger while the next one loads.
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       return;
@@ -73,16 +84,39 @@ export default function ShowcaseImageCanvas({
 
     canvas.width = Math.max(1, Math.round(cw));
     canvas.height = Math.max(1, Math.round(ch));
+
+    if (!bufferRef.current) bufferRef.current = document.createElement('canvas');
+    const buffer = bufferRef.current;
+    buffer.width = canvas.width;
+    buffer.height = canvas.height;
+    const bctx = buffer.getContext('2d');
+    bctx.clearRect(0, 0, buffer.width, buffer.height);
+    bctx.save();
+    // Crop origin → canvas (0,0)
+    bctx.translate(-cx, -cy);
+    // Center of rotated image, rotate, then draw the original centered.
+    bctx.translate(rotW / 2, rotH / 2);
+    bctx.rotate(rad);
+    bctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+    bctx.restore();
+
+    // Blit the freshly-rendered buffer now so the base image shows up even
+    // before the cheap overlay effect below has a mousePos to draw with.
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    // Crop origin → canvas (0,0)
-    ctx.translate(-cx, -cy);
-    // Center of rotated image, rotate, then draw the original centered.
-    ctx.translate(rotW / 2, rotH / 2);
-    ctx.rotate(rad);
-    ctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
-    ctx.restore();
+    ctx.drawImage(buffer, 0, 0);
+  }, [img, rotation, crop, cropMode]);
+
+  // Cheap redraw: blit the cached buffer (no re-rotate/re-decode) and paint
+  // the crosshair/preview rectangle on top. This is the one that reruns on
+  // every mouse move, so it needs to stay fast regardless of photo size.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const buffer = bufferRef.current;
+    if (!canvas || !buffer || !img) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(buffer, 0, 0);
 
     if (cropMode && mousePos) {
       // FIX501.4.3.1.1.1: dotted vertical + horizontal guide lines at the
@@ -119,21 +153,46 @@ export default function ShowcaseImageCanvas({
         ctx.restore();
       }
     }
-  }, [img, rotation, crop, cropMode, firstCorner, mousePos]);
+  }, [img, cropMode, firstCorner, mousePos]);
 
-  // Translate a mouse event into rotated-image coordinates. The canvas
-  // itself is scaled by CSS (object-fit-like), so we convert through the
-  // bounding rect ratio.
+  // Translate a mouse event into rotated-image coordinates. `object-fit:
+  // contain` (.sc-viewer-img) means the canvas's CSS box and its actual
+  // painted content are NOT the same rectangle whenever their aspect
+  // ratios differ (confirmed live: a 1848x4000 buffer inside a
+  // 556.5x707.65625 box) — contain fits to the constraining axis and
+  // letterboxes the other, so this replicates that same math to find the
+  // real displayed rect before mapping the mouse position into it. Using
+  // the raw bounding box directly (the old approach) used the wrong,
+  // too-small scale factor on the letterboxed axis and ignored the offset
+  // entirely — the bug reported as "the crop rectangle doesn't follow the
+  // mouse" / "right edge only reaches 3/4 of the width".
   const toImageCoords = (e) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const sx = canvas.width / rect.width;
-    const sy = canvas.height / rect.height;
-    return {
-      x: (e.clientX - rect.left) * sx,
-      y: (e.clientY - rect.top) * sy,
-    };
+    const bufRatio = canvas.width / canvas.height;
+    const boxRatio = rect.width / rect.height;
+    let dispW; let dispH;
+    if (bufRatio > boxRatio) {
+      // Content relatively wider than the box — fit to width, letterbox top/bottom.
+      dispW = rect.width;
+      dispH = rect.width / bufRatio;
+    } else {
+      // Content relatively taller than the box — fit to height, letterbox left/right.
+      dispH = rect.height;
+      dispW = rect.height * bufRatio;
+    }
+    const offsetX = (rect.width - dispW) / 2;
+    const offsetY = (rect.height - dispH) / 2;
+    const sx = canvas.width / dispW;
+    const sy = canvas.height / dispH;
+    // Clamp into the buffer's valid range: the CSS box is generally larger
+    // than the displayed content (contain letterboxes the other axis), so
+    // without this the guide lines/crop rect vanish off-canvas whenever the
+    // cursor drifts into that blank margin instead of pinning to the edge.
+    const x = Math.min(canvas.width, Math.max(0, (e.clientX - rect.left - offsetX) * sx));
+    const y = Math.min(canvas.height, Math.max(0, (e.clientY - rect.top - offsetY) * sy));
+    return { x, y };
   };
 
   const onMouseMove = (e) => {

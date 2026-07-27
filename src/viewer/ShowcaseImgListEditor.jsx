@@ -303,8 +303,30 @@ export default function ShowcaseImgListEditor({
     setCropMode(false);
   };
 
+  // FIX610.3.1: a locally-staged row (not yet Published) has no server-side
+  // image row yet — image_id is null until Publish uploads and confirms it
+  // (publishItemImages.js). Rotation/crop on such a row is staged straight
+  // onto it instead, same posture as every other FIX610 local-row edit
+  // (patchFolderImage / setMain do the same). Without this, clicking Save
+  // on a staged image silently no-op'd — draftForCurrent stayed set (Save/
+  // Cancel never greyed out) because the `!currentImage.image_id` guard hit
+  // its early return before anything else ran.
   const saveImageEdit = async () => {
-    if (!draftForCurrent || !currentImage?.image_id) return;
+    if (!draftForCurrent || !currentImage) return;
+    if (isLocalRow(currentImage)) {
+      setImages((prev) =>
+        prev.map((im) =>
+          im.id === currentImage.id
+            ? { ...im, rotation: draftForCurrent.rotation, crop: draftForCurrent.crop }
+            : im,
+        ),
+      );
+      setImageDraft(null);
+      setDraftForId(null);
+      setCropMode(false);
+      return;
+    }
+    if (!currentImage.image_id) return;
     setSavingImage(true);
     try {
       const updated = await updateImage(currentImage.image_id, {

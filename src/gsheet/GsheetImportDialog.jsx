@@ -143,11 +143,16 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
             <RecapList title="New items" items={recap.newFolders} />
             <RecapList title="Updated items" items={recap.updatedFolders} />
             <RecapList title="Deleted items" items={recap.deletedFolders} />
+            <RecapList
+              title="Renamed items"
+              items={recap.renamedFolders.map((r) => `${r.from} → ${r.to}`)}
+            />
             {recap.newProperties.length === 0 &&
               recap.renames.length === 0 &&
               recap.newFolders.length === 0 &&
               recap.updatedFolders.length === 0 &&
-              recap.deletedFolders.length === 0 && (
+              recap.deletedFolders.length === 0 &&
+              recap.renamedFolders.length === 0 && (
                 <div className="gsheet-empty">Nothing to import.</div>
               )}
             <div className="gsheet-actions">
@@ -163,7 +168,8 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
                   recap.renames.length === 0 &&
                   recap.newFolders.length === 0 &&
                   recap.updatedFolders.length === 0 &&
-                  recap.deletedFolders.length === 0
+                  recap.deletedFolders.length === 0 &&
+                  recap.renamedFolders.length === 0
                 }
               >
                 Import
@@ -180,6 +186,7 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
               <li>Renames: {result.renames_count ?? 0}</li>
               <li>New items: {result.new_folders_count ?? 0}</li>
               <li>Updated items: {result.updated_folders_count ?? 0}</li>
+              <li>Renamed items: {result.folder_renames_count ?? 0}</li>
             </ul>
             <div className="gsheet-actions">
               <button

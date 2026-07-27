@@ -3,6 +3,9 @@
 // tabs, run consistency checks, and build the plan that the backend applies.
 
 const FOLDER_COL = '#';
+// FIX370.2.1.7: optional column carrying a rename command for the current
+// '#' (or, per FIX370.2.1.7.2, the ref to create a new item under).
+const FOLDER_NEW_COL = '# new';
 
 // ---------- URL + fetch ----------
 
@@ -134,6 +137,8 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   if (folderColIdx < 0) {
     errors.push("FIX370.2.1.1: a '#' column is mandatory in the main sheet.");
   }
+  // FIX370.2.1.7 — optional '# new' column (rename command, not a property).
+  const folderNewColIdx = headers.indexOf(FOLDER_NEW_COL);
 
   // 2.1.2 — unique column headers
   {
@@ -148,10 +153,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     }
   }
 
-  // Property header columns (non-'#', non-blank).
+  // Property header columns (non-'#', non-'# new', non-blank).
   const propHeaders = headers
     .map((h, idx) => ({ label: h, idx }))
-    .filter((c) => c.label && c.idx !== folderColIdx);
+    .filter((c) => c.label && c.idx !== folderColIdx && c.idx !== folderNewColIdx);
 
   // 2.1.3 / 2.1.4 / 2.1.5 — row-level checks only run when the '#' column
   // exists; otherwise per-row '#' errors would just be noise flowing from
@@ -363,16 +368,33 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const newFolderDisplays = [];
   const updatedFolderDisplays = [];
   const deletedFolderDisplays = [];
+  const renamedFolders = [];
   const updates = [];
 
   dataRows.forEach((row, i) => {
     const name = rowFolderNames[i];
     if (!name) return;
     const isNew = !projectFolderNames.has(name);
-    let display = name;
+    const existingFolder = folderByName.get(name);
+    const newRefRaw = folderNewColIdx >= 0 ? (row[folderNewColIdx] ?? '').trim() : '';
+    // FIX370.2.1.7: '# new' is a command to change the current '#' (folder
+    // name), not an item property.
+    // FIX370.2.1.7.1: no value, or equal to '#' -> nothing to do.
+    // FIX370.2.1.7.2: '#' doesn't exist yet -> '# new' (if not blank) is
+    // taken instead of '#' to create the new item.
+    let effectiveName = name;
+    if (!isNew) {
+      if (newRefRaw && newRefRaw !== name) {
+        effectiveName = newRefRaw;
+        renamedFolders.push({ id: existingFolder.id, from: name, to: newRefRaw });
+      }
+    } else if (newRefRaw) {
+      effectiveName = newRefRaw;
+    }
+    let display = effectiveName;
     if (mainColIdx != null) {
       const v = (row[mainColIdx] ?? '').trim();
-      if (v) display = `${name} — ${v}`;
+      if (v) display = `${effectiveName} — ${v}`;
     }
     // FIX370.3.2.2.2.5.1 (updated): an item is recapped as 'Deleted' only
     // when the deletion property is non-blank in the sheet AND blank or
@@ -383,9 +405,8 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     if (deletedColIdx != null) {
       const sheetVal = (row[deletedColIdx] ?? '').trim();
       if (sheetVal) {
-        const folder = folderByName.get(name);
-        const currentDeleted = folder
-          ? normalizeForCompare(folder.properties?.[String(deletedPropertyId)])
+        const currentDeleted = existingFolder
+          ? normalizeForCompare(existingFolder.properties?.[String(deletedPropertyId)])
           : '';
         if (!currentDeleted) {
           newlyDeleted = true;
@@ -394,7 +415,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       }
     }
     if (isNew) {
-      newFolderNames.push(name);
+      newFolderNames.push(effectiveName);
       newFolderDisplays.push(display);
     } else if (!newlyDeleted) {
       // Existing folder is reported as 'updated' only when at least one
@@ -402,8 +423,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       // currently stores. Values are normalized before comparison so
       // invisible characters (NBSP, zero-width, CR, BOM) and Unicode form
       // (NFC vs NFD) don't produce spurious diffs.
-      const folder = folderByName.get(name);
-      const currentProps = folder?.properties || {};
+      const currentProps = existingFolder?.properties || {};
       let changed = false;
       for (const col of importedPropHeaders) {
         const finalId = labelToFinalId.get(col.label);
@@ -421,7 +441,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     for (const col of importedPropHeaders) {
       const finalLabel = headerToFinalLabel.get(col.label) || col.label;
       const value = (row[col.idx] ?? '').trim();
-      updates.push({ folder_name: name, property_label: finalLabel, value });
+      updates.push({ folder_name: effectiveName, property_label: finalLabel, value });
     }
   });
 
@@ -436,6 +456,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     newFolders: newFolderDisplays,
     updatedFolders: updatedFolderDisplays,
     deletedFolders: deletedFolderDisplays,
+    renamedFolders: renamedFolders.map((r) => ({ from: r.from, to: r.to })),
   };
 
   const plan = {
@@ -444,6 +465,8 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     new_properties: newProperties,
     renames: renames.map((r) => ({ id: r.id, label: r.label })),
     new_folders: newFolderNames,
+    // FIX370.2.1.7: rename an existing item's '#' (folder.name).
+    folder_renames: renamedFolders.map((r) => ({ id: r.id, name: r.to })),
     updates,
   };
 

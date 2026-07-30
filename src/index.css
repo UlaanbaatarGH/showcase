@@ -1257,9 +1257,35 @@ body {
    doesn't honor overflow reliably, so we move the flex+overflow here
    and keep the table at intrinsic size inside. */
 .sc-img-list-scroll {
-  flex: 1 1 auto;
+  /* FIX610.3.8: flex-grow 0 — the table only takes the space its rows need
+     (shrinking with overflow:auto when the list is long) so the drop area
+     below it (flex-grow 1) can claim the rest of the pane. */
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
+}
+/* FIX610.3.8 <local-image-drop-area>: fills the whole gap between the last
+   image row and the panel bottom (flex-grow 1) so the entire gap — not just
+   a strip at the very bottom — accepts a drop. min-height keeps it at least
+   ~2 lines tall (FIX610.3.8) even when the list is long enough to leave the
+   scroll pane no free space to give it. */
+.sc-img-list-drop-area {
+  flex: 1 0 auto;
+  min-height: calc(2 * 1.4 * 0.85rem + 1rem);
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #888);
+}
+.sc-img-list-drop-area.active {
+  background: var(--color-selected);
+  border-color: var(--color-selected-border);
 }
 /* FIX521.2.1.11: the table sizes to its content (max-content) and the
    wrapper (.sc-img-list-scroll, overflow:auto) shows a horizontal scrollbar

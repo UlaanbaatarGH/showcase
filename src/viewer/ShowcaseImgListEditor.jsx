@@ -916,6 +916,19 @@ export default function ShowcaseImgListEditor({
     insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
   };
 
+  // FIX610.3.8 <local-image-drop-area>: local-app only, at the bottom of the
+  // list while in edition. FIX610.3.8.1: dropped images are added exactly
+  // like <button-local-add-img> — reuses makeLocalRow/insertLocalRows.
+  const [dropAreaActive, setDropAreaActive] = useState(false);
+  const handleFilesDropped = (e) => {
+    e.preventDefault();
+    setDropAreaActive(false);
+    if (interactionLocked) return;
+    const files = Array.from(e.dataTransfer?.files || []).filter((f) => isAcceptedImage(f.name));
+    if (files.length === 0) return;
+    insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
+  };
+
   // FIX620 <process-automatic-img-insertion>: <button-auto-insert-img>.
   // FIX620.3.2: pushing down while off opens a popup to enter/confirm the
   // watched folder. FIX620.3.3: pushing up while on immediately stops, no
@@ -1361,6 +1374,20 @@ export default function ShowcaseImgListEditor({
           </tbody>
         </table>
         </div>
+        {/* FIX610.3.8 <local-image-drop-area>: drop area at the bottom of
+            the list, local-app only. FIX610.3.8.1: dropped images are added
+            like <button-local-add-img>. */}
+        {isLocalApp && (
+          <div
+            className={`sc-img-list-drop-area${dropAreaActive ? ' active' : ''}`}
+            data-yagu-id="local-image-drop-area"
+            onDragOver={(e) => { e.preventDefault(); setDropAreaActive(true); }}
+            onDragLeave={() => setDropAreaActive(false)}
+            onDrop={handleFilesDropped}
+          >
+            Drop images here to add
+          </div>
+        )}
       </div>
 
       {/* FIX521.2.1.11 / FIX521.2.1.11.2: drag to resize; the image pane (and

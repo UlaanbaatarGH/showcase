@@ -482,6 +482,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const camSeenNamesRef = useRef(null);
   const camPollingRef = useRef(false);
   const nextRefRef = useRef(1);
+  // FIX620.4.2.2 bugfix: which project nextRefRef was last correctly seeded
+  // for. See handleStartCameraCapture — without this, stopping and quickly
+  // restarting Camera capture reseeds the counter from `data?.folders`,
+  // which reloadShowcase() (fire-and-forget after every capture) may not
+  // have refreshed yet, handing out an already-used Ref and creating a
+  // duplicate item once published.
+  const nextRefSeededProjectRef = useRef(null);
   const camLocalIdRef = useRef(0);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
@@ -842,10 +849,23 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // kept in-memory (not re-derived from `data` per file) so a burst of
       // several photos in one tick gets distinct sequential Refs even
       // though `data.folders` won't have refreshed mid-loop.
+      const capProjectId = data?.project?.id ?? null;
       const existingRefs = (data?.folders || [])
         .map((f) => Number(f.name))
         .filter((n) => Number.isFinite(n));
-      nextRefRef.current = (existingRefs.length ? Math.max(...existingRefs) : 0) + 1;
+      const computedNext = (existingRefs.length ? Math.max(...existingRefs) : 0) + 1;
+      if (nextRefSeededProjectRef.current !== capProjectId) {
+        // First capture in this project (or after switching projects) —
+        // data?.folders is the only source of truth available, use it as-is.
+        nextRefRef.current = computedNext;
+        nextRefSeededProjectRef.current = capProjectId;
+      } else {
+        // Restarting within the same project: data?.folders may still be
+        // missing an item created moments ago by a previous capture tick —
+        // never seed backwards, or the next photo reuses that Ref and
+        // creates a duplicate item.
+        nextRefRef.current = Math.max(nextRefRef.current, computedNext);
+      }
       setCameraCaptureDir(folder);
       setCameraCapturePopup(null);
       setCameraCaptureActive(true);

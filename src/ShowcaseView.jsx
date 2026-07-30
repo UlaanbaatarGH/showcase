@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -305,13 +305,26 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // of this same on-disk state, not a separate mechanism (generalized by
   // FIX670 to cover manual Add/Drop/Remove/Unremove/Move too).
   useEffect(() => {
+    const pid = data?.project?.id;
     const projectName = data?.project?.name;
     const folders = data?.folders;
-    if (!isLocalApp || projectName == null || !folders) return undefined;
+    if (!isLocalApp || pid == null || projectName == null || !folders) return undefined;
     let cancelled = false;
     (async () => {
       try {
         const root = await getStagingRoot();
+        // FIX670.1 migration: fold any leftover pre-FIX670 capture-staging
+        // data for this project (real unpublished camera captures, keyed by
+        // the old numeric-id scheme) into the new tree — the app is the one
+        // place that already knows this project's id *and* name together,
+        // so this is where the migration belongs, not a manual one-off.
+        try {
+          const legacyRoot = await getLegacyStagingRoot();
+          await migrateLegacyProjectFolder({ projectId: pid, projectName, root, legacyRoot });
+        } catch {
+          // Best-effort — a failed migration just leaves the legacy folder
+          // in place to retry next time this project is opened.
+        }
         const projectDir = `${root}/${sanitizeSegment(projectName)}`;
         const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(projectDir)}`);
         if (!res.ok) return; // nothing staged for this project, or agent unreachable

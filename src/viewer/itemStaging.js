@@ -25,16 +25,29 @@ export function sanitizeSegment(name) {
 // FIX670.1: dataRoot is cached module-wide — it can't change mid-session
 // (same posture as FIX653's original getStagingRoot).
 let cachedAgentDataRoot = null;
-export async function getStagingRoot() {
+async function getDataRoot() {
   if (cachedAgentDataRoot == null) {
     const res = await fetch(`${AGENT_URL}/agent/status`);
     const body = await res.json();
     cachedAgentDataRoot = body.dataRoot;
   }
-  // FIX670.1: root renamed from FIX653's capture-staging — tech/data/staging
-  // is now the one mechanism backing every local-edit path, not just camera
-  // captures.
-  return `${cachedAgentDataRoot}/staging`;
+  return cachedAgentDataRoot;
+}
+
+// FIX670.1: root renamed from FIX653's capture-staging — tech/data/staging
+// is now the one mechanism backing every local-edit path, not just camera
+// captures.
+export async function getStagingRoot() {
+  return `${await getDataRoot()}/staging`;
+}
+
+// FIX670.1 migration: capture-staging was FIX653's own pre-FIX670 tree —
+// never itself spec'd, keyed by numeric project id, no list.txt manifest.
+// Real unpublished camera-capture work can still be sitting there for a
+// project whose FIX670-era staging folder has never been created; see
+// migrateLegacyProjectFolder below.
+export async function getLegacyStagingRoot() {
+  return `${await getDataRoot()}/capture-staging`;
 }
 
 export function stagingItemDir(root, projectName, itemName) {
@@ -178,6 +191,56 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
   // marking public rows staged for removal.
   const entries = images.map((im) => ({ filename: im.filename, removed: im.status === 'Removed' }));
   await writeManifestEntries(dir, entries);
+}
+
+// FIX670.1 migration: folds any leftover FIX653-era capture-staging data for
+// this project into the new FIX670 tree, the first time that project is
+// opened after the rename — run from ShowcaseView.jsx's reconciliation
+// effect, which is the one place that already has both the numeric project
+// id (the legacy key) and the project name (the new key) at hand, so no
+// out-of-band lookup of "what's project 5's name" is ever needed. Each
+// legacy item folder had no list.txt (FIX653 predates it) — one is
+// synthesized here, listing every file found, unmarked (nothing was ever
+// staged for removal under the old mechanism). Best-effort and idempotent:
+// safe to call on every project open, a no-op once migrated.
+export async function migrateLegacyProjectFolder({ projectId, projectName, root, legacyRoot }) {
+  const legacyProjectDir = `${legacyRoot}/${projectId}`;
+  const itemEntries = await listEntries(legacyProjectDir);
+  for (const entry of itemEntries) {
+    if (entry.type !== 'folder') continue;
+    const legacyItemDir = `${legacyProjectDir}/${entry.name}`;
+    const newDir = stagingItemDir(root, projectName, entry.name);
+    // Already migrated (or already has FIX670-era staged state) — just
+    // clear the leftover legacy copy.
+    const already = await readManifestEntries(newDir);
+    if (already.length > 0) {
+      await rmPath(legacyItemDir);
+      continue;
+    }
+    const files = (await listEntries(legacyItemDir)).filter((e) => e.type === 'file');
+    if (files.length === 0) {
+      await rmPath(legacyItemDir);
+      continue;
+    }
+    await mkdir(newDir);
+    const copied = [];
+    for (const f of files) {
+      try {
+        const res = await fetch(`${AGENT_URL}/agent/dir/copy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ src: `${legacyItemDir}/${f.name}`, dst: `${newDir}/${f.name}` }),
+        });
+        if (res.ok) copied.push(f.name);
+      } catch {
+        // Best-effort per file — a failed copy just leaves that one image
+        // out of the migrated manifest rather than aborting the rest.
+      }
+    }
+    await writeManifestEntries(newDir, copied.map((filename) => ({ filename, removed: false })));
+    await rmPath(legacyItemDir);
+  }
+  await rmPath(legacyProjectDir);
 }
 
 // FIX610.3.1: mirrors publishItemImages.js's isLocalRow (a locally-staged row

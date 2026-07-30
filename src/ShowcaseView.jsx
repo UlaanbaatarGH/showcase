@@ -30,6 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
+import { getStagingRoot, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -38,27 +39,17 @@ import { isAcceptedImage } from './images/importImages.js';
 const AGENT_URL = 'http://localhost:3001';
 const CAMERA_CAPTURE_LAST_FOLDER_KEY = 'sc-camera-capture-last-folder';
 
-// FIX653 durable capture staging: a captured photo used to live only as an
+// FIX670 Changes & Publication: a captured photo used to live only as an
 // in-memory URL.createObjectURL blob until Publish — gone on reload/crash/
 // closing the app, even though its item Ref had already been created on the
 // server, leaving a permanently empty orphan item. Copying the file into a
-// stable staging root under the project itself (tech/data, resolved by the
-// Agent from its own __dirname — see /agent/status), independent of whichever
-// folder is currently being watched, lets a project reload rebuild the staged
-// rows from disk instead. dataRoot is cached module-wide — it can't change
-// mid-session.
-let cachedAgentDataRoot = null;
-async function getStagingRoot() {
-  if (cachedAgentDataRoot == null) {
-    const res = await fetch(`${AGENT_URL}/agent/status`);
-    const body = await res.json();
-    cachedAgentDataRoot = body.dataRoot;
-  }
-  return `${cachedAgentDataRoot}/capture-staging`;
-}
-function stagingItemDir(root, projectId, itemName) {
-  return `${root}/${projectId}/${itemName}`;
-}
+// stable staging root under the project itself (tech/data/staging, resolved
+// by the Agent from its own __dirname — see /agent/status, keyed by project
+// name per FIX670.1), independent of whichever folder is currently being
+// watched, lets a project reload rebuild the staged rows from disk instead —
+// see itemStaging.js (shared with ShowcaseImgListEditor.jsx and
+// publishItemImages.js; this used to be FIX653's own capture-only copy of
+// the same mechanism, now formalized and generalized by FIX670).
 
 // Live viewport-size listener; pairs with FIX503.5.4 (long vs short
 // project title pick). Returns `true` when the media query matches
@@ -305,21 +296,23 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     imagesByFolderRef.current = {};
   }, [data?.project?.id]);
 
-  // FIX653 durable capture staging: on opening a project, rebuild any
-  // staged-but-unpublished captures from the staging root on disk — covers
-  // reopening the app after a reload, a crash, or a multi-day gap, when the
-  // in-memory blobs from the capture session are long gone but the copied
-  // files (and their empty draft Refs, created eagerly at capture time)
-  // are still sitting there.
+  // FIX670.1 / FIX670.10-FIX670.14: on opening a project, rebuild any
+  // staged-but-unpublished local edits (add/remove/unremove/move) from the
+  // staging root on disk — covers reopening the app after a reload, a
+  // crash, or a multi-day gap, when the in-memory state from the edit
+  // session is long gone but the item folder + its list.txt manifest are
+  // still sitting there. FIX653's camera-capture flow is just one producer
+  // of this same on-disk state, not a separate mechanism (generalized by
+  // FIX670 to cover manual Add/Drop/Remove/Unremove/Move too).
   useEffect(() => {
-    const pid = data?.project?.id;
+    const projectName = data?.project?.name;
     const folders = data?.folders;
-    if (!isLocalApp || pid == null || !folders) return undefined;
+    if (!isLocalApp || projectName == null || !folders) return undefined;
     let cancelled = false;
     (async () => {
       try {
         const root = await getStagingRoot();
-        const projectDir = `${root}/${pid}`;
+        const projectDir = `${root}/${sanitizeSegment(projectName)}`;
         const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(projectDir)}`);
         if (!res.ok) return; // nothing staged for this project, or agent unreachable
         const { entries } = await res.json();
@@ -327,20 +320,48 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           if (cancelled) return;
           if (entry.type !== 'folder') continue;
           const folder = folders.find((f) => f.name === entry.name);
-          // FIX653: only skip if local rows are already there (already
-          // reconciled) — an empty array is a legitimate cache entry the
-          // sibling per-item images-fetch effect may have raced in first,
-          // and must not be mistaken for "already reconciled".
-          if (!folder || (imagesByFolderRef.current[folder.id] || []).some(isLocalRow)) continue;
+          // FIX670: only skip if this item's cache already carries staged
+          // state (already reconciled, or edited this session) — an empty
+          // array is a legitimate cache entry the sibling per-item
+          // images-fetch effect may have raced in first, and must not be
+          // mistaken for "already reconciled".
+          if (!folder) continue;
+          const already = imagesByFolderRef.current[folder.id];
+          if (already && already.some((im) => im.status || isLocalRow(im))) continue;
           const itemDir = `${projectDir}/${entry.name}`;
-          const filesRes = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(itemDir)}`);
-          if (!filesRes.ok) continue;
-          const { entries: fileEntries } = await filesRes.json();
+          // FIX670.10: list.txt is the manifest of every public + local
+          // image in display order — an item folder only exists on disk
+          // while something is pending (FIX670.20), so an empty/missing
+          // manifest here means nothing left to reconstruct.
+          const manifest = await readManifestEntries(itemDir);
+          if (manifest.length === 0 || cancelled) continue;
+          const publicBaseline = await getFolderImages(folder.id)
+            .then((imgs) => imgs.map((im) => ({ ...im, origSortOrder: im.sort_order })))
+            .catch(() => null);
+          if (publicBaseline == null || cancelled) continue;
+          const byFilename = new Map(publicBaseline.map((im) => [im.filename, im]));
+          const usedFilenames = new Set();
+          // FIX670.14: reassign sort_order positionally from the original
+          // baseline values, same rotation-over-a-range convention
+          // ShowcaseImgListEditor.jsx's moveSelected already uses, so a row
+          // back at its original position resolves to '' rather than
+          // 'Moved'.
+          const origOrders = publicBaseline.map((im) => im.sort_order).sort((a, b) => a - b);
+          let publicPos = 0;
           const rows = [];
-          for (const fe of fileEntries || []) {
+          for (const { filename, removed } of manifest) {
             if (cancelled) return;
-            if (fe.type !== 'file' || !isAcceptedImage(fe.name)) continue;
-            const filePath = `${itemDir}/${fe.name}`;
+            const pub = byFilename.get(filename);
+            if (pub) {
+              usedFilenames.add(filename);
+              const sort_order = origOrders[publicPos];
+              publicPos += 1;
+              // FIX670.11/.13: the manifest's ' (removed)' marker is the
+              // durable record of a pending removal/unremoval.
+              rows.push({ ...pub, sort_order, status: removed ? 'Removed' : (sort_order === pub.origSortOrder ? '' : 'Moved') });
+              continue;
+            }
+            const filePath = `${itemDir}/${filename}`;
             const imgRes = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(filePath)}`);
             if (!imgRes.ok) continue;
             const blob = await imgRes.blob();
@@ -348,7 +369,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               id: `local-${Date.now()}-${camLocalIdRef.current++}`,
               image_id: null,
               url: URL.createObjectURL(blob),
-              filename: fe.name,
+              filename,
               caption: '',
               section: '',
               is_main: false,
@@ -360,14 +381,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               stagedPath: filePath,
             });
           }
+          // Defensive fallback — FIX670.10 keeps list.txt comprehensive, so
+          // this shouldn't normally fire: a public row the manifest didn't
+          // mention is appended unmarked, preserving its baseline order.
+          for (const pub of publicBaseline) {
+            if (!usedFilenames.has(pub.filename)) rows.push({ ...pub, status: '' });
+          }
           if (rows.length === 0 || cancelled) continue;
-          // FIX653: merge onto whatever's already cached (e.g. the sibling
-          // effect's empty server-truth baseline, if it raced in first)
-          // instead of replacing it outright.
-          const existing = (imagesByFolderRef.current[folder.id] || []).filter((im) => !isLocalRow(im));
-          const merged = [...existing, ...rows];
-          imagesByFolderRef.current[folder.id] = merged;
-          if (folder.id === selectedFolderIdRef.current) setImages(merged);
+          imagesByFolderRef.current[folder.id] = rows;
+          if (folder.id === selectedFolderIdRef.current) setImages(rows);
         }
       } catch {
         // Agent unreachable — reconciliation just skips this time; the
@@ -439,6 +461,27 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         doneUnits += p.scopeIdxs.length;
         imagesByFolderRef.current[p.folderId] = finalImages;
         if (p.folderId === selectedFolderId) setImages(finalImages);
+        // FIX670.30: resync the item's staging folder against what's left
+        // pending after this publish — removes the folder entirely once
+        // nothing's left (the common case), or prunes/rewrites list.txt for
+        // whatever a partial-scope publish left staged.
+        try {
+          const root = await getStagingRoot();
+          await syncStagingFolder({
+            root,
+            projectName: data.project?.name,
+            itemName: folder?.name,
+            images: finalImages,
+            setImages: (updater) => {
+              const prev = imagesByFolderRef.current[p.folderId] || [];
+              const next = typeof updater === 'function' ? updater(prev) : updater;
+              imagesByFolderRef.current[p.folderId] = next;
+              if (p.folderId === selectedFolderId) setImages(next);
+            },
+          });
+        } catch {
+          // Best-effort — matches FIX670's posture everywhere else.
+        }
       }
       setCrossPublishStage(null);
       setCrossPublishPlan(null);
@@ -885,6 +928,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // const below (line ~854) — that binding isn't declared yet at this
     // point in the component body.
     const capProjectId = data?.project?.id ?? null;
+    const capProjectName = data?.project?.name ?? '';
     if (!cameraCaptureActive || !cameraCaptureDir || !capProjectId) return undefined;
     const poll = async () => {
       if (camPollingRef.current) return;
@@ -919,14 +963,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             // until its image is actually published (backend clears the
             // flag in confirm_image the moment that happens).
             const { id: newFolderId } = await createFolder({ project_id: capProjectId, name: itemName, draft: true });
-            // FIX653 durable capture staging: copy the source file into the
-            // stable staging root so it survives a reload/crash/multi-day gap
+            // FIX670.1 / FIX670.10: copy the source file into the stable
+            // staging root so it survives a reload/crash/multi-day gap
             // before Publish — best-effort; if it fails, behavior falls back
             // to the old memory-only staging (still works this session).
+            let root = null;
             let stagedPath = null;
             try {
-              const root = await getStagingRoot();
-              const dir = stagingItemDir(root, capProjectId, itemName);
+              root = await getStagingRoot();
+              const dir = stagingItemDir(root, capProjectName, itemName);
               await fetch(`${AGENT_URL}/agent/dir/mkdir`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -958,9 +1003,26 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               crop: null,
               status: 'Added',
               localFile: blob,
-              stagedPath, // FIX653: durable copy on disk, cleaned up at Publish
+              stagedPath, // FIX670.30: durable copy on disk, cleaned up at Publish
             };
             imagesByFolderRef.current[newFolderId] = [localRow];
+            // FIX670.10: mirror the new item into list.txt — stagedPath is
+            // already set above when the copy succeeded, so syncStagingFolder
+            // only writes the manifest here, it doesn't re-copy the file.
+            if (stagedPath && root) {
+              syncStagingFolder({
+                root,
+                projectName: capProjectName,
+                itemName,
+                images: [localRow],
+                setImages: (updater) => {
+                  const prev = imagesByFolderRef.current[newFolderId] || [];
+                  const next = typeof updater === 'function' ? updater(prev) : updater;
+                  imagesByFolderRef.current[newFolderId] = next;
+                  if (newFolderId === selectedFolderIdRef.current) setImages(next);
+                },
+              }).catch(() => {});
+            }
           } catch {
             // Agent/backend unreachable for this file — next tick won't
             // retry it (already marked seen), matching FIX620's existing
@@ -2163,6 +2225,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 onExitEdit={() => setEditionMode(false)}
                 folderId={selectedFolderId}
                 projectId={data.project?.id}
+                projectName={data.project?.name}
                 itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
                 hideSections={hideSections}
                 onItemBytesChange={(bytes) =>

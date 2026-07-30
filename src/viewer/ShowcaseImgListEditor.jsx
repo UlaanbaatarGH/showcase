@@ -6,6 +6,7 @@ import {
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 import { publishItemImages, isLocalRow } from './publishItemImages.js';
+import { getStagingRoot, syncStagingFolder } from './itemStaging.js';
 import { isAcceptedImage } from '../images/importImages.js';
 import { IconCamera } from '../Icons.jsx';
 
@@ -56,6 +57,7 @@ export default function ShowcaseImgListEditor({
   onItemZoomChange,  // FIX521.5.8.1: report the item's Zoom Factor (max ZF)
   folderId,   // FIX610.3.5: which item to re-fetch from after Publish
   projectId,  // FIX610.3.1 / .3.5: needed for sign-upload / confirm
+  projectName, // FIX670.1: staging folder segment (tech/data/staging/{projectName}/{itemName})
   itemName,   // FIX610.3.1 / .3.5: item folder name (item_name on the API)
   hideSections, // FIX654.2 <cmd-hide-sections>: hide Section/Caption columns
 }) {
@@ -83,6 +85,20 @@ export default function ShowcaseImgListEditor({
     setEditLockPendingChanges(projectId, { pending }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images, isLocalApp, projectId]);
+
+  // FIX670.1 / FIX670.10-FIX670.14 / FIX670.20: mirrors the given post-edit
+  // `images` snapshot onto the item's on-disk staging folder — best-effort,
+  // fire-and-forget (an unreachable Agent falls back to memory-only staging
+  // for this session, same posture as every other FIX670/FIX653 disk write).
+  // Called after every structural edit (add/remove/unremove/move) and again
+  // after Publish (FIX670.30), where it deletes the folder once nothing's
+  // left pending.
+  const syncAfterEdit = (nextImages) => {
+    if (!isLocalApp || projectName == null || itemName == null) return;
+    getStagingRoot()
+      .then((root) => syncStagingFolder({ root, projectName, itemName, images: nextImages, setImages }))
+      .catch(() => {});
+  };
 
   // Image-editor state (right panel). null until the user touches
   // rotate/crop; pinned to the currently selected folder_image.id via
@@ -532,7 +548,10 @@ export default function ShowcaseImgListEditor({
     // FIX610.3.4: local-app reorders are staged (see above) — the actual
     // sort_order PATCH happens at Publish time for in-scope 'Moved' rows.
     // Outside the local app, keep the existing immediate-save behavior.
-    if (isLocalApp) return;
+    if (isLocalApp) {
+      syncAfterEdit(restaged); // FIX670.14: list.txt mirrors the new order
+      return;
+    }
     try {
       // FIX610.3.1: not-yet-published rows have no real id to PATCH — their
       // sort_order is already correct in local state and gets set directly
@@ -649,6 +668,9 @@ export default function ShowcaseImgListEditor({
     setSelectedIdx(newIdx);
     setSelIdxs(new Set(next.length ? [newIdx] : []));
     setAnchor(newIdx);
+    // FIX670.11 / FIX670.12: mark the public removal (or drop the local
+    // file) in list.txt / on disk.
+    syncAfterEdit(next);
   };
 
   // FIX610.3.3 <button-local-unremove-img>: clears the 'Removed' status on
@@ -659,7 +681,9 @@ export default function ShowcaseImgListEditor({
       targets.filter((im) => !isLocalRow(im) && im.status === 'Removed').map((im) => im.id),
     );
     if (ids.size === 0) return;
-    setImages(images.map((im) => (ids.has(im.id) ? { ...im, status: '' } : im)));
+    const next = images.map((im) => (ids.has(im.id) ? { ...im, status: '' } : im));
+    setImages(next);
+    syncAfterEdit(next); // FIX670.13: strip the ' (removed)' marker in list.txt
   };
 
   // FIX610.3.5 <button-publish-img>: Publish only the *selected* images that
@@ -715,6 +739,10 @@ export default function ShowcaseImgListEditor({
       setSelIdxs(new Set(finalImages.length ? [0] : []));
       setSelectedIdx(0);
       setAnchor(0);
+      // FIX670.30: resync the staging folder against what's left pending —
+      // removes it entirely once nothing is (the common case), or
+      // prunes/rewrites list.txt for a partial-scope publish's remainder.
+      syncAfterEdit(finalImages);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -898,15 +926,21 @@ export default function ShowcaseImgListEditor({
   const insertLocalRows = (rows) => {
     const singleSelected = selIdxsRef.current.size === 1 ? [...selIdxsRef.current][0] : null;
     let insertAt = -1;
+    let nextImages = null;
     setImages((prev) => {
       insertAt = singleSelected != null ? singleSelected + 1 : prev.length;
-      return [...prev.slice(0, insertAt), ...rows, ...prev.slice(insertAt)];
+      nextImages = [...prev.slice(0, insertAt), ...rows, ...prev.slice(insertAt)];
+      return nextImages;
     });
     const newIdxs = rows.map((_, k) => insertAt + k);
     selIdxsRef.current = new Set(newIdxs);
     setSelIdxs(new Set(newIdxs));
     setSelectedIdx(newIdxs[0]);
     setAnchor(newIdxs[0]);
+    // FIX670.10: copy the new file(s) into the item's staging folder and
+    // write list.txt — covers Add, drag-drop (FIX610.3.8), and this file's
+    // own FIX620 auto-insert watcher, all of which funnel through here.
+    syncAfterEdit(nextImages);
   };
   const handleAddClick = () => addInputRef.current?.click();
   const handleFilesPicked = (e) => {

@@ -6,11 +6,6 @@
 import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, updateImage } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 
-// FIX653 durable capture staging: same local Agent server ShowcaseView.jsx
-// talks to — no shared module for this literal, matching the existing
-// per-file redeclaration convention.
-const AGENT_URL = 'http://localhost:3001';
-
 // FIX610.3.1: rows staged locally (not yet uploaded) carry a synthetic
 // string id in this form.
 export function isLocalRow(im) {
@@ -91,16 +86,11 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
         });
       }
       URL.revokeObjectURL(im.url);
-      // FIX653 durable capture staging: the server now has its own durable
-      // copy (uploaded above), so the local staged file is no longer
-      // needed — best-effort, doesn't block Publish if it fails.
-      if (im.stagedPath) {
-        fetch(`${AGENT_URL}/agent/dir/rmdir`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: im.stagedPath }),
-        }).catch(() => {});
-      }
+      // FIX670.30: the server now has its own durable copy (uploaded above);
+      // the on-disk staging folder is resynced by the caller right after
+      // publishItemImages() returns (syncStagingFolder against finalImages),
+      // which prunes this file and removes the whole folder once nothing's
+      // left pending for the item.
       bump();
     } else if (scope.has(origIdx)) {
       const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };

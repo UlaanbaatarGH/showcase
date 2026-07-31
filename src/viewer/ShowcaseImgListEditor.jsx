@@ -951,9 +951,12 @@ export default function ShowcaseImgListEditor({
     insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
   };
 
-  // FIX610.3.8 <local-image-drop-area>: local-app only, at the bottom of the
-  // list while in edition. FIX610.3.8.1: dropped images are added exactly
-  // like <button-local-add-img> — reuses makeLocalRow/insertLocalRows.
+  // FIX610.3.8 <panel-image-dropping> (Id per FIX521.2.1.20.0): local-app
+  // only, at the bottom of the list while in edition. FIX610.3.8.1 —
+  // "Update of FIX521.2.1.20.3" — dropped images are staged exactly like
+  // <button-local-add-img> instead of the website's immediate-upload
+  // default (FIX521.2.1.20.3 itself, out of scope here — website behavior
+  // isn't part of this local-app change) — reuses makeLocalRow/insertLocalRows.
   const [dropAreaActive, setDropAreaActive] = useState(false);
   const handleFilesDropped = (e) => {
     e.preventDefault();
@@ -1410,13 +1413,14 @@ export default function ShowcaseImgListEditor({
           </tbody>
         </table>
         </div>
-        {/* FIX610.3.8 <local-image-drop-area>: drop area at the bottom of
-            the list, local-app only. FIX610.3.8.1: dropped images are added
-            like <button-local-add-img>. */}
+        {/* FIX610.3.8 <panel-image-dropping>: drop area at the bottom of
+            the list, local-app only. FIX610.3.8.1: dropped images are staged
+            like <button-local-add-img> (updates FIX521.2.1.20.3's
+            immediate-upload default for the local app specifically). */}
         {isLocalApp && (
           <div
             className={`sc-img-list-drop-area${dropAreaActive ? ' active' : ''}`}
-            data-yagu-id="local-image-drop-area"
+            data-yagu-id="panel-image-dropping"
             onDragOver={(e) => { e.preventDefault(); setDropAreaActive(true); }}
             onDragLeave={() => setDropAreaActive(false)}
             onDrop={handleFilesDropped}

@@ -1288,11 +1288,12 @@ body {
   min-height: 0;
   overflow: auto;
 }
-/* FIX610.3.8 <local-image-drop-area>: fills the whole gap between the last
-   image row and the panel bottom (flex-grow 1) so the entire gap — not just
-   a strip at the very bottom — accepts a drop. min-height keeps it at least
-   ~2 lines tall (FIX610.3.8) even when the list is long enough to leave the
-   scroll pane no free space to give it. */
+/* FIX610.3.8 <panel-image-dropping>: fills the whole gap between the last
+   image row and the panel bottom (flex-grow 1, FIX521.2.1.20.1) so the
+   entire gap — not just a strip at the very bottom — accepts a drop.
+   min-height keeps it at least ~2 list rows tall (FIX521.2.1.20.1) even
+   when the list is long enough to leave the scroll pane no free space to
+   give it. */
 .sc-img-list-drop-area {
   flex: 1 0 auto;
   min-height: calc(2 * 1.4 * 0.85rem + 1rem);
@@ -1463,9 +1464,11 @@ body {
 .sc-row-select-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .sc-img-list-table input[type="text"] {
   width: 100%;
-  /* FIX521.2.1.13: editable fields are white (read-only cells stay grey via
-     the zebra striping); black text, common input border. */
-  background: #fff;
+  /* FIX521.2.1.13: input fields carry the common grey background of input
+     fields (updated — previously white, to stand out from the read-only
+     zebra cells; the current spec text asks for grey instead); black text,
+     common input border. */
+  background: #eee;
   color: #222;
   border: 1px solid #aaa;
   border-radius: 3px;

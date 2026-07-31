@@ -183,6 +183,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     ));
   };
+  // FIX510.2.1.11: Shift-click pivot — the last plain/Ctrl-clicked row.
+  const itemSelectAnchorRef = useRef(null);
+  const selectRange = (rows, fromId, toId) => {
+    const lo = rows.findIndex((f) => f.id === fromId);
+    const hi = rows.findIndex((f) => f.id === toId);
+    if (lo === -1 || hi === -1) { selectOnly(toId); return; }
+    const [a, b] = lo <= hi ? [lo, hi] : [hi, lo];
+    setSelectedFolderIds(rows.slice(a, b + 1).map((f) => f.id));
+  };
   // FIX515: Item Details panel — two tabs sharing the right column.
   // FIX515.4.1: tab persists when the selected item changes (state lives
   // here, not reset by selection). FIX515.4.2: 'Images' is the default.
@@ -2360,12 +2369,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       ].filter(Boolean).join(' ')
                     }
                     onClick={(e) => {
-                      // FIX510.2.1.11: Ctrl/Cmd-click toggles the row
-                      // in the multi-selection. Plain click resets to
-                      // a single-row selection.
+                      // FIX510.2.1.11: Ctrl/Cmd-click toggles the row in the
+                      // multi-selection; Shift-click selects the contiguous
+                      // range from the last-clicked row; plain click resets
+                      // to a single-row selection.
                       userPickedRef.current = true; // FIX404: stop re-applying the URL item
-                      if (e.ctrlKey || e.metaKey) toggleSelected(f.id);
-                      else selectOnly(f.id);
+                      if (e.shiftKey && itemSelectAnchorRef.current != null) {
+                        selectRange(displayedFolders, itemSelectAnchorRef.current, f.id);
+                      } else if (e.ctrlKey || e.metaKey) {
+                        toggleSelected(f.id);
+                        itemSelectAnchorRef.current = f.id;
+                      } else {
+                        selectOnly(f.id);
+                        itemSelectAnchorRef.current = f.id;
+                      }
                     }}
                   >
                     {configuredColumns.map((col) => renderBodyCell(f, col))}

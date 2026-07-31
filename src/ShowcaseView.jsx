@@ -1683,22 +1683,18 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     if (w) cellStyle.width = w;
     if (col.wrap) cellStyle.whiteSpace = 'normal';
     if (col.type === 'folder_name') {
-      // FIX620.4.2.2: flag any item with a staged 'Added' image pending —
-      // not yet Published — right in the list, no need to open it. Red
-      // text rather than a suffix: the Ref column is too narrow for extra
-      // words.
-      const hasAdded = (imagesByFolderRef.current[folder.id] || [])
-        .some((im) => im.status === 'Added');
+      // FIX630.1: local-app only — an item with any pending (non-blank-
+      // status) image, Added, Removed, Moved or Changed (not just Added),
+      // requires a Publish, flagged right in the list, no need to open it.
+      // Red text rather than a suffix: the Ref column is too narrow for
+      // extra words. Gated on isLocalApp per FIX630's own scoping, though
+      // imagesByFolderRef is only ever populated with staged rows locally
+      // anyway (online edits save immediately, no staging).
+      const needsPublish = isLocalApp && (imagesByFolderRef.current[folder.id] || [])
+        .some((im) => im.status);
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
-          <span style={hasAdded ? { color: '#dc2626' } : undefined}>{folder.name}</span>
-          {/* FIX680.1.1.3: an item with no real DB row yet (draft) is
-              flagged right in the list — every item in the off-line-mode
-              list is draft by construction (FIX680.1.1), but a real
-              online item can be too (freshly camera-captured, not yet
-              Published) — the badge follows the same underlying flag
-              either way. */}
-          {folder.draft && <span className="sc-td-name-draft-badge">Draft</span>}
+          <span style={needsPublish ? { color: '#dc2626' } : undefined}>{folder.name}</span>
         </td>
       );
     }
@@ -2191,7 +2187,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           );
         })()}
         {/* FIX502.2.2 <panel-showcase-list>: the list region of the
-            Showcase view. */}
+            Showcase view. FIX630.0: the local app adapts this same Id
+            rather than defining its own — FIX630.1's red-Ref styling
+            (below, in renderBodyCell) is the only local-app-specific
+            behavior layered on top. */}
         <section className="sc-list-panel" data-yagu-id="panel-showcase-list">
           {groups.length > 0 && !activeGroup && groupSelector}
           <table className="sc-table">

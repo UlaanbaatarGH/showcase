@@ -753,19 +753,6 @@ body {
 .sc-td-name {
   font-weight: 600;
 }
-/* FIX680.1.1.3: "Draft" badge next to a not-yet-published item's name/ref. */
-.sc-td-name-draft-badge {
-  margin-left: 0.4em;
-  padding: 0.05em 0.4em;
-  font-size: 0.7em;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #fff;
-  background: #888;
-  border-radius: 3px;
-  vertical-align: middle;
-}
 .sc-td-img {
   text-align: center;
   font-weight: 600;

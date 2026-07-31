@@ -131,6 +131,7 @@ export default function ShowcaseImgListEditor({
   // FIX521.2.1.9 fix: the editor isn't remounted on item switch, so anchor
   // stayed pointing at the previous item's row, breaking Shift-click.
   useEffect(() => {
+    console.log('[sel] item-switch reset', { folderId, selectedIdx });
     setAnchor(selectedIdx);
     setSelIdxs(new Set([selectedIdx]));
     setLastAction('select');
@@ -447,6 +448,7 @@ export default function ShowcaseImgListEditor({
         if (lastAction === 'deselect') s.delete(i);
         else s.add(i);
       }
+      console.log('[sel] shift-click range', { anchor, idx, lo, hi, lastAction, result: [...s] });
       if (s.size === 0 && images.length > 0) s.add(selectedIdx); // FIX521.2.1.1.10
       setSelIdxs(s);
       if (s.has(idx)) setSelectedIdx(idx);

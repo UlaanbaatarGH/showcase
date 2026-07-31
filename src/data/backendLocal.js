@@ -28,6 +28,26 @@ export function isLocalModeActive() {
   return localModeActive;
 }
 
+// FIX680.3: explicit user choice ("off-line" in the start-mode popup) —
+// commits to local mode immediately, regardless of whether the network
+// actually works, unlike the reactive per-call fallback below.
+export function forceLocalMode() {
+  localModeActive = true;
+}
+
+// FIX680.3.1: side-effect-free reachability probe for the start-mode
+// popup's "on-line" option — calls the cloud implementation directly
+// (never the local wrapper below, which would itself set localModeActive
+// on failure; this is only a check, not a commitment either way).
+export async function checkCloudReachable() {
+  try {
+    await cloud.listProjects();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // FIX680.1.1.2: getFolderImages only receives a folder id, not a project —
 // tracked here from whichever getShowcase last resolved a local project.
 // The local app only ever has one project open at a time, so a single
@@ -200,4 +220,6 @@ export default {
   getFolderImages,
   isLocalModeActive,
   createLocalProject,
+  forceLocalMode,
+  checkCloudReachable,
 };

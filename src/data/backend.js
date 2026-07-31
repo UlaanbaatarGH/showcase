@@ -19,6 +19,11 @@ export const getFolderImages = impl.getFolderImages;
 export const isLocalModeActive = impl.isLocalModeActive || (() => false);
 export const createLocalProject =
   impl.createLocalProject || (() => Promise.reject(new Error('createLocalProject: local-app only')));
+// FIX680.3 / FIX680.3.1: local-app-only start-mode popup support. On a
+// production build (impl === cloud) the popup itself never renders, so
+// these fallbacks only need to not crash if reached, not be meaningful.
+export const forceLocalMode = impl.forceLocalMode || (() => {});
+export const checkCloudReachable = impl.checkCloudReachable || (() => Promise.resolve(true));
 export const listVisits = impl.listVisits;
 export const trackVisit = impl.trackVisit;
 export const listIpStats = impl.listIpStats;

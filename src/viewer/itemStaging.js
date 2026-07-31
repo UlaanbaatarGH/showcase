@@ -50,10 +50,12 @@ export async function getLegacyStagingRoot() {
   return `${await getDataRoot()}/capture-staging`;
 }
 
+// FIX670.10.1 / FIX670.10.1.0: the per-item staging folder, Id <folder-staged-item>.
 export function stagingItemDir(root, projectName, itemName) {
   return `${root}/${sanitizeSegment(projectName)}/${sanitizeSegment(itemName)}`;
 }
 
+// FIX670.10.3 / FIX670.10.3.0: the manifest file, Id <file-staged-item-img-list>.
 function manifestPath(itemDir) {
   return `${itemDir}/${MANIFEST_FILENAME}`;
 }
@@ -90,7 +92,7 @@ async function writeManifestEntries(itemDir, entries) {
   });
 }
 
-async function mkdir(dir) {
+export async function mkdir(dir) {
   await fetch(`${AGENT_URL}/agent/dir/mkdir`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -113,6 +115,35 @@ async function listEntries(dir) {
   if (!res.ok) return [];
   const { entries } = await res.json();
   return entries || [];
+}
+
+// FIX680.1.1: enumerates "projects having local data" — every immediate
+// subfolder of the staging root, one per project name.
+export async function listStagingProjectNames(root) {
+  return (await listEntries(root)).filter((e) => e.type === 'folder').map((e) => e.name);
+}
+
+// FIX680.1.1: enumerates a project's staged items (subfolders that actually
+// carry a manifest — an item folder with no list.txt isn't real staged
+// state, see FIX670.20).
+export async function listStagingItemNames(root, projectName) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const entries = await listEntries(projectDir);
+  const names = [];
+  for (const e of entries) {
+    if (e.type !== 'folder') continue;
+    const manifest = await readManifestEntries(`${projectDir}/${e.name}`);
+    if (manifest.length > 0) names.push(e.name);
+  }
+  return names;
+}
+
+// FIX680.1.1.2: fetches a staged image's bytes as a Blob — same Agent route
+// (`/agent/dir/image`) the reconciliation-on-load effect already uses.
+export async function fetchStagedImageBlob(path) {
+  const res = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(path)}`);
+  if (!res.ok) return null;
+  return res.blob();
 }
 
 // FIX670.10: writes a local (not-yet-published) image's bytes to disk. The

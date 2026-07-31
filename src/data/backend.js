@@ -12,6 +12,13 @@ export const setAuthToken = impl.setAuthToken;
 export const listProjects = impl.listProjects;
 export const getShowcase = impl.getShowcase;
 export const getFolderImages = impl.getFolderImages;
+// FIX680: local-app-only (backendCloud.js has neither) — safe no-op
+// fallbacks so a production build (impl === cloud) never hard-crashes if
+// something reaches these; the UI itself only exposes them behind
+// isLocalApp.
+export const isLocalModeActive = impl.isLocalModeActive || (() => false);
+export const createLocalProject =
+  impl.createLocalProject || (() => Promise.reject(new Error('createLocalProject: local-app only')));
 export const listVisits = impl.listVisits;
 export const trackVisit = impl.trackVisit;
 export const listIpStats = impl.listIpStats;

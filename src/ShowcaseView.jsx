@@ -1690,8 +1690,17 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // extra words. Gated on isLocalApp per FIX630's own scoping, though
       // imagesByFolderRef is only ever populated with staged rows locally
       // anyway (online edits save immediately, no staging).
-      const needsPublish = isLocalApp && (imagesByFolderRef.current[folder.id] || [])
-        .some((im) => im.status);
+      //
+      // FIX680.1.1.3: reuses this same red-Ref styling rather than a
+      // separate marker — while in off-line/local mode every item in the
+      // list is, by construction, not-published (getShowcase's local-mode
+      // fallback only ever returns locally-discovered items, never a real
+      // published one), so it's unconditionally true for every row there,
+      // on top of the ordinary per-item pending-image check.
+      const needsPublish = isLocalApp && (
+        isLocalModeActive() ||
+        (imagesByFolderRef.current[folder.id] || []).some((im) => im.status)
+      );
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
           <span style={needsPublish ? { color: '#dc2626' } : undefined}>{folder.name}</span>

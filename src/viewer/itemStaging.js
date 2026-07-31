@@ -13,6 +13,13 @@ const AGENT_URL = 'http://localhost:3001';
 
 const MANIFEST_FILENAME = 'list.txt';
 const REMOVED_SUFFIX = ' (removed)';
+// FIX655.2 / FIX657.3.2: staging-folder-name postfixes — a freshly
+// <cmd-add-item>-created folder is marked ' (new)'; <cmd-new-item-ref>
+// marks a renamed one ' (renamed)', unless it's already ' (new)' (that
+// takes priority and isn't overwritten). Purely a disk-naming detail, not
+// part of the item's identity — see resolveItemFolderDir/renameItemFolder.
+const NEW_POSTFIX = ' (new)';
+const RENAMED_POSTFIX = ' (renamed)';
 
 // FIX670.1: the folder segment is the project's literal name (spec text:
 // tech/data/staging/{project-name}/{item-folder-ref}), sanitized for
@@ -51,8 +58,57 @@ export async function getLegacyStagingRoot() {
 }
 
 // FIX670.10.1 / FIX670.10.1.0: the per-item staging folder, Id <folder-staged-item>.
-export function stagingItemDir(root, projectName, itemName) {
-  return `${root}/${sanitizeSegment(projectName)}/${sanitizeSegment(itemName)}`;
+// `postfix` is FIX655.2/FIX657.3.2's ' (new)'/' (renamed)' marker, only
+// ever passed by the code that's actively creating/renaming into one of
+// those forms — everyone else resolving an *existing* item's folder should
+// use resolveItemFolderDir instead, since it may already carry one.
+export function stagingItemDir(root, projectName, itemName, postfix = '') {
+  return `${root}/${sanitizeSegment(projectName)}/${sanitizeSegment(itemName)}${postfix}`;
+}
+
+// FIX655.2 / FIX657.3.2: strips a known postfix off a raw folder name,
+// returning the clean ref and which postfix (if any) it carried.
+function parseItemFolderName(folderName) {
+  if (folderName.endsWith(NEW_POSTFIX)) return { ref: folderName.slice(0, -NEW_POSTFIX.length), postfix: NEW_POSTFIX };
+  if (folderName.endsWith(RENAMED_POSTFIX)) return { ref: folderName.slice(0, -RENAMED_POSTFIX.length), postfix: RENAMED_POSTFIX };
+  return { ref: folderName, postfix: '' };
+}
+
+// FIX655.2 / FIX657: resolves an item's *current* on-disk folder, which may
+// carry a ' (new)'/' (renamed)' postfix from earlier — every operational
+// lookup (sync on edit, offline image list, rename) should go through this
+// instead of the bare stagingItemDir, which only knows the canonical
+// no-postfix name. Falls back to that canonical name when nothing exists
+// yet (first-ever creation via an ordinary image add, no postfix involved).
+export async function resolveItemFolderDir(root, projectName, itemRef) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const wanted = sanitizeSegment(itemRef);
+  const entries = await listEntries(projectDir);
+  const match = entries.find((e) => e.type === 'folder' && parseItemFolderName(e.name).ref === wanted);
+  return match ? `${projectDir}/${match.name}` : stagingItemDir(root, projectName, itemRef);
+}
+
+// FIX657.3.1 / FIX657.3.2: renames an item's staging folder to a new ref,
+// keeping its ' (new)' postfix if it already had one, otherwise marking it
+// ' (renamed)'. Returns the new dir, or null if there was nothing on disk
+// to rename (e.g. the item somehow never got a folder — best-effort, the
+// caller still updates the item's display name either way).
+export async function renameItemFolder(root, projectName, oldRef, newRef) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const wanted = sanitizeSegment(oldRef);
+  const entries = await listEntries(projectDir);
+  const match = entries.find((e) => e.type === 'folder' && parseItemFolderName(e.name).ref === wanted);
+  if (!match) return null;
+  const { postfix } = parseItemFolderName(match.name);
+  const newPostfix = postfix === NEW_POSTFIX ? NEW_POSTFIX : RENAMED_POSTFIX;
+  const oldPath = `${projectDir}/${match.name}`;
+  const newPath = stagingItemDir(root, projectName, newRef, newPostfix);
+  await fetch(`${AGENT_URL}/agent/dir/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPath, newPath }),
+  });
+  return newPath;
 }
 
 // FIX670.10.3 / FIX670.10.3.0: the manifest file, Id <file-staged-item-img-list>.
@@ -133,7 +189,9 @@ export async function listStagingItemNames(root, projectName) {
   for (const e of entries) {
     if (e.type !== 'folder') continue;
     const manifest = await readManifestEntries(`${projectDir}/${e.name}`);
-    if (manifest.length > 0) names.push(e.name);
+    // FIX655.2: the folder name may carry a ' (new)'/' (renamed)' postfix —
+    // that's a disk-naming detail, not part of the item's ref/identity.
+    if (manifest.length > 0) names.push(parseItemFolderName(e.name).ref);
   }
   return names;
 }
@@ -188,7 +246,11 @@ function writeLocalImageBytes(path, blob) {
 // copied to disk, the same field FIX653's camera flow and publishItemImages.js
 // already read/write.
 export async function syncStagingFolder({ root, projectName, itemName, images, setImages }) {
-  const dir = stagingItemDir(root, projectName, itemName);
+  // FIX655.2/FIX657: resolve whatever actually exists on disk for this ref
+  // (bare, ' (new)', or ' (renamed)') rather than assuming the bare name —
+  // an item created via <cmd-add-item> already has a postfixed folder by
+  // the time its first image lands here.
+  const dir = await resolveItemFolderDir(root, projectName, itemName);
   const pending = images.some((im) => im.status);
   if (!pending) {
     await rmPath(dir);

@@ -14,7 +14,7 @@
 import cloud from './backendCloud.js';
 import { projectSlug } from '../router.js';
 import {
-  getStagingRoot, sanitizeSegment, mkdir, stagingItemDir,
+  getStagingRoot, sanitizeSegment, mkdir, resolveItemFolderDir,
   listStagingProjectNames, listStagingItemNames,
   readManifestEntries, fetchStagedImageBlob,
 } from '../viewer/itemStaging.js';
@@ -206,7 +206,7 @@ async function getFolderImages(folderId) {
   if (localModeActive && isLocalItemId(folderId)) {
     const root = await getStagingRoot();
     const itemName = itemNameFromLocalItemId(folderId);
-    return buildLocalImageRows(stagingItemDir(root, activeLocalProjectName, itemName));
+    return buildLocalImageRows(await resolveItemFolderDir(root, activeLocalProjectName, itemName));
   }
   return cloud.getFolderImages(folderId);
 }

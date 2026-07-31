@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, mkdir } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, mkdir, renameItemFolder } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -562,6 +562,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // added (which already flows through FIX670's syncStagingFolder).
   const offlineNextRefRef = useRef(null);
   const [offlineAddItemPopup, setOfflineAddItemPopup] = useState(null); // null | { value, error }
+  // FIX657 <cmd-new-item-ref>
+  const [newItemRefPopup, setNewItemRefPopup] = useState(null); // null | { value, error }
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
   // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
@@ -911,16 +913,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     listProjects().then(setAllProjects).catch(() => setAllProjects([]));
   }, []);
 
-  // FIX655.2 / FIX670.10.1 <folder-staged-item>: create the item's staging
-  // folder right away, regardless of mode — previously this only happened
-  // as a side effect of syncStagingFolder running once the first image
-  // landed, leaving a blank new item with no folder on disk yet.
+  // FIX655.2 / FIX670.10.1: create the item's staging folder right away,
+  // marked ' (new)'.
   const ensureStagingFolder = async (itemName) => {
     try {
       const root = await getStagingRoot();
-      await mkdir(stagingItemDir(root, data?.project?.name, itemName));
+      await mkdir(stagingItemDir(root, data?.project?.name, itemName, ' (new)'));
     } catch {
-      // Best-effort — matches every other staging-folder write in this file.
+      // Best-effort.
     }
   };
   // FIX655.3: pushes a brand-new client-side-only item ({ id:
@@ -985,6 +985,47 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     offlineNextRefRef.current = n + 1;
     setOfflineAddItemPopup(null);
     createLocalItem(itemName);
+  };
+
+  // FIX657 <cmd-new-item-ref>: first selected item gets the input ref, next
+  // ones +1 (FIX657.3.1). Only renames local-only items — real DB items are
+  // left untouched (renameFolder isn't implemented server-side, so there's
+  // no way to keep a real folder row's name in sync).
+  const confirmNewItemRef = async () => {
+    const raw = (newItemRefPopup?.value || '').trim();
+    if (!/^\d+$/.test(raw)) {
+      setNewItemRefPopup((p) => ({ ...p, error: 'Enter a numeric ref' }));
+      return;
+    }
+    const start = Number(raw);
+    const ids = selectedFolderIds;
+    const renames = ids.map((id, i) => ({
+      id,
+      oldName: (data?.folders || []).find((f) => f.id === id)?.name,
+      newName: String(start + i).padStart(3, '0'),
+    }));
+    const untouchedNames = new Set((data?.folders || []).filter((f) => !ids.includes(f.id)).map((f) => f.name));
+    const collision = renames.find((r) => untouchedNames.has(r.newName));
+    if (collision) {
+      setNewItemRefPopup((p) => ({ ...p, error: `Ref ${collision.newName} is already in use` }));
+      return;
+    }
+    setNewItemRefPopup(null);
+    const root = await getStagingRoot();
+    for (const r of renames) {
+      if (typeof r.id !== 'string') continue; // FIX657: real DB items untouched
+      await renameItemFolder(root, data?.project?.name, r.oldName, r.newName).catch(() => {});
+      const newId = `local-item-${r.newName}`;
+      setData((prev) => (prev ? {
+        ...prev,
+        folders: prev.folders.map((f) => (f.id === r.id ? { ...f, id: newId, name: r.newName } : f)),
+      } : prev));
+      if (imagesByFolderRef.current[r.id]) {
+        imagesByFolderRef.current[newId] = imagesByFolderRef.current[r.id];
+        delete imagesByFolderRef.current[r.id];
+      }
+      setSelectedFolderIds((prev) => prev.map((x) => (x === r.id ? newId : x)));
+    }
   };
 
   // FIX653 <cmd-capture-cam-img>: same shape as FIX620's per-item toggle
@@ -2050,6 +2091,21 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 )}
+                {/* FIX657 <cmd-new-item-ref>: enabled only when 1+ items
+                    selected (FIX657.1). */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-new-item-ref"
+                      disabled={selectedFolderIds.length === 0}
+                      onClick={() => { setMenuOpen(false); setNewItemRefPopup({ value: '', error: null }); }}
+                    >
+                      New item ref
+                    </button>
+                  </li>
+                )}
                 {/* FIX656 <cmd-publish-changes> / FIX652 [ex-FIX375]:
                     local-app only. */}
                 {isLocalApp && (
@@ -2990,6 +3046,31 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               </button>
               <button type="button" className="primary" onClick={confirmAddLocalItemRef}>
                 Add item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX657 <cmd-new-item-ref>: first-new-ref-of-the-range prompt. */}
+      {newItemRefPopup && (
+        <div className="setup-overlay" onMouseDown={() => setNewItemRefPopup(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Enter the first new ref of the selection:</p>
+            <input
+              type="text"
+              data-yagu-id="input-new-item-ref"
+              value={newItemRefPopup.value}
+              onChange={(e) => setNewItemRefPopup((p) => ({ ...p, value: e.target.value }))}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmNewItemRef(); }}
+            />
+            {newItemRefPopup.error && <div className="sc-viewer-err">{newItemRefPopup.error}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setNewItemRefPopup(null)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmNewItemRef}>
+                OK
               </button>
             </div>
           </div>

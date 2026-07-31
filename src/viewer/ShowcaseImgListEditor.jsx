@@ -128,6 +128,14 @@ export default function ShowcaseImgListEditor({
   // replays this action across the anchor..clicked range ("extend what I just
   // did"): 'select' checks the range, 'deselect' unchecks it.
   const [lastAction, setLastAction] = useState('select');
+  // FIX521.2.1.9 fix: the editor isn't remounted on item switch, so anchor
+  // stayed pointing at the previous item's row, breaking Shift-click.
+  useEffect(() => {
+    setAnchor(selectedIdx);
+    setSelIdxs(new Set([selectedIdx]));
+    setLastAction('select');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folderId]);
 
   // FIX521.2.1.4: Remove flow — overlay popup confirmation for removing all
   // selected images. Boolean: the confirmation overlay is shown or not.

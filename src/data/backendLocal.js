@@ -19,6 +19,14 @@ import {
   readManifestEntries, fetchStagedImageBlob,
 } from '../viewer/itemStaging.js';
 
+// FIX680.1 (updated, was "If no connection with the public DB then the user
+// can:") now reads "With off-line start mode, the user can:" — tying
+// FIX680.1.1-.1.3 to the explicit choice FIX680.3's popup introduced rather
+// than a bare connection check. No behavior delta here: this flag is
+// already the single gate for both the explicit "Off-line" choice
+// (forceLocalMode) and the reactive fallback below, so "off-line start
+// mode" and "a fallback has triggered" are the same state either way.
+//
 // FIX680.2: a connection arriving after local-app startup is ignored — once
 // a fallback triggers, it's sticky for the rest of the page's lifetime
 // (only a hard reload re-attempts the network). Module-level rather than

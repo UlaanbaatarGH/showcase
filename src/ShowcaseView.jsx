@@ -1692,6 +1692,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
           <span style={hasAdded ? { color: '#dc2626' } : undefined}>{folder.name}</span>
+          {/* FIX680.1.1.3: an item with no real DB row yet (draft) is
+              flagged right in the list — every item in the off-line-mode
+              list is draft by construction (FIX680.1.1), but a real
+              online item can be too (freshly camera-captured, not yet
+              Published) — the badge follows the same underlying flag
+              either way. */}
+          {folder.draft && <span className="sc-td-name-draft-badge">Draft</span>}
         </td>
       );
     }

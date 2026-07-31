@@ -1138,7 +1138,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             let stagedPath = null;
             try {
               root = await getStagingRoot();
-              const dir = stagingItemDir(root, capProjectName, itemName);
+              const dir = stagingItemDir(root, capProjectName, itemName, ' (new)');
               await fetch(`${AGENT_URL}/agent/dir/mkdir`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

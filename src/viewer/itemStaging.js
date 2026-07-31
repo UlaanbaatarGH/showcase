@@ -77,15 +77,15 @@ function parseItemFolderName(folderName) {
 // FIX655.2 / FIX657: resolves an item's *current* on-disk folder, which may
 // carry a ' (new)'/' (renamed)' postfix from earlier — every operational
 // lookup (sync on edit, offline image list, rename) should go through this
-// instead of the bare stagingItemDir, which only knows the canonical
-// no-postfix name. Falls back to that canonical name when nothing exists
-// yet (first-ever creation via an ordinary image add, no postfix involved).
+// instead of the bare stagingItemDir. Falls back to a fresh ' (new)' path
+// when nothing exists yet — no folder exists on the public site either, so
+// every first-ever local folder is marked the same way, not just <cmd-add-item>'s.
 export async function resolveItemFolderDir(root, projectName, itemRef) {
   const projectDir = `${root}/${sanitizeSegment(projectName)}`;
   const wanted = sanitizeSegment(itemRef);
   const entries = await listEntries(projectDir);
   const match = entries.find((e) => e.type === 'folder' && parseItemFolderName(e.name).ref === wanted);
-  return match ? `${projectDir}/${match.name}` : stagingItemDir(root, projectName, itemRef);
+  return match ? `${projectDir}/${match.name}` : stagingItemDir(root, projectName, itemRef, NEW_POSTFIX);
 }
 
 // FIX657.3.1 / FIX657.3.2: renames an item's staging folder to a new ref,
@@ -302,10 +302,9 @@ export async function migrateLegacyProjectFolder({ projectId, projectName, root,
   for (const entry of itemEntries) {
     if (entry.type !== 'folder') continue;
     const legacyItemDir = `${legacyProjectDir}/${entry.name}`;
-    const newDir = stagingItemDir(root, projectName, entry.name);
     // Already migrated (or already has FIX670-era staged state) — just
     // clear the leftover legacy copy.
-    const already = await readManifestEntries(newDir);
+    const already = await readManifestEntries(await resolveItemFolderDir(root, projectName, entry.name));
     if (already.length > 0) {
       await rmPath(legacyItemDir);
       continue;
@@ -315,6 +314,9 @@ export async function migrateLegacyProjectFolder({ projectId, projectName, root,
       await rmPath(legacyItemDir);
       continue;
     }
+    // FIX655.2: no folder exists on the public site either, so this
+    // first-ever local folder is marked ' (new)' too.
+    const newDir = stagingItemDir(root, projectName, entry.name, ' (new)');
     await mkdir(newDir);
     const copied = [];
     for (const f of files) {

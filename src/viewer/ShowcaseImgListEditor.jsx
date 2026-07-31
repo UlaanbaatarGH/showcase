@@ -131,7 +131,6 @@ export default function ShowcaseImgListEditor({
   // FIX521.2.1.9 fix: the editor isn't remounted on item switch, so anchor
   // stayed pointing at the previous item's row, breaking Shift-click.
   useEffect(() => {
-    console.log('[sel] item-switch reset', { folderId, selectedIdx });
     setAnchor(selectedIdx);
     setSelIdxs(new Set([selectedIdx]));
     setLastAction('select');
@@ -396,7 +395,6 @@ export default function ShowcaseImgListEditor({
   // Row selection — blocked while the image editor has pending changes.
   // Single-selects: collapses any multi-selection to this one row.
   const trySelect = (nextIdx) => {
-    console.log('[sel] trySelect', { nextIdx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
     if (interactionLocked) return;
     if (nextIdx < 0 || nextIdx >= images.length) return;
     setSelectedIdx(nextIdx);
@@ -413,7 +411,6 @@ export default function ShowcaseImgListEditor({
   // onRowClick, which broke Shift-click (range collapsed to the clicked row)
   // and made plain clicks behave differently on input cells vs plain cells.
   const focusRowPrimary = (idx) => {
-    console.log('[sel] focusRowPrimary (input onFocus)', { idx, hasPendingImageEdit, anchor, selIdxs: [...selIdxs] });
     if (interactionLocked) return;
     if (idx < 0 || idx >= images.length) return;
     setSelectedIdx(idx);
@@ -424,17 +421,6 @@ export default function ShowcaseImgListEditor({
   // action across the anchor..clicked range. The clicked row becomes the
   // primary (drives the editor). Blocked while an image edit is pending.
   const onRowClick = (e, idx) => {
-    console.log('[sel] onRowClick', {
-      idx,
-      target: e.target?.tagName,
-      shift: e.shiftKey,
-      ctrl: e.ctrlKey,
-      meta: e.metaKey,
-      anchor,
-      lastAction,
-      selIdxs: [...selIdxs],
-      hasPendingImageEdit,
-    });
     if (interactionLocked) return;
     if (e.shiftKey) {
       // FIX521.2.1.9: replay the last plain click's action across the
@@ -448,7 +434,6 @@ export default function ShowcaseImgListEditor({
         if (lastAction === 'deselect') s.delete(i);
         else s.add(i);
       }
-      console.log('[sel] shift-click range', { anchor, idx, lo, hi, lastAction, result: [...s] });
       if (s.size === 0 && images.length > 0) s.add(selectedIdx); // FIX521.2.1.1.10
       setSelIdxs(s);
       if (s.has(idx)) setSelectedIdx(idx);
@@ -473,7 +458,6 @@ export default function ShowcaseImgListEditor({
   // a row without clicking into its Section/Caption input fields. Toggles the
   // row in/out of the selection and keeps it as the primary when added.
   const toggleRowSelect = (idx) => {
-    console.log('[sel] toggleRowSelect', { idx, hasPendingImageEdit, anchor, lastAction, selIdxs: [...selIdxs] });
     if (interactionLocked) return;
     const s = new Set(selIdxs);
     let action;
@@ -491,7 +475,6 @@ export default function ShowcaseImgListEditor({
   // when everything is selected collapses back to just the primary row.
   const allRowsSelected = images.length > 0 && selIdxs.size === images.length;
   const toggleSelectAll = () => {
-    console.log('[sel] toggleSelectAll', { allRowsSelected, hasPendingImageEdit, selIdxs: [...selIdxs] });
     if (interactionLocked) return;
     if (allRowsSelected) {
       setSelIdxs(new Set([selectedIdx]));
@@ -1313,7 +1296,6 @@ export default function ShowcaseImgListEditor({
                         aria-pressed={isSelected}
                         onClick={(e) => {
                           e.stopPropagation();
-                          console.log('[sel] toggleButton', { idx, shift: e.shiftKey, ctrl: e.ctrlKey, isSelected });
                           if (e.shiftKey || e.ctrlKey || e.metaKey) onRowClick(e, idx);
                           else toggleRowSelect(idx);
                         }}

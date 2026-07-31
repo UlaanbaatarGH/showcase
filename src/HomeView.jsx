@@ -32,9 +32,10 @@ export default function HomeView({ onOpenProject }) {
   const [signInOpen, setSignInOpen] = useState(false);
   // FIX680.1.1: set once listProjects() falls back to disk (no connection
   // to the public DB) — gates the "Create local project" affordance
-  // (FIX680.1.3) and the local badge on each card.
+  // (FIX680.1.2, "[2] Add a new project" — was FIX680.1.3 before the spec
+  // reorganized this family) and the local badge on each card.
   const [localMode, setLocalMode] = useState(false);
-  // FIX680.1.3 <create-local-project>: name-only prompt, no tech ID.
+  // FIX680.1.2 <create-local-project>: name-only prompt, no tech ID.
   const [createLocalOpen, setCreateLocalOpen] = useState(false);
   const [createLocalName, setCreateLocalName] = useState('');
   const [createLocalError, setCreateLocalError] = useState(null);
@@ -161,7 +162,7 @@ export default function HomeView({ onOpenProject }) {
     onOpenProject?.(p);
   };
 
-  // FIX680.1.3 <create-local-project>: a project that only ever exists
+  // FIX680.1.2 <create-local-project>: a project that only ever exists
   // locally — a name, no DB row ("no tech ID"). Once created, it's opened
   // exactly like any other project card (onOpenProject falls back to
   // projectSlug(name) when there's no official_slug, which is always the
@@ -274,10 +275,12 @@ export default function HomeView({ onOpenProject }) {
             every locale. */}
         <h1 className="home-title">Showcase</h1>
 
-        {/* FIX680.1.1 / FIX680.1.3: local-app-only — shown once
+        {/* FIX680.1.1 / FIX680.1.2: local-app-only — shown once
             listProjects() has fallen back to disk (no connection to the
-            public DB). Offers the one thing FIX680.1 adds beyond viewing
-            what's already staged: starting a brand-new local-only project. */}
+            public DB). Offers FIX680.1.2's "[2] Add a new project" —
+            starting a brand-new local-only project — as the cold-start
+            entry point when no project is open yet (FIX653.2 adds a second
+            entry point inside an already-open project's <menu-projects>). */}
         {localMode && (
           <div className="home-local-banner" data-yagu-id="local-mode-banner">
             <span>No connection to the public database — showing local projects only.</span>
@@ -327,7 +330,7 @@ export default function HomeView({ onOpenProject }) {
         </div>
       )}
 
-      {/* FIX680.1.3 <create-local-project>: name-only prompt, no tech ID —
+      {/* FIX680.1.2 <create-local-project>: name-only prompt, no tech ID —
           same popup shape as the camera-capture folder prompt
           (ShowcaseView.jsx's <cmd-capture-cam-img>). */}
       {createLocalOpen && (

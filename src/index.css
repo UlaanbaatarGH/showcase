@@ -62,7 +62,7 @@ body {
   color: #f88;
   font-size: 0.9rem;
 }
-/* FIX680.1.1 / FIX680.1.3: local-mode banner on the home page. */
+/* FIX680.1.1 / FIX680.1.2: local-mode banner on the home page. */
 .home-local-banner {
   display: flex;
   align-items: center;

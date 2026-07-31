@@ -23,14 +23,14 @@ import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
   acquireEditLock, heartbeatEditLock, releaseEditLock, listProjects,
-  createFolder, isLocalModeActive,
+  createFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
 import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, mkdir } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -529,6 +529,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // replaces the website's <button-home> + project list.
   const [projectsMenuOpen, setProjectsMenuOpen] = useState(false);
   const [allProjects, setAllProjects] = useState([]);
+  // FIX653.2 <cmd-create-new-project>: name-only prompt, same shape as
+  // HomeView.jsx's own create-local-project popup (FIX680.1.2) but reachable
+  // from inside an already-open project too, not just the cold-start
+  // HomeView case.
+  const [createProjectPopup, setCreateProjectPopup] = useState(null); // null | { name, error, busy }
   // FIX653 / FIX620.4.2.2 <cmd-capture-cam-img>: "Create item mode" — unlike
   // FIX620's per-item "Update item mode" (ShowcaseImgListEditor.jsx, edits an
   // already-open item), a captured photo here has no item to attach to yet,
@@ -867,6 +872,27 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     return () => document.removeEventListener('mousedown', onDown);
   }, [projectsMenuOpen]);
 
+  // FIX653.2 <cmd-create-new-project>: mirrors HomeView.jsx's
+  // confirmCreateLocal — creates the staging folder only (no DB row), then
+  // navigates to it exactly like picking any other project from this same
+  // menu.
+  const confirmCreateProject = async () => {
+    const name = (createProjectPopup?.name || '').trim();
+    if (!name) {
+      setCreateProjectPopup((p) => ({ ...p, error: 'Enter a name' }));
+      return;
+    }
+    setCreateProjectPopup((p) => ({ ...p, busy: true, error: null }));
+    try {
+      const p = await createLocalProject(name);
+      setCreateProjectPopup(null);
+      setProjectsMenuOpen(false);
+      navigate(`/${p.official_slug || projectSlug(p.name)}`);
+    } catch (e) {
+      setCreateProjectPopup((p) => ({ ...p, busy: false, error: e.message || String(e) }));
+    }
+  };
+
   // FIX654 <local-setup-menu>: outside-click close, same pattern as
   // <menu-projects>/<menu-import> above.
   useEffect(() => {
@@ -885,10 +911,22 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     listProjects().then(setAllProjects).catch(() => setAllProjects([]));
   }, []);
 
-  // FIX680.1.2 <add-local-item>: pushes a brand-new client-side-only item
-  // ({ id: `local-item-{ref}` }, mirroring images' own `local-` id
-  // convention) into data.folders and selects it — nothing hits disk until
-  // an image is actually added (FIX670's syncStagingFolder handles that).
+  // FIX655.2 / FIX670.10.1 <folder-staged-item>: create the item's staging
+  // folder right away, regardless of mode — previously this only happened
+  // as a side effect of syncStagingFolder running once the first image
+  // landed, leaving a blank new item with no folder on disk yet.
+  const ensureStagingFolder = async (itemName) => {
+    try {
+      const root = await getStagingRoot();
+      await mkdir(stagingItemDir(root, data?.project?.name, itemName));
+    } catch {
+      // Best-effort — matches every other staging-folder write in this file.
+    }
+  };
+  // FIX655.3: pushes a brand-new client-side-only item ({ id:
+  // `local-item-{ref}` }, mirroring images' own `local-` id convention)
+  // into data.folders and selects it — used for the off-line branch, where
+  // there's no DB row to create.
   const createLocalItem = (itemName) => {
     const newFolder = {
       id: `local-item-${itemName}`, name: itemName, draft: true,
@@ -896,15 +934,41 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     };
     setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
     selectOnly(newFolder.id);
+    ensureStagingFolder(itemName);
   };
-  const handleAddLocalItemClick = () => {
-    if (offlineNextRefRef.current == null) {
-      setOfflineAddItemPopup({ value: '', error: null }); // FIX680.1.2: first addition prompts for a ref
+  // FIX655 <cmd-add-item> / FIX655.1: on-line assigns the next ref (existing
+  // upper number + 1, same computation handleStartCameraCapture already
+  // uses) and creates a real DB item, same posture as FIX620.4.2.2's
+  // camera-capture item creation. Off-line has no "last ref" from the
+  // website, so the first click this session prompts for one instead
+  // (offlineNextRefRef/offlineAddItemPopup below), and later clicks +1 from
+  // there.
+  const handleAddItemClick = async () => {
+    if (!isLocalApp) return;
+    if (isLocalModeActive()) {
+      if (offlineNextRefRef.current == null) {
+        setOfflineAddItemPopup({ value: '', error: null }); // FIX655.1: first addition prompts for a ref
+        return;
+      }
+      const itemName = String(offlineNextRefRef.current).padStart(3, '0'); // FIX655.1: later ones auto +1
+      offlineNextRefRef.current += 1;
+      createLocalItem(itemName);
       return;
     }
-    const itemName = String(offlineNextRefRef.current).padStart(3, '0'); // FIX680.1.2: later ones auto +1
-    offlineNextRefRef.current += 1;
-    createLocalItem(itemName);
+    const existingRefs = (data?.folders || [])
+      .map((f) => Number(f.name))
+      .filter((n) => Number.isFinite(n));
+    const itemName = String((existingRefs.length ? Math.max(...existingRefs) : 0) + 1).padStart(3, '0');
+    try {
+      const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: itemName, draft: true });
+      const newFolder = { id: newFolderId, name: itemName, draft: true, is_main: false, sort_order: 0, zoom_factor: null };
+      setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
+      selectOnly(newFolderId);
+      await ensureStagingFolder(itemName);
+      reloadShowcase();
+    } catch (e) {
+      setError(e.message || String(e));
+    }
   };
   const confirmAddLocalItemRef = () => {
     const raw = (offlineAddItemPopup?.value || '').trim();
@@ -1791,6 +1855,17 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 ))}
+                {/* FIX653.2: 'Create new project' at the end of the list. */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="cmd-create-new-project"
+                    onClick={() => setCreateProjectPopup({ name: '', error: null, busy: false })}
+                  >
+                    Create new project
+                  </button>
+                </li>
               </ul>
             )}
           </div>
@@ -1896,13 +1971,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </>
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Import menu. Website: admin- or project-manager-only
-            (FIX503.5.1), FIX369.1's two options — Images, Image
-            Properties. Local app: always shown (login/admin-gating
-            dropped there), but per FIX650.1.2.2 strictly — exactly two
-            options, <cmd-capture-live-img> then <cmd-publish-changes> —
-            Images/Image Properties are website-only, not part of the
-            local-app Import menu. */}
+            Website: admin- or project-manager-only (FIX503.5.1), FIX369.1's
+            two options — Images, Image Properties. Local app: always shown
+            (login/admin-gating dropped there), but per FIX656 this is now
+            the 'Commands' menu instead — <cmd-capture-cam-img>,
+            <cmd-add-item>, <cmd-publish-changes> — same shared container Id
+            as the website's Import menu (FIX369.0 doesn't define a
+            separate one for FIX656), Images/Image Properties stay
+            website-only either way. */}
         {(isLocalApp || isAdminOrManager) && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
@@ -1912,7 +1988,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
-              Import ▾
+              {isLocalApp ? 'Commands ▾' : 'Import ▾'}
             </button>
             {menuOpen && (
               <ul className="sc-menu-items" role="menu">
@@ -1940,17 +2016,18 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </li>
                   </>
                 )}
-                {/* FIX650.1.2.2 <cmd-capture-live-img> (spec's own id here —
-                    note this differs from FIX653.0's <cmd-capture-cam-img>
-                    for the same command; applying FIX650.1.2.2 literally as
-                    instructed) / FIX653.1 / FIX653.2 (camera icon + text
-                    'Camera capture'): local-app only. */}
+                {/* FIX656 <cmd-capture-cam-img> / FIX653.1 / FIX653.2
+                    (camera icon + text 'Camera capture'): local-app only.
+                    Id realigned to <cmd-capture-cam-img> (was
+                    <cmd-capture-live-img>, FIX650.1.2.2's now-superseded
+                    literal text) to match FIX656's listing and FIX653.0's
+                    own Id for this same command. */}
                 {isLocalApp && (
                   <li>
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="cmd-capture-live-img"
+                      data-yagu-id="cmd-capture-cam-img"
                       onClick={() => { setMenuOpen(false); handleToggleCameraCapture(); }}
                     >
                       {cameraCaptureActive ? '✓ ' : ''}
@@ -1959,7 +2036,21 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 )}
-                {/* FIX650.1.2.2 <cmd-publish-changes> / FIX652 [ex-FIX375]:
+                {/* FIX655 <cmd-add-item>: local-app only, works both online
+                    and off-line (FIX655.1 branches internally). */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-add-item"
+                      onClick={() => { setMenuOpen(false); handleAddItemClick(); }}
+                    >
+                      + Item
+                    </button>
+                  </li>
+                )}
+                {/* FIX656 <cmd-publish-changes> / FIX652 [ex-FIX375]:
                     local-app only. */}
                 {isLocalApp && (
                   <li>
@@ -2037,20 +2128,6 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           >
             <IconCamera size={20} />
           </span>
-        )}
-        {/* FIX680.1.2 <add-local-item>: local-mode only — the network-driven
-            item-creation paths (camera capture's auto-Ref, gsheet import)
-            all need a DB round-trip this mode doesn't have. */}
-        {isLocalApp && isLocalModeActive() && (
-          <button
-            type="button"
-            className="sc-menu-trigger"
-            data-yagu-id="button-add-local-item"
-            onClick={handleAddLocalItemClick}
-            title="Add a new local item"
-          >
-            + Item
-          </button>
         )}
         {!isLocalApp && (
           <>
@@ -2913,6 +2990,33 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               </button>
               <button type="button" className="primary" onClick={confirmAddLocalItemRef}>
                 Add item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX653.2 <cmd-create-new-project>: name-only prompt, no tech ID —
+          same shape as HomeView.jsx's create-local-project popup. */}
+      {createProjectPopup && (
+        <div className="setup-overlay" onMouseDown={() => !createProjectPopup.busy && setCreateProjectPopup(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>New project name:</p>
+            <input
+              type="text"
+              data-yagu-id="input-create-new-project-name"
+              value={createProjectPopup.name}
+              onChange={(e) => setCreateProjectPopup((p) => ({ ...p, name: e.target.value }))}
+              autoFocus
+              disabled={createProjectPopup.busy}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmCreateProject(); }}
+            />
+            {createProjectPopup.error && <div className="sc-viewer-err">{createProjectPopup.error}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setCreateProjectPopup(null)} disabled={createProjectPopup.busy}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmCreateProject} disabled={createProjectPopup.busy}>
+                {createProjectPopup.busy ? 'Creating…' : 'Create'}
               </button>
             </div>
           </div>

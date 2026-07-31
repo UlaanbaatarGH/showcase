@@ -122,12 +122,13 @@ async function getLocalShowcaseByName(name) {
   };
 }
 
-// FIX680.1.1 / FIX680.1.3: resolves the URL slug against local project
+// FIX680.1.1 / FIX680.1.2: resolves the URL slug against local project
 // names. projectSlug() is a deterministic, one-way function of the name, so
 // this works uniformly for a normal online project that's currently
 // unreachable (its local folder was named after the real project name) and
-// for a brand-new local-only project (FIX680.1.3 — it never had a DB slug
-// at all, so the cloud call 404s the same way an unreachable one fails).
+// for a brand-new local-only project (FIX680.1.2, "[2] Add a new project" —
+// it never had a DB slug at all, so the cloud call 404s the same way an
+// unreachable one fails).
 async function getLocalShowcaseBySlug(slug) {
   const root = await getStagingRoot();
   const names = await listStagingProjectNames(root);
@@ -210,7 +211,7 @@ async function getFolderImages(folderId) {
   return cloud.getFolderImages(folderId);
 }
 
-// FIX680.1.3: a brand-new project that only ever exists locally — a name,
+// FIX680.1.2: a brand-new project that only ever exists locally — a name,
 // no DB row ("no tech ID"). Just creates the staging root folder; the
 // getShowcase(slug) fallback above (via projectSlug matching) resolves it
 // the moment the app navigates there, no separate creation bookkeeping.

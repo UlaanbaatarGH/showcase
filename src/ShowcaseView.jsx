@@ -23,7 +23,7 @@ import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
   acquireEditLock, heartbeatEditLock, releaseEditLock, listProjects,
-  createFolder,
+  createFolder, isLocalModeActive,
 } from './data/backend.js';
 import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
@@ -432,6 +432,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [crossPublishPlan, setCrossPublishPlan] = useState(null);
   const [crossPublishProgress, setCrossPublishProgress] = useState(null);
   const handleOpenCrossPublish = () => {
+    // FIX680: Publish needs the network (upload + DB write) that local mode
+    // means we don't have, and FIX680.2 keeps local mode sticky for the
+    // rest of the session — no point letting this run.
+    if (isLocalModeActive()) return;
     const plan = [];
     for (const [folderIdStr, imgs] of Object.entries(imagesByFolderRef.current)) {
       const scopeIdxs = imgs.map((_, idx) => idx).filter((idx) => imgs[idx].status);
@@ -546,6 +550,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // duplicate item once published.
   const nextRefSeededProjectRef = useRef(null);
   const camLocalIdRef = useRef(0);
+  // FIX680.1.2 <add-local-item>: local-mode-only "Add a new item" — the
+  // first addition this session prompts for a ref (offlineAddItemPopup),
+  // every later one just increments offlineNextRefRef. Purely client-side:
+  // no createFolder call, no disk write until the item's first image is
+  // added (which already flows through FIX670's syncStagingFolder).
+  const offlineNextRefRef = useRef(null);
+  const [offlineAddItemPopup, setOfflineAddItemPopup] = useState(null); // null | { value, error }
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
   // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
@@ -873,6 +884,44 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     if (!isLocalApp) return;
     listProjects().then(setAllProjects).catch(() => setAllProjects([]));
   }, []);
+
+  // FIX680.1.2 <add-local-item>: pushes a brand-new client-side-only item
+  // ({ id: `local-item-{ref}` }, mirroring images' own `local-` id
+  // convention) into data.folders and selects it — nothing hits disk until
+  // an image is actually added (FIX670's syncStagingFolder handles that).
+  const createLocalItem = (itemName) => {
+    const newFolder = {
+      id: `local-item-${itemName}`, name: itemName, draft: true,
+      is_main: false, sort_order: 0, zoom_factor: null,
+    };
+    setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
+    selectOnly(newFolder.id);
+  };
+  const handleAddLocalItemClick = () => {
+    if (offlineNextRefRef.current == null) {
+      setOfflineAddItemPopup({ value: '', error: null }); // FIX680.1.2: first addition prompts for a ref
+      return;
+    }
+    const itemName = String(offlineNextRefRef.current).padStart(3, '0'); // FIX680.1.2: later ones auto +1
+    offlineNextRefRef.current += 1;
+    createLocalItem(itemName);
+  };
+  const confirmAddLocalItemRef = () => {
+    const raw = (offlineAddItemPopup?.value || '').trim();
+    if (!/^\d+$/.test(raw)) {
+      setOfflineAddItemPopup((p) => ({ ...p, error: 'Enter a numeric ref' }));
+      return;
+    }
+    const n = Number(raw);
+    const itemName = String(n).padStart(3, '0');
+    if ((data?.folders || []).some((f) => f.name === itemName)) {
+      setOfflineAddItemPopup((p) => ({ ...p, error: `Ref ${itemName} is already in use` }));
+      return;
+    }
+    offlineNextRefRef.current = n + 1;
+    setOfflineAddItemPopup(null);
+    createLocalItem(itemName);
+  };
 
   // FIX653 <cmd-capture-cam-img>: same shape as FIX620's per-item toggle
   // (ShowcaseImgListEditor.jsx handleToggleAutoInsert/handleStartListening) —
@@ -1907,6 +1956,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       role="menuitem"
                       data-yagu-id="cmd-publish-changes"
                       onClick={() => { setMenuOpen(false); handleOpenCrossPublish(); }}
+                      disabled={isLocalModeActive()}
+                      title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
                     >
                       Publish changes
                     </button>
@@ -1974,6 +2025,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           >
             <IconCamera size={20} />
           </span>
+        )}
+        {/* FIX680.1.2 <add-local-item>: local-mode only — the network-driven
+            item-creation paths (camera capture's auto-Ref, gsheet import)
+            all need a DB round-trip this mode doesn't have. */}
+        {isLocalApp && isLocalModeActive() && (
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            data-yagu-id="button-add-local-item"
+            onClick={handleAddLocalItemClick}
+            title="Add a new local item"
+          >
+            + Item
+          </button>
         )}
         {!isLocalApp && (
           <>
@@ -2241,6 +2306,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 projectName={data.project?.name}
                 itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
                 hideSections={hideSections}
+                publishDisabled={isLocalModeActive()}
                 onItemBytesChange={(bytes) =>
                   setData((prev) =>
                     prev
@@ -2266,7 +2332,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       : prev,
                   );
                   // FIX521.5.8.1: persist the recomputed item Zoom Factor.
-                  setFolderZoomFactor(selectedFolderId, zf).catch(() => {});
+                  // FIX680.1.1: a synthetic local-item id (string) has no
+                  // real DB row to persist onto.
+                  if (typeof selectedFolderId !== 'string') {
+                    setFolderZoomFactor(selectedFolderId, zf).catch(() => {});
+                  }
                 }}
               />
             ) : (() => {
@@ -2803,6 +2873,31 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               </button>
               <button type="button" className="primary" onClick={handleStartCameraCapture} disabled={cameraCapturePopup.checking}>
                 Start listening
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX680.1.2 <add-local-item>: ref prompt, first addition only. */}
+      {offlineAddItemPopup && (
+        <div className="setup-overlay" onMouseDown={() => setOfflineAddItemPopup(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Enter the new item's ref:</p>
+            <input
+              type="text"
+              data-yagu-id="input-add-local-item-ref"
+              value={offlineAddItemPopup.value}
+              onChange={(e) => setOfflineAddItemPopup((p) => ({ ...p, value: e.target.value }))}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmAddLocalItemRef(); }}
+            />
+            {offlineAddItemPopup.error && <div className="sc-viewer-err">{offlineAddItemPopup.error}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setOfflineAddItemPopup(null)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmAddLocalItemRef}>
+                Add item
               </button>
             </div>
           </div>

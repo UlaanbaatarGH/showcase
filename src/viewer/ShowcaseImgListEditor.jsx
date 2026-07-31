@@ -60,6 +60,7 @@ export default function ShowcaseImgListEditor({
   projectName, // FIX670.1: staging folder segment (tech/data/staging/{projectName}/{itemName})
   itemName,   // FIX610.3.1 / .3.5: item folder name (item_name on the API)
   hideSections, // FIX654.2 <cmd-hide-sections>: hide Section/Caption columns
+  publishDisabled, // FIX680: true while in local/offline mode — Publish needs the network
 }) {
   const currentImage = images[selectedIdx] ?? null;
 
@@ -702,7 +703,7 @@ export default function ShowcaseImgListEditor({
   // FIX610.3.5.1: <button-publish-img> click opens the recap popup — nothing
   // is sent yet. Cancel just closes it; Confirm runs confirmPublish below.
   const handlePublishClick = () => {
-    if (!isLocalApp || publishing) return;
+    if (!isLocalApp || publishing || publishDisabled) return;
     const scope = publishScopeIdxs();
     if (scope.length === 0) return;
     setPublishRecap({
@@ -1202,7 +1203,8 @@ export default function ShowcaseImgListEditor({
                       role="menuitem"
                       data-yagu-id="button-publish-img"
                       onClick={() => { setCommandsMenuOpen(false); handlePublishClick(); }}
-                      disabled={interactionLocked || publishScopeIdxs().length === 0}
+                      disabled={interactionLocked || publishDisabled || publishScopeIdxs().length === 0}
+                      title={publishDisabled ? 'Unavailable while offline' : undefined}
                     >
                       {publishing ? 'Publishing…' : 'Publish'}
                     </button>
@@ -1440,7 +1442,7 @@ export default function ShowcaseImgListEditor({
                 type="button"
                 data-yagu-id="button-crop"
                 className={cropMode ? 'active' : ''}
-                disabled={!currentImage || publishing}
+                disabled={!currentImage || currentImage.isPlaceholder || publishing}
                 onClick={() => setCropMode((v) => !v)}
               >
                 {cropMode ? 'Cropping…' : 'Crop'}
@@ -1465,7 +1467,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 data-yagu-id="button-rotate270"
-                disabled={!currentImage || publishing}
+                disabled={!currentImage || currentImage.isPlaceholder || publishing}
                 onClick={() => rotateBy(-90)}
                 title="Rotate −90°"
               >
@@ -1474,7 +1476,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 data-yagu-id="button-rotate90"
-                disabled={!currentImage || publishing}
+                disabled={!currentImage || currentImage.isPlaceholder || publishing}
                 onClick={() => rotateBy(90)}
                 title="Rotate +90°"
               >
@@ -1490,14 +1492,22 @@ export default function ShowcaseImgListEditor({
               </button>
             </div>
             <div className="sc-viewer-img-wrap">
-              <ShowcaseImageCanvas
-                url={currentImage.url}
-                rotation={effectiveRotation}
-                crop={effectiveCrop}
-                cropMode={cropMode}
-                onCropComplete={onCropComplete}
-                className="sc-viewer-img"
-              />
+              {/* FIX680.1.1.2: a public image referenced by list.txt but
+                  never staged locally — no bytes to show while offline. */}
+              {currentImage.isPlaceholder ? (
+                <div className="sc-public-placeholder" data-yagu-id="public-image-placeholder">
+                  Public image {currentImage.filename}
+                </div>
+              ) : (
+                <ShowcaseImageCanvas
+                  url={currentImage.url}
+                  rotation={effectiveRotation}
+                  crop={effectiveCrop}
+                  cropMode={cropMode}
+                  onCropComplete={onCropComplete}
+                  className="sc-viewer-img"
+                />
+              )}
               {currentImage.caption && (
                 <div className="sc-viewer-caption">{currentImage.caption}</div>
               )}

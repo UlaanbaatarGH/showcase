@@ -8,6 +8,8 @@ import {
   updateProject,
   signProjectCoverUpload,
   trackVisit,
+  isLocalModeActive,
+  createLocalProject,
 } from './data/backend.js';
 
 // FIX400: Home page.
@@ -28,6 +30,15 @@ export default function HomeView({ onOpenProject }) {
   const [projects, setProjects] = useState(null);
   const [error, setError] = useState(null);
   const [signInOpen, setSignInOpen] = useState(false);
+  // FIX680.1.1: set once listProjects() falls back to disk (no connection
+  // to the public DB) — gates the "Create local project" affordance
+  // (FIX680.1.3) and the local badge on each card.
+  const [localMode, setLocalMode] = useState(false);
+  // FIX680.1.3 <create-local-project>: name-only prompt, no tech ID.
+  const [createLocalOpen, setCreateLocalOpen] = useState(false);
+  const [createLocalName, setCreateLocalName] = useState('');
+  const [createLocalError, setCreateLocalError] = useState(null);
+  const [createLocalBusy, setCreateLocalBusy] = useState(false);
 
   // Edition state — only meaningful when profile is set. `drafts` holds
   // per-project pending edits keyed by project id: { name?, coverFile?,
@@ -38,7 +49,10 @@ export default function HomeView({ onOpenProject }) {
 
   const loadProjects = useCallback(() => {
     listProjects()
-      .then(setProjects)
+      .then((ps) => {
+        setProjects(ps);
+        setLocalMode(isLocalModeActive()); // FIX680.1.1
+      })
       .catch((e) => setError(e.message || String(e)));
   }, [token]);
 
@@ -147,6 +161,28 @@ export default function HomeView({ onOpenProject }) {
     onOpenProject?.(p);
   };
 
+  // FIX680.1.3 <create-local-project>: a project that only ever exists
+  // locally — a name, no DB row ("no tech ID"). Once created, it's opened
+  // exactly like any other project card (onOpenProject falls back to
+  // projectSlug(name) when there's no official_slug, which is always the
+  // case here).
+  const confirmCreateLocal = async () => {
+    const name = createLocalName.trim();
+    if (!name) { setCreateLocalError('Enter a name'); return; }
+    setCreateLocalBusy(true);
+    setCreateLocalError(null);
+    try {
+      const p = await createLocalProject(name);
+      setCreateLocalOpen(false);
+      setCreateLocalName('');
+      onOpenProject?.(p);
+    } catch (e) {
+      setCreateLocalError(e.message || String(e));
+    } finally {
+      setCreateLocalBusy(false);
+    }
+  };
+
   return (
     <div className="home" data-yagu-id="panel-app-home">
       <div className="home-topbar">
@@ -238,6 +274,24 @@ export default function HomeView({ onOpenProject }) {
             every locale. */}
         <h1 className="home-title">Showcase</h1>
 
+        {/* FIX680.1.1 / FIX680.1.3: local-app-only — shown once
+            listProjects() has fallen back to disk (no connection to the
+            public DB). Offers the one thing FIX680.1 adds beyond viewing
+            what's already staged: starting a brand-new local-only project. */}
+        {localMode && (
+          <div className="home-local-banner" data-yagu-id="local-mode-banner">
+            <span>No connection to the public database — showing local projects only.</span>
+            <button
+              type="button"
+              className="sc-menu-trigger"
+              data-yagu-id="button-create-local-project"
+              onClick={() => { setCreateLocalName(''); setCreateLocalError(null); setCreateLocalOpen(true); }}
+            >
+              Create local project
+            </button>
+          </div>
+        )}
+
         {/* FIX400.2.1: project list — name, image, front-introduction
             per card. */}
         {error && <div className="home-err">Backend error: {error}</div>}
@@ -269,6 +323,41 @@ export default function HomeView({ onOpenProject }) {
         <div className="modal-backdrop" onClick={() => setSignInOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <SignInPanel onClose={() => setSignInOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* FIX680.1.3 <create-local-project>: name-only prompt, no tech ID —
+          same popup shape as the camera-capture folder prompt
+          (ShowcaseView.jsx's <cmd-capture-cam-img>). */}
+      {createLocalOpen && (
+        <div className="setup-overlay" onMouseDown={() => !createLocalBusy && setCreateLocalOpen(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p>Local project name:</p>
+            <input
+              type="text"
+              data-yagu-id="input-create-local-project-name"
+              value={createLocalName}
+              onChange={(e) => setCreateLocalName(e.target.value)}
+              autoFocus
+              disabled={createLocalBusy}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmCreateLocal(); }}
+            />
+            {createLocalError && <div className="sc-viewer-err">{createLocalError}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setCreateLocalOpen(false)} disabled={createLocalBusy}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                data-yagu-id="button-confirm-create-local-project"
+                onClick={confirmCreateLocal}
+                disabled={createLocalBusy}
+              >
+                {createLocalBusy ? 'Creating…' : 'Create'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -379,7 +468,13 @@ function HomeProjectCard({
           <RichText text={p.front_introduction} />
         </div>
       )}
-      {!p.is_public && <div className="home-project-badge">private</div>}
+      {/* FIX680.1.1: a locally-discovered project (no DB row) gets a
+          distinct badge instead of the misleading "private" one. */}
+      {p.local ? (
+        <div className="home-project-badge">local</div>
+      ) : (
+        !p.is_public && <div className="home-project-badge">private</div>
+      )}
     </>
   );
 

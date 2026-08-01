@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, mkdir, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -926,11 +926,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   }, []);
 
   // FIX655.2 / FIX670.10.1: create the item's staging folder right away,
-  // marked ' (new)'.
+  // marked ' (new)', together with its (empty) manifest — otherwise the
+  // item would be missing from the offline list until its first image is
+  // staged (see listStagingItemNames' manifest-exists check).
   const ensureStagingFolder = async (itemName) => {
     try {
       const root = await getStagingRoot();
-      await mkdir(stagingItemDir(root, data?.project?.name, itemName, ' (new)'));
+      await createItemStagingFolder(root, data?.project?.name, itemName);
     } catch {
       // Best-effort.
     }

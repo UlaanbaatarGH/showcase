@@ -169,6 +169,16 @@ export async function readManifestEntries(itemDir) {
   return content.split('\n').map((l) => l.trim()).filter(Boolean).map(parseManifestLine);
 }
 
+// FIX655.2: whether the item's manifest file exists on disk at all — distinct
+// from readManifestEntries' array being non-empty, since an item can have a
+// manifest with zero images in it (freshly <cmd-add-item>-created, nothing
+// staged into it yet). /file/read 404s on a missing file but 200s on an
+// empty one, so status is what actually tells them apart.
+async function manifestFileExists(itemDir) {
+  const res = await fetch(`${AGENT_URL}/file/read?path=${encodeURIComponent(manifestPath(itemDir))}`);
+  return res.ok;
+}
+
 async function writeManifestEntries(itemDir, entries) {
   const content = entries.map(formatManifestLine).join('\n');
   await fetch(`${AGENT_URL}/file/write`, {
@@ -184,6 +194,18 @@ export async function mkdir(dir) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: dir }),
   });
+}
+
+// FIX655.2 <cmd-add-item>: creates a freshly-added item's staging folder
+// together with its (empty) <file-staged-item-img-list> — the manifest must
+// exist on disk from the moment the item is created, not just once its
+// first image lands, otherwise listStagingItemNames' manifest-exists check
+// below would drop the item from the offline list entirely.
+export async function createItemStagingFolder(root, projectName, itemName) {
+  const dir = stagingItemDir(root, projectName, itemName, NEW_POSTFIX);
+  await mkdir(dir);
+  await writeManifestEntries(dir, []);
+  return dir;
 }
 
 // FIX670.20 / FIX670.30: removes a whole item staging folder (or a single
@@ -210,18 +232,18 @@ export async function listStagingProjectNames(root) {
 }
 
 // FIX680.1.1: enumerates a project's staged items (subfolders that actually
-// carry a manifest — an item folder with no list.txt isn't real staged
-// state, see FIX670.20).
+// carry a manifest file — an item folder with no list.txt isn't real staged
+// state, see FIX670.20). FIX655.2: keyed on the manifest *existing*, not on
+// it having entries — a just-added item's manifest starts out empty.
 export async function listStagingItemNames(root, projectName) {
   const projectDir = `${root}/${sanitizeSegment(projectName)}`;
   const entries = await listEntries(projectDir);
   const names = [];
   for (const e of entries) {
     if (e.type !== 'folder') continue;
-    const manifest = await readManifestEntries(`${projectDir}/${e.name}`);
     // FIX655.2: the folder name may carry a ' (new)'/' (renamed)' postfix —
     // that's a disk-naming detail, not part of the item's ref/identity.
-    if (manifest.length > 0) names.push(parseItemFolderName(e.name).ref);
+    if (await manifestFileExists(`${projectDir}/${e.name}`)) names.push(parseItemFolderName(e.name).ref);
   }
   return names;
 }

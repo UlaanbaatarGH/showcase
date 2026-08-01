@@ -1,6 +1,7 @@
-// FIX370: Google Sheet import logic (no React).
-// The UI component calls these functions to parse a sheet URL, fetch the
-// tabs, run consistency checks, and build the plan that the backend applies.
+// FIX370 / FIX370.0 <cmd-import-google-sheet>: Google Sheet import logic
+// (no React). The UI component calls these functions to parse a sheet URL,
+// fetch the tabs, run consistency checks, and build the plan that the
+// backend applies.
 
 const FOLDER_COL = '#';
 // FIX370.2.1.7: optional column carrying a rename command for the current

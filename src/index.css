@@ -2641,7 +2641,7 @@ body {
   border-color: var(--color-accent, #888);
 }
 
-/* FIX370: Google Sheet import dialog */
+/* FIX370 / FIX370.0 <cmd-import-google-sheet>: Google Sheet import dialog */
 .gsheet-dialog { width: min(560px, 100%); }
 .gsheet-stage {
   display: flex;

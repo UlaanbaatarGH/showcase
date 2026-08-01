@@ -4,8 +4,8 @@ import { importGsheet } from '../data/backend.js';
 
 const STORAGE_KEY = 'gsheet-import-last-url';
 
-// FIX370: Google Sheet import dialog. Walks the user through URL →
-// consistency checks → recap → apply → done.
+// FIX370 / FIX370.0 <cmd-import-google-sheet>: Google Sheet import dialog.
+// Walks the user through URL → consistency checks → recap → apply → done.
 export default function GsheetImportDialog({ project, onClose, onDone }) {
   const [stage, setStage] = useState('url');
   const [url, setUrl] = useState(() => localStorage.getItem(STORAGE_KEY) || '');

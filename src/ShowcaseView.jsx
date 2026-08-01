@@ -2069,14 +2069,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
             Website: admin- or project-manager-only (FIX503.5.1), FIX369.1's
-            two options — Images, Image Properties. Local app: always shown
-            (login/admin-gating dropped there), but per FIX656 this is now
-            the 'Commands' menu instead — <cmd-capture-cam-img>,
-            <cmd-add-item>, <cmd-new-item-ref>, <cmd-delete-item>,
-            <cmd-publish-changes> — same shared container Id as the
-            website's Import menu (FIX369.0 doesn't define a separate one
-            for FIX656), Images/Image Properties stay website-only
-            either way. */}
+            three options — Images, Open properties gsheet, Image
+            Properties. Local app: always shown (login/admin-gating dropped
+            there), but per FIX656 this is now the 'Commands' menu instead —
+            <cmd-capture-cam-img>, <cmd-add-item>, <cmd-new-item-ref>,
+            <cmd-delete-item>, <cmd-publish-changes> — same shared container
+            Id as the website's Import menu (FIX369.0 doesn't define a
+            separate one for FIX656), Images/Open properties gsheet/Image
+            Properties stay website-only either way. */}
         {(isLocalApp || isAdminOrManager) && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
@@ -2097,9 +2097,26 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       <button
                         type="button"
                         role="menuitem"
+                        data-yagu-id="cmd-import-harddisk-img"
                         onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
                       >
                         Images
+                      </button>
+                    </li>
+                    {/* FIX375 <cmd-open-properties-gsheet>: opens the gsheet
+                        stored at <setup-properties-gsheet> (FIX508.2.5) in a
+                        new tab. Disabled when that field is blank — nothing
+                        to open yet. */}
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        data-yagu-id="cmd-open-properties-gsheet"
+                        disabled={!viewSetup.properties_gsheet_url}
+                        title={!viewSetup.properties_gsheet_url ? 'Set the Properties Google sheet in Setup > General first' : undefined}
+                        onClick={() => { setMenuOpen(false); window.open(viewSetup.properties_gsheet_url, '_blank', 'noopener'); }}
+                      >
+                        Open properties gsheet
                       </button>
                     </li>
                     {/* FIX369.1 / FIX370.0 <cmd-import-properties-gsheet>:

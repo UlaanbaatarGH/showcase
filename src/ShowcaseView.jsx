@@ -943,7 +943,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // there's no DB row to create.
   const createLocalItem = (itemName) => {
     const newFolder = {
-      id: `local-item-${itemName}`, name: itemName, draft: true,
+      id: `local-item-${itemName}`, name: itemName,
       is_main: false, sort_order: 0, zoom_factor: null,
     };
     setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
@@ -974,8 +974,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       .filter((n) => Number.isFinite(n));
     const itemName = String((existingRefs.length ? Math.max(...existingRefs) : 0) + 1).padStart(3, '0');
     try {
-      const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: itemName, draft: true });
-      const newFolder = { id: newFolderId, name: itemName, draft: true, is_main: false, sort_order: 0, zoom_factor: null };
+      const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: itemName });
+      const newFolder = { id: newFolderId, name: itemName, is_main: false, sort_order: 0, zoom_factor: null };
       setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
       selectOnly(newFolderId);
       await ensureStagingFolder(itemName);
@@ -1172,10 +1172,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           try {
             // FIX620.4.2.2: bare item creation (blank properties) — no
             // image involved yet, unlike /api/images/confirm's auto-create.
-            // FIX620.4.2.2: draft: true keeps the item off the public site
-            // until its image is actually published (backend clears the
-            // flag in confirm_image the moment that happens).
-            const { id: newFolderId } = await createFolder({ project_id: capProjectId, name: itemName, draft: true });
+            const { id: newFolderId } = await createFolder({ project_id: capProjectId, name: itemName });
             // FIX670.1 / FIX670.10: copy the source file into the stable
             // staging root so it survives a reload/crash/multi-day gap
             // before Publish — best-effort; if it fails, behavior falls back

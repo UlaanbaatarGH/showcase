@@ -106,7 +106,6 @@ async function buildLocalFolders(root, projectName) {
   return itemNames.map((name) => ({
     id: localItemId(name),
     name,
-    draft: true,
     is_main: false,
     sort_order: 0,
     zoom_factor: null,

@@ -422,6 +422,47 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.project?.id, isLocalApp]);
 
+  // FIX658.2.1.1: pendingRemoval is a client-only annotation on top of a
+  // real, server-sourced folder — it never persisted anywhere, so a public
+  // item flagged (removed) via <cmd-delete-item> in an earlier session
+  // looked completely normal again on the next load, even though its
+  // staging folder was still tagged on disk. Restores the flag (and the
+  // crossed-out/red display it drives, renderBodyCell below) from
+  // <file-flag-removed-item> the moment the project's staged items are
+  // known, same disk-is-truth posture as FIX652.2.3's readStagedItemImages.
+  useEffect(() => {
+    const pid = data?.project?.id;
+    const projectName = data?.project?.name;
+    const folders = data?.folders;
+    if (!isLocalApp || pid == null || projectName == null || !folders) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const root = await getStagingRoot();
+        const staged = await listStagingItems(root, projectName);
+        const removedRefs = new Set(staged.filter((i) => i.flag === 'removed').map((i) => i.ref));
+        if (removedRefs.size === 0 || cancelled) return;
+        setData((prev) => {
+          if (!prev) return prev;
+          let changed = false;
+          const nextFolders = prev.folders.map((f) => {
+            if (removedRefs.has(f.name) && typeof f.id !== 'string' && !f.pendingRemoval) {
+              changed = true;
+              return { ...f, pendingRemoval: true };
+            }
+            return f;
+          });
+          return changed ? { ...prev, folders: nextFolders } : prev;
+        });
+      } catch {
+        // Agent unreachable — retried on next load; the staging folder's
+        // own tag is untouched, so nothing is lost.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.project?.id, isLocalApp]);
+
   // Wraps setImages so every update to the current folder's images is also
   // mirrored into the cross-item cache, without ShowcaseImgListEditor (or
   // anything else calling this) needing to know the cache exists.

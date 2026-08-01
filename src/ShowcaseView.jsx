@@ -422,24 +422,29 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.project?.id, isLocalApp]);
 
-  // FIX658.2.1.1 / FIX657.4: pendingRemoval and originalRef are client-only
-  // annotations on top of a real, server-sourced folder — neither ever
-  // persisted anywhere, so a public item flagged (removed) or mid-rename
-  // via <cmd-delete-item>/<cmd-new-item-ref> in an earlier session looked
-  // completely normal again on the next load, even though its staging
-  // folder was still tagged on disk. Restores both (and the crossed-out/
-  // red/'!' display they drive, renderBodyCell below) from
-  // <file-flag-removed-item>/<file-flag-chged-item-ref> the moment the
-  // project's staged items are known, same disk-is-truth posture as
-  // FIX652.2.3's readStagedItemImages.
+  // FIX658.2.1.1 / FIX657.4 / FIX655.4: pendingRemoval/originalRef/pendingNew
+  // are client-only annotations (or, for a new item, the whole local-item-*
+  // entry itself) on top of a real, server-sourced folder list — none of it
+  // ever persisted anywhere, so an item flagged (removed)/(ex-...)/(new) via
+  // <cmd-delete-item>/<cmd-new-item-ref>/<cmd-add-item> in an earlier
+  // session looked completely normal again — or, for a new item, was simply
+  // missing from the list — on the next load, even though its staging
+  // folder was still tagged on disk. Restores all three (and the display
+  // they drive, renderBodyCell below — same flags backendLocal.js's
+  // buildLocalFolders derives for off-line mode, so an item looks identical
+  // either way) from the matching <file-flag-...> the moment the project's
+  // staged items are known, same disk-is-truth posture as FIX652.2.3's
+  // readStagedItemImages (which also rebuilds a new item's own image list
+  // here, for the same reason).
   //
   // Depends on data?.folders (not just the project id) so it self-heals any
   // time folders gets replaced wholesale after the flags were already
   // applied — e.g. StrictMode's dev-only double-invoke of the initial
   // getShowcase effect, or any later reloadShowcase() call — instead of
   // only ever running once per project load and losing the race. Idempotent
-  // (skips the setData call once every folder already carries its flag), so
-  // this doesn't loop.
+  // (skips the setData call once every folder already carries its flag, and
+  // re-checks for an existing entry against the latest state right before
+  // adding one), so this doesn't loop or double-add.
   useEffect(() => {
     const pid = data?.project?.id;
     const projectName = data?.project?.name;
@@ -454,8 +459,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         const renamedRefs = new Map(
           staged.filter((i) => i.flag === 'renamed').map((i) => [i.ref, i.oldRef]),
         );
-        if (removedRefs.size === 0 && renamedRefs.size === 0) return;
+        const newItems = staged.filter((i) => i.flag === 'new');
+        if (removedRefs.size === 0 && renamedRefs.size === 0 && newItems.length === 0) return;
         if (cancelled) return;
+
+        const knownNames = new Set(folders.map((f) => f.name));
+        const missingNew = newItems.filter((i) => !knownNames.has(i.ref));
+        const newFolders = [];
+        for (const item of missingNew) {
+          const imgs = await readStagedItemImages(item.dir).catch(() => []);
+          if (cancelled) return;
+          const localId = `local-item-${item.ref}`;
+          imagesByFolderRef.current[localId] = imgs;
+          newFolders.push({
+            id: localId, name: item.ref,
+            is_main: false, sort_order: 0, zoom_factor: null, pendingNew: true,
+          });
+        }
+
         setData((prev) => {
           if (!prev) return prev;
           let changed = false;
@@ -471,6 +492,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             }
             return f;
           });
+          if (newFolders.length > 0) {
+            const alreadyKnown = new Set(nextFolders.map((f) => f.name));
+            const toAdd = newFolders.filter((f) => !alreadyKnown.has(f.name));
+            if (toAdd.length > 0) {
+              changed = true;
+              nextFolders.push(...toAdd);
+            }
+          }
           return changed ? { ...prev, folders: nextFolders } : prev;
         });
       } catch {
@@ -645,7 +674,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             if (!prev) return prev;
             const hasLocalEntry = prev.folders.some((f) => f.id === localId);
             const folders = hasLocalEntry
-              ? prev.folders.map((f) => (f.id === localId ? { ...f, id: newFolderId } : f))
+              // FIX655.4: clear pendingNew — it's published now, no longer '+'.
+              ? prev.folders.map((f) => (f.id === localId ? { ...f, id: newFolderId, pendingNew: false } : f))
               : [...prev.folders, { id: newFolderId, name: p.ref, is_main: false, sort_order: 0, zoom_factor: null }];
             return { ...prev, folders };
           });
@@ -1098,9 +1128,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   }, []);
 
   // FIX655.2 / FIX670.10.1: create the item's staging folder right away,
-  // marked ' (new)', together with its (empty) manifest — otherwise the
-  // item would be missing from the offline list until its first image is
-  // staged (see listStagingItemNames' manifest-exists check).
+  // marked ' (new)', together with its (empty) manifest — per FIX655.2's
+  // own wording, the <file-staged-item-img-list> is part of what
+  // <cmd-add-item> creates, not something that only shows up once an
+  // image is staged.
   const ensureStagingFolder = async (itemName) => {
     try {
       const root = await getStagingRoot();
@@ -1118,6 +1149,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     const newFolder = {
       id: `local-item-${itemName}`, name: itemName,
       is_main: false, sort_order: 0, zoom_factor: null,
+      // FIX655.4: drives the '+' display — explicit rather than inferred
+      // from the id being a string, since in off-line mode *every* folder
+      // (new, removed, or plain) has a synthetic string id (see
+      // backendLocal.js's buildLocalFolders); the flag is what actually
+      // means "genuinely new" in both modes alike.
+      pendingNew: true,
     };
     // FIX655.3: seed the image cache with an (empty) row now — no DB row
     // exists for this id yet (FIX652.2.3), so leaving it uncached would let
@@ -2046,17 +2083,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // FIX658.2.1.1: a public item staged for deletion reuses this same
       // not-yet-published red styling, plus a strike-through so 'crossed
       // out' reads as its own state rather than just another pending edit.
-      // FIX655.2 <file-flag-new-item>: a just-added item has no DB id at
-      // all yet (local-item-* — it only earns one at Publish, FIX652.2.3),
-      // so it's eligible for Publish the moment it exists, even with zero
-      // images — the per-image status check below can't see that, since
-      // there's nothing in imagesByFolderRef yet.
+      // FIX655.2 / FIX655.4 <file-flag-new-item>: a just-added item is
+      // eligible for Publish the moment it exists, even with zero images —
+      // the per-image status check below can't see that, since there's
+      // nothing in imagesByFolderRef yet. Driven by the explicit pendingNew
+      // flag, not the id shape — in off-line mode every folder has a
+      // synthetic string id regardless of what it actually is (see
+      // backendLocal.js's buildLocalFolders), so that alone can't tell a
+      // genuinely new item apart from a plain or removed one.
       // FIX657.4 <file-flag-chged-item-ref>: a real item mid-rename
       // (originalRef set by confirmNewItemRef / restored on load above) is
       // just as not-yet-published as a new or removed item.
       const needsPublish = isLocalApp && (
         folder.pendingRemoval ||
-        typeof folder.id === 'string' ||
+        folder.pendingNew ||
         folder.originalRef != null ||
         isLocalModeActive() ||
         (imagesByFolderRef.current[folder.id] || []).some((im) => im.status)
@@ -2067,7 +2107,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // text over a suffix there — this is the one place a single
       // character still fits).
       let suffix = '';
-      if (typeof folder.id === 'string') suffix = '+';
+      if (folder.pendingNew) suffix = '+';
       else if (folder.originalRef != null) suffix = '!';
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>

@@ -205,16 +205,6 @@ export async function readManifestEntries(itemDir) {
   return content.split('\n').map((l) => l.trim()).filter(Boolean).map(parseManifestLine);
 }
 
-// FIX655.2: whether the item's manifest file exists on disk at all — distinct
-// from readManifestEntries' array being non-empty, since an item can have a
-// manifest with zero images in it (freshly <cmd-add-item>-created, nothing
-// staged into it yet). /file/read 404s on a missing file but 200s on an
-// empty one, so status is what actually tells them apart.
-async function manifestFileExists(itemDir) {
-  const res = await fetch(`${AGENT_URL}/file/read?path=${encodeURIComponent(manifestPath(itemDir))}`);
-  return res.ok;
-}
-
 async function writeManifestEntries(itemDir, entries) {
   const content = entries.map(formatManifestLine).join('\n');
   await fetch(`${AGENT_URL}/file/write`, {
@@ -267,29 +257,13 @@ export async function listStagingProjectNames(root) {
   return (await listEntries(root)).filter((e) => e.type === 'folder').map((e) => e.name);
 }
 
-// FIX680.1.1: enumerates a project's staged items (subfolders that actually
-// carry a manifest file — an item folder with no list.txt isn't real staged
-// state, see FIX670.20). FIX655.2: keyed on the manifest *existing*, not on
-// it having entries — a just-added item's manifest starts out empty.
-export async function listStagingItemNames(root, projectName) {
-  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
-  const entries = await listEntries(projectDir);
-  const names = [];
-  for (const e of entries) {
-    if (e.type !== 'folder') continue;
-    // FIX655.2: the folder name may carry a ' (new)'/' (ex-...)' postfix —
-    // that's a disk-naming detail, not part of the item's ref/identity.
-    if (await manifestFileExists(`${projectDir}/${e.name}`)) names.push(parseItemFolderName(e.name).ref);
-  }
-  return names;
-}
-
 // FIX652.2: enumerates every one of a project's staged item folders on
-// disk, together with the flag (if any) its name carries —
-// <cmd-publish-changes> drives its per-item action (FIX652.2.1-.2.4) off
-// this, unlike listStagingItemNames above which only needs the bare ref.
-// `oldRef` is only set for an ' (ex-{oldRef})' (<file-flag-chged-item-ref>)
-// folder, extracted straight from the postfix text.
+// disk, together with the flag (if any) its name carries — both
+// <cmd-publish-changes> (FIX652.2.1-.2.4) and every mode-aware item-list
+// display (ShowcaseView.jsx's reconciliation effect, backendLocal.js's
+// buildLocalFolders) drive their per-item state off this. `oldRef` is only
+// set for an ' (ex-{oldRef})' (<file-flag-chged-item-ref>) folder,
+// extracted straight from the postfix text.
 export async function listStagingItems(root, projectName) {
   const projectDir = `${root}/${sanitizeSegment(projectName)}`;
   const entries = await listEntries(projectDir);

@@ -15,7 +15,7 @@ import cloud from './backendCloud.js';
 import { projectSlug } from '../router.js';
 import {
   getStagingRoot, sanitizeSegment, mkdir, resolveItemFolderDir,
-  listStagingProjectNames, listStagingItemNames,
+  listStagingProjectNames, listStagingItems,
   readManifestEntries, fetchStagedImageBlob,
 } from '../viewer/itemStaging.js';
 
@@ -98,18 +98,37 @@ async function listProjects() {
   return listLocalProjects();
 }
 
-// FIX680.1.1: one synthetic folder (item) entry per staged item that
-// actually has a manifest — mirrors the `local-` id convention images
-// already use (isLocalRow), just at the item level.
+// FIX680.1.1: one synthetic folder (item) entry per staged item — mirrors
+// the `local-` id convention images already use (isLocalRow), just at the
+// item level. FIX658.2.1.1 / FIX655.4 / FIX657.4: carries the same
+// pendingRemoval/pendingNew/originalRef flags ShowcaseView.jsx's on-line
+// reconciliation effect derives from listStagingItems, so an item displays
+// identically whether the project is open on-line or off — see that
+// effect's comment for why the flag (not the id shape, which is always a
+// string here regardless of what the item actually is) has to drive it.
 async function buildLocalFolders(root, projectName) {
-  const itemNames = await listStagingItemNames(root, projectName);
-  return itemNames.map((name) => ({
-    id: localItemId(name),
-    name,
-    is_main: false,
-    sort_order: 0,
-    zoom_factor: null,
-  }));
+  const staged = await listStagingItems(root, projectName);
+  const folders = [];
+  for (const item of staged) {
+    if (item.flag === 'plain') {
+      // FIX670.20: an unflagged folder only represents real staged state
+      // while its manifest actually has something in it — new/removed/
+      // renamed folders are meaningful by their flag alone, manifest or not.
+      const manifest = await readManifestEntries(item.dir);
+      if (manifest.length === 0) continue;
+    }
+    folders.push({
+      id: localItemId(item.ref),
+      name: item.ref,
+      is_main: false,
+      sort_order: 0,
+      zoom_factor: null,
+      pendingRemoval: item.flag === 'removed',
+      pendingNew: item.flag === 'new',
+      originalRef: item.flag === 'renamed' ? item.oldRef : null,
+    });
+  }
+  return folders;
 }
 
 async function getLocalShowcaseByName(name) {

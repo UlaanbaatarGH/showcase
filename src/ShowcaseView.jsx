@@ -2092,7 +2092,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               <ul className="sc-menu-items" role="menu">
                 {!isLocalApp && (
                   <>
-                    {/* FIX371.2.2 / FIX371.2.2.1: 'Images' placed first. */}
+                    {/* FIX371.2 <cmd-import-harddisk-img>: label 'Import
+                        images' (was 'Images'). Placed first per FIX369.1's
+                        list order — FIX371.2.2/.2.2.1's own 'place it
+                        first' wording is now removed, superseded by that
+                        list. */}
                     <li>
                       <button
                         type="button"
@@ -2100,7 +2104,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                         data-yagu-id="cmd-import-harddisk-img"
                         onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
                       >
-                        Images
+                        Import images
                       </button>
                     </li>
                     {/* FIX375 <cmd-open-properties-gsheet>: opens the gsheet

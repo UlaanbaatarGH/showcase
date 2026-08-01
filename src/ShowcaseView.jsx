@@ -1119,6 +1119,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       id: `local-item-${itemName}`, name: itemName,
       is_main: false, sort_order: 0, zoom_factor: null,
     };
+    // FIX655.3: seed the image cache with an (empty) row now — no DB row
+    // exists for this id yet (FIX652.2.3), so leaving it uncached would let
+    // the selection effect below fall through to getFolderImages(id), which
+    // needs a real numeric folder id and 422s on a local-item-* string.
+    imagesByFolderRef.current[newFolder.id] = [];
     setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
     selectOnly(newFolder.id);
     ensureStagingFolder(itemName);
@@ -1467,6 +1472,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       return;
     }
     setImages([]);
+    // FIX655.3: a local-item-* id has no DB row (FIX652.2.3) — nothing to
+    // fetch. Should already be cached (createLocalItem seeds it empty), but
+    // guard here too rather than let getFolderImages 422 on a non-numeric id.
+    if (typeof selectedFolderId === 'string') return;
     getFolderImages(selectedFolderId)
       .then((imgs) => {
         // FIX610.3.4: baseline sort_order snapshot, so the local app can tell

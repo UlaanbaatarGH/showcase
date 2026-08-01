@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, mkdir, renameItemFolder } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, mkdir, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -573,6 +573,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [offlineAddItemPopup, setOfflineAddItemPopup] = useState(null); // null | { value, error }
   // FIX657 <cmd-new-item-ref>
   const [newItemRefPopup, setNewItemRefPopup] = useState(null); // null | { value, error }
+  // FIX658 <cmd-delete-item>: no per-item input, just a Confirm/Cancel gate —
+  // true/false is enough state.
+  const [deleteItemPopup, setDeleteItemPopup] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
   // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
@@ -1035,6 +1038,38 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       }
       setSelectedFolderIds((prev) => prev.map((x) => (x === r.id ? newId : x)));
     }
+  };
+
+  // FIX658 <cmd-delete-item>: local items (string 'local-item-*' ids) are
+  // deleted outright — no DB row exists, so both the list entry and its
+  // staging folder are dropped now (FIX658.2.1.2). Public (real DB) items
+  // have no delete-folder API, so they're left in the list flagged
+  // pendingRemoval for the crossed-out/non-published display (FIX658.2.1.1)
+  // and their staging folder is tagged ' (removed)' for Publish to pick up.
+  const confirmDeleteItems = async () => {
+    setDeleteItemPopup(false);
+    const ids = selectedFolderIds;
+    const root = await getStagingRoot();
+    const removedIds = [];
+    for (const id of ids) {
+      const folder = (data?.folders || []).find((f) => f.id === id);
+      if (!folder) continue;
+      if (typeof id === 'string') {
+        const dir = await resolveItemFolderDir(root, data?.project?.name, folder.name).catch(() => null);
+        if (dir) await rmPath(dir).catch(() => {});
+        removedIds.push(id);
+        delete imagesByFolderRef.current[id];
+      } else {
+        await markItemFolderRemoved(root, data?.project?.name, folder.name).catch(() => {});
+      }
+    }
+    setData((prev) => (prev ? {
+      ...prev,
+      folders: prev.folders
+        .filter((f) => !removedIds.includes(f.id))
+        .map((f) => (ids.includes(f.id) ? { ...f, pendingRemoval: true } : f)),
+    } : prev));
+    setSelectedFolderIds((prev) => prev.filter((id) => !removedIds.includes(id)));
   };
 
   // FIX653 <cmd-capture-cam-img>: same shape as FIX620's per-item toggle
@@ -1811,13 +1846,23 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // fallback only ever returns locally-discovered items, never a real
       // published one), so it's unconditionally true for every row there,
       // on top of the ordinary per-item pending-image check.
+      // FIX658.2.1.1: a public item staged for deletion reuses this same
+      // not-yet-published red styling, plus a strike-through so 'crossed
+      // out' reads as its own state rather than just another pending edit.
       const needsPublish = isLocalApp && (
+        folder.pendingRemoval ||
         isLocalModeActive() ||
         (imagesByFolderRef.current[folder.id] || []).some((im) => im.status)
       );
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
-          <span style={needsPublish ? { color: '#dc2626' } : undefined}>{folder.name}</span>
+          <span style={needsPublish ? {
+            color: '#dc2626',
+            textDecoration: folder.pendingRemoval ? 'line-through' : undefined,
+          } : undefined}
+          >
+            {folder.name}
+          </span>
         </td>
       );
     }
@@ -2119,6 +2164,21 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       }}
                     >
                       New item ref
+                    </button>
+                  </li>
+                )}
+                {/* FIX658 <cmd-delete-item>: enabled only when 1+ items
+                    selected, mirroring cmd-new-item-ref's gating. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-delete-item"
+                      disabled={selectedFolderIds.length === 0}
+                      onClick={() => { setMenuOpen(false); setDeleteItemPopup(true); }}
+                    >
+                      Delete item
                     </button>
                   </li>
                 )}
@@ -3095,6 +3155,29 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               </button>
               <button type="button" className="primary" onClick={confirmNewItemRef}>
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX658 <cmd-delete-item>: Title 'Item deletion', prompt lists every
+          selected ref one per line (FIX658.1). */}
+      {deleteItemPopup && (
+        <div className="setup-overlay" onMouseDown={() => setDeleteItemPopup(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Item deletion</strong></p>
+            <p style={{ whiteSpace: 'pre-line' }}>
+              {`Confirm deletion of items ${selectedFolderIds
+                .map((id) => (data?.folders || []).find((f) => f.id === id)?.name)
+                .filter(Boolean)
+                .join('\n')}`}
+            </p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setDeleteItemPopup(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmDeleteItems}>
+                Confirm
               </button>
             </div>
           </div>

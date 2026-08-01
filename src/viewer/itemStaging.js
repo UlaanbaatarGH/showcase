@@ -13,13 +13,17 @@ const AGENT_URL = 'http://localhost:3001';
 
 const MANIFEST_FILENAME = 'list.txt';
 const REMOVED_SUFFIX = ' (removed)';
-// FIX655.2 / FIX657.3.2: staging-folder-name postfixes — a freshly
-// <cmd-add-item>-created folder is marked ' (new)'; <cmd-new-item-ref>
+// FIX655.2 / FIX657.3.2 / FIX658.2.1.1: staging-folder-name postfixes — a
+// freshly <cmd-add-item>-created folder is marked ' (new)'; <cmd-new-item-ref>
 // marks a renamed one ' (renamed)', unless it's already ' (new)' (that
-// takes priority and isn't overwritten). Purely a disk-naming detail, not
+// takes priority and isn't overwritten); <cmd-delete-item> marks a public
+// item's folder ' (removed)' (same literal text as REMOVED_SUFFIX above, but
+// that one tags a single manifest *line*, not a folder name — distinct
+// mechanisms that happen to share wording). Purely a disk-naming detail, not
 // part of the item's identity — see resolveItemFolderDir/renameItemFolder.
 const NEW_POSTFIX = ' (new)';
 const RENAMED_POSTFIX = ' (renamed)';
+const REMOVED_ITEM_POSTFIX = ' (removed)';
 
 // FIX670.1: the folder segment is the project's literal name (spec text:
 // tech/data/staging/{project-name}/{item-folder-ref}), sanitized for
@@ -71,6 +75,7 @@ export function stagingItemDir(root, projectName, itemName, postfix = '') {
 function parseItemFolderName(folderName) {
   if (folderName.endsWith(NEW_POSTFIX)) return { ref: folderName.slice(0, -NEW_POSTFIX.length), postfix: NEW_POSTFIX };
   if (folderName.endsWith(RENAMED_POSTFIX)) return { ref: folderName.slice(0, -RENAMED_POSTFIX.length), postfix: RENAMED_POSTFIX };
+  if (folderName.endsWith(REMOVED_ITEM_POSTFIX)) return { ref: folderName.slice(0, -REMOVED_ITEM_POSTFIX.length), postfix: REMOVED_ITEM_POSTFIX };
   return { ref: folderName, postfix: '' };
 }
 
@@ -103,6 +108,31 @@ export async function renameItemFolder(root, projectName, oldRef, newRef) {
   const newPostfix = postfix === NEW_POSTFIX ? NEW_POSTFIX : RENAMED_POSTFIX;
   const oldPath = `${projectDir}/${match.name}`;
   const newPath = stagingItemDir(root, projectName, newRef, newPostfix);
+  await fetch(`${AGENT_URL}/agent/dir/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPath, newPath }),
+  });
+  return newPath;
+}
+
+// FIX658.2.1.1: tags a public item's staging folder ' (removed)' — deletion
+// itself is deferred to publish (there's no delete-folder API for a real DB
+// item), this just marks the terminal state on disk, overriding whatever
+// ' (new)'/' (renamed)' postfix it carried before. mkdir's a fresh
+// ' (removed)' folder if nothing was staged yet, so the tag survives even
+// when the item had no prior local edits.
+export async function markItemFolderRemoved(root, projectName, ref) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const wanted = sanitizeSegment(ref);
+  const entries = await listEntries(projectDir);
+  const match = entries.find((e) => e.type === 'folder' && parseItemFolderName(e.name).ref === wanted);
+  const newPath = stagingItemDir(root, projectName, ref, REMOVED_ITEM_POSTFIX);
+  if (!match) {
+    await mkdir(newPath);
+    return newPath;
+  }
+  const oldPath = `${projectDir}/${match.name}`;
   await fetch(`${AGENT_URL}/agent/dir/rename`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

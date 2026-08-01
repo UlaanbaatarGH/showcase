@@ -289,6 +289,40 @@ export async function fetchStagedImageBlob(path) {
   return res.blob();
 }
 
+// FIX652.2.3: rebuilds a <file-flag-new-item> item's image list straight
+// from disk — the manifest (file order) plus each file's own bytes — so
+// <cmd-publish-changes> never depends on imagesByFolderRef having been
+// populated this session. A brand-new item has no public baseline to merge
+// against (unlike the reconciliation-on-load effect), so every manifest
+// entry is simply an Added row; a 'removed' entry shouldn't occur here
+// (removing a not-yet-published image deletes its row outright, per
+// FIX610.3.2) but is skipped defensively rather than trusted.
+export async function readStagedItemImages(itemDir) {
+  const manifest = await readManifestEntries(itemDir);
+  const rows = [];
+  for (const { filename, removed } of manifest) {
+    if (removed) continue;
+    const blob = await fetchStagedImageBlob(`${itemDir}/${filename}`);
+    if (!blob) continue;
+    rows.push({
+      id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      image_id: null,
+      url: URL.createObjectURL(blob),
+      filename,
+      caption: '',
+      section: '',
+      is_main: false,
+      sort_order: rows.length,
+      rotation: 0,
+      crop: null,
+      status: 'Added',
+      localFile: blob,
+      stagedPath: `${itemDir}/${filename}`,
+    });
+  }
+  return rows;
+}
+
 // FIX670.10: writes a local (not-yet-published) image's bytes to disk. The
 // source is an in-browser File/Blob (file picker, drag-drop, or a fetched
 // watched-folder blob) with no real filesystem path of its own, so — unlike

@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath, listStagingItems } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath, listStagingItems, readStagedItemImages } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -462,15 +462,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         continue;
       }
       if (item.flag === 'new') {
-        // FIX652.2.3 <file-flag-new-item>: a local-only item, never given a
-        // real DB row yet — everything staged for it is "new" by definition.
-        const localId = `local-item-${item.ref}`;
-        const folder = (data?.folders || []).find((f) => f.id === localId);
-        if (!folder) continue;
-        const imgs = imagesByFolderRef.current[localId] || [];
+        // FIX652.2.3 <file-flag-new-item>: never given a real DB row yet —
+        // rebuilt straight from disk (manifest + files), not
+        // imagesByFolderRef/data.folders, so it publishes correctly even
+        // after a reload wiped this session's in-memory state.
+        const imgs = await readStagedItemImages(item.dir);
         const scopeIdxs = imgs.map((_, idx) => idx);
         plan.push({
-          kind: 'new', ref: item.ref, dir: item.dir, localId, scopeIdxs,
+          kind: 'new', ref: item.ref, dir: item.dir, images: imgs, scopeIdxs,
           addCount: scopeIdxs.length, removeCount: 0, moveCount: 0, changeCount: 0,
         });
         continue;
@@ -569,19 +568,28 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         }
         if (p.kind === 'new') {
           // FIX652.2.3: add it on the website, then publish everything
-          // staged for it (all-new, so the whole image list is in scope).
+          // staged for it (all-new, so the whole image list is in scope) —
+          // p.images came straight from disk, not imagesByFolderRef.
           const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: p.ref });
           await publishAndSync(
-            newFolderId, p.ref, imagesByFolderRef.current[p.localId] || [], p.scopeIdxs,
+            newFolderId, p.ref, p.images, p.scopeIdxs,
             (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
           );
           doneUnits += Math.max(p.scopeIdxs.length, 1);
-          delete imagesByFolderRef.current[p.localId];
-          setData((prev) => (prev ? {
-            ...prev,
-            folders: prev.folders.map((f) => (f.id === p.localId ? { ...f, id: newFolderId } : f)),
-          } : prev));
-          setSelectedFolderIds((prev) => prev.map((id) => (id === p.localId ? newFolderId : id)));
+          // A local-item-{ref} entry only exists in data.folders when this
+          // session is the one that created it (createLocalItem) — after a
+          // reload there is none, so add a fresh row instead of swapping one.
+          const localId = `local-item-${p.ref}`;
+          delete imagesByFolderRef.current[localId];
+          setData((prev) => {
+            if (!prev) return prev;
+            const hasLocalEntry = prev.folders.some((f) => f.id === localId);
+            const folders = hasLocalEntry
+              ? prev.folders.map((f) => (f.id === localId ? { ...f, id: newFolderId } : f))
+              : [...prev.folders, { id: newFolderId, name: p.ref, is_main: false, sort_order: 0, zoom_factor: null }];
+            return { ...prev, folders };
+          });
+          setSelectedFolderIds((prev) => prev.map((id) => (id === localId ? newFolderId : id)));
           continue;
         }
         if (p.kind === 'renamed') {

@@ -365,6 +365,38 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         )?.idx ?? null)
       : null;
 
+  // Two rows resolving to the same *effective* (post-'# new'-rename) folder
+  // name would silently clobber each other in the backend's per-folder
+  // merge (whichever row's updates the server processes last wins, with no
+  // error surfaced). FIX370.2.1.4 only dedupes the raw '#' column, which
+  // doesn't catch this — check the resolved name too, before building any
+  // recap/plan off of it.
+  const effectiveNames = [];
+  {
+    const seenEffective = new Map();
+    dataRows.forEach((row, i) => {
+      const name = rowFolderNames[i];
+      if (!name) { effectiveNames.push(null); return; }
+      const isNew = !projectFolderNames.has(name);
+      const newRefRaw = folderNewColIdx >= 0 ? (row[folderNewColIdx] ?? '').trim() : '';
+      let effectiveName = name;
+      if (!isNew) {
+        if (newRefRaw && newRefRaw !== name) effectiveName = newRefRaw;
+      } else if (newRefRaw) {
+        effectiveName = newRefRaw;
+      }
+      effectiveNames.push(effectiveName);
+      if (seenEffective.has(effectiveName)) {
+        errors.push(
+          `FIX370.2.1.4: rows ${seenEffective.get(effectiveName) + 2} and ${i + 2} both resolve to item '#' "${effectiveName}" (via '# new').`,
+        );
+      } else {
+        seenEffective.set(effectiveName, i);
+      }
+    });
+  }
+  if (errors.length > 0) return { errors };
+
   const newFolderNames = [];
   const newFolderDisplays = [];
   const updatedFolderDisplays = [];
@@ -378,19 +410,14 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     const isNew = !projectFolderNames.has(name);
     const existingFolder = folderByName.get(name);
     const newRefRaw = folderNewColIdx >= 0 ? (row[folderNewColIdx] ?? '').trim() : '';
+    const effectiveName = effectiveNames[i];
     // FIX370.2.1.7: '# new' is a command to change the current '#' (folder
     // name), not an item property.
     // FIX370.2.1.7.1: no value, or equal to '#' -> nothing to do.
     // FIX370.2.1.7.2: '#' doesn't exist yet -> '# new' (if not blank) is
     // taken instead of '#' to create the new item.
-    let effectiveName = name;
-    if (!isNew) {
-      if (newRefRaw && newRefRaw !== name) {
-        effectiveName = newRefRaw;
-        renamedFolders.push({ id: existingFolder.id, from: name, to: newRefRaw });
-      }
-    } else if (newRefRaw) {
-      effectiveName = newRefRaw;
+    if (!isNew && newRefRaw && newRefRaw !== name) {
+      renamedFolders.push({ id: existingFolder.id, from: name, to: newRefRaw });
     }
     let display = effectiveName;
     if (mainColIdx != null) {
@@ -415,15 +442,28 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         }
       }
     }
-    if (isNew) {
-      newFolderNames.push(effectiveName);
-      newFolderDisplays.push(display);
-    } else if (!newlyDeleted) {
-      // Existing folder is reported as 'updated' only when at least one
-      // property value in the row actually differs from what the project
-      // currently stores. Values are normalized before comparison so
-      // invisible characters (NBSP, zero-width, CR, BOM) and Unicode form
-      // (NFC vs NFD) don't produce spurious diffs.
+    if (isNew || newlyDeleted) {
+      // New folder: nothing to compare against yet — write every imported
+      // column. Newly-deleted: preserve existing behavior (still writes
+      // its other columns alongside the deletion tag).
+      if (isNew) {
+        newFolderNames.push(effectiveName);
+        newFolderDisplays.push(display);
+      }
+      for (const col of importedPropHeaders) {
+        const finalLabel = headerToFinalLabel.get(col.label) || col.label;
+        const value = (row[col.idx] ?? '').trim();
+        updates.push({ folder_name: effectiveName, property_label: finalLabel, value });
+      }
+    } else {
+      // Existing folder: only push (and report as 'updated') the columns
+      // whose value actually differs from what the project currently
+      // stores — pushing every column unconditionally, as before, made the
+      // backend's applied-update count (and its writes) cover virtually
+      // every folder in the sheet regardless of whether anything changed.
+      // Values are normalized before comparison so invisible characters
+      // (NBSP, zero-width, CR, BOM) and Unicode form (NFC vs NFD) don't
+      // produce spurious diffs.
       const currentProps = existingFolder?.properties || {};
       let changed = false;
       for (const col of importedPropHeaders) {
@@ -434,15 +474,11 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
           : '';
         if (curValue !== newValue) {
           changed = true;
-          break;
+          const finalLabel = headerToFinalLabel.get(col.label) || col.label;
+          updates.push({ folder_name: effectiveName, property_label: finalLabel, value: (row[col.idx] ?? '').trim() });
         }
       }
       if (changed) updatedFolderDisplays.push(display);
-    }
-    for (const col of importedPropHeaders) {
-      const finalLabel = headerToFinalLabel.get(col.label) || col.label;
-      const value = (row[col.idx] ?? '').trim();
-      updates.push({ folder_name: effectiveName, property_label: finalLabel, value });
     }
   });
 

@@ -2102,15 +2102,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                         Images
                       </button>
                     </li>
-                    {/* FIX369.1 / FIX370.0 <cmd-import-google-sheet>:
+                    {/* FIX369.1 / FIX370.0 <cmd-import-properties-gsheet>:
                         'Image Properties' menu option — opens the Google
-                        Sheet import dialog (FIX370). Id spelled without the
-                        spec's stray blank ('cmd-import- google-sheet'). */}
+                        Sheet import dialog (FIX370). Id renamed from
+                        <cmd-import-google-sheet> (itself spelled without the
+                        old spec's stray blank, 'cmd-import- google-sheet'). */}
                     <li>
                       <button
                         type="button"
                         role="menuitem"
-                        data-yagu-id="cmd-import-google-sheet"
+                        data-yagu-id="cmd-import-properties-gsheet"
                         onClick={() => { setMenuOpen(false); setImportOpen(true); }}
                       >
                         Image Properties

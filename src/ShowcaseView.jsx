@@ -2069,14 +2069,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
             Website: admin- or project-manager-only (FIX503.5.1), FIX369.1's
-            three options — Images, Open properties gsheet, Image
-            Properties. Local app: always shown (login/admin-gating dropped
-            there), but per FIX656 this is now the 'Commands' menu instead —
-            <cmd-capture-cam-img>, <cmd-add-item>, <cmd-new-item-ref>,
-            <cmd-delete-item>, <cmd-publish-changes> — same shared container
-            Id as the website's Import menu (FIX369.0 doesn't define a
-            separate one for FIX656), Images/Open properties gsheet/Image
-            Properties stay website-only either way. */}
+            three options — Import images, Open properties gsheet, Import
+            properties gsheet. Local app: always shown (login/admin-gating
+            dropped there), but per FIX656 this is now the 'Commands' menu
+            instead — <cmd-capture-cam-img>, <cmd-add-item>,
+            <cmd-new-item-ref>, <cmd-delete-item>, <cmd-publish-changes> —
+            same shared container Id as the website's Import menu (FIX369.0
+            doesn't define a separate one for FIX656), the three Import
+            options stay website-only either way. */}
         {(isLocalApp || isAdminOrManager) && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
@@ -2123,11 +2123,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                         Open properties gsheet
                       </button>
                     </li>
-                    {/* FIX369.1 / FIX370.0 <cmd-import-properties-gsheet>:
-                        'Image Properties' menu option — opens the Google
-                        Sheet import dialog (FIX370). Id renamed from
-                        <cmd-import-google-sheet> (itself spelled without the
-                        old spec's stray blank, 'cmd-import- google-sheet'). */}
+                    {/* FIX370.3 <cmd-import-properties-gsheet>: label
+                        'Import properties gsheet' (was 'Image Properties')
+                        — opens the Google Sheet import dialog (FIX370). Id
+                        renamed from <cmd-import-google-sheet> (FIX370.0,
+                        itself spelled without the old spec's stray blank,
+                        'cmd-import- google-sheet'). FIX370.3.1's own 'menu
+                        option Image Properties' wording is now removed,
+                        superseded by FIX369.1's list + this label. */}
                     <li>
                       <button
                         type="button"
@@ -2135,7 +2138,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                         data-yagu-id="cmd-import-properties-gsheet"
                         onClick={() => { setMenuOpen(false); setImportOpen(true); }}
                       >
-                        Image Properties
+                        Import properties gsheet
                       </button>
                     </li>
                   </>

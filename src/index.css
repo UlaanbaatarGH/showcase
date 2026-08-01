@@ -729,7 +729,10 @@ body {
   color: var(--color-text-muted) !important;
   background: var(--color-bg) !important;
 }
-.sc-table tbody tr { cursor: pointer; }
+/* FIX510.2.1.11: Shift-click is also the native browser gesture for
+   dragging a text selection — without this, the range highlights blue via
+   the OS text-selection layer on top of the orange .selected background. */
+.sc-table tbody tr { cursor: pointer; user-select: none; }
 .sc-table tbody tr:nth-child(even) td { background: #cccccc; }
 .sc-table tbody tr:nth-child(odd)  td { background: #dedede; }
 /* FIX510.2.1.5 + FIX510.2.1.11: light orange tint on every selected

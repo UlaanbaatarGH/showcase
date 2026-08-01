@@ -2087,7 +2087,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                   </li>
                 )}
                 {/* FIX655 <cmd-add-item>: local-app only, works both online
-                    and off-line (FIX655.1 branches internally). */}
+                    and off-line (FIX655.1 branches internally). Label 'Add
+                    item' (was '+ Item'). */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -2096,7 +2097,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       data-yagu-id="cmd-add-item"
                       onClick={() => { setMenuOpen(false); handleAddItemClick(); }}
                     >
-                      + Item
+                      Add item
                     </button>
                   </li>
                 )}

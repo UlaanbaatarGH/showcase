@@ -2641,7 +2641,9 @@ body {
   border-color: var(--color-accent, #888);
 }
 
-/* FIX370 / FIX370.0 <cmd-import-google-sheet>: Google Sheet import dialog */
+/* FIX370 / FIX370.0 <cmd-import-properties-gsheet>: Google Sheet import
+   dialog. No URL-entry form anymore (FIX370.3.2.1/.1.1 removed) — it opens
+   straight into the fetching/errors/recap/done stages below. */
 .gsheet-dialog { width: min(560px, 100%); }
 .gsheet-stage {
   display: flex;
@@ -2650,22 +2652,6 @@ body {
   padding: 1.5rem;
 }
 .gsheet-stage h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
-.gsheet-hint { color: var(--color-text-muted); font-size: 0.85rem; margin: 0; }
-.gsheet-stage label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-}
-.gsheet-stage input[type="text"] {
-  padding: 0.5rem 0.75rem;
-  background: #fff;
-  color: #222;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  font: inherit;
-}
 .gsheet-actions {
   display: flex;
   justify-content: flex-end;

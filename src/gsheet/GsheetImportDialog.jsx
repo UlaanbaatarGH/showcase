@@ -1,28 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { planFromUrl } from './gsheetImport.js';
 import { importGsheet } from '../data/backend.js';
 
-const STORAGE_KEY = 'gsheet-import-last-url';
-
-// FIX370 / FIX370.0 <cmd-import-google-sheet>: Google Sheet import dialog.
-// Walks the user through URL → consistency checks → recap → apply → done.
+// FIX370 / FIX370.0 <cmd-import-properties-gsheet>: Google Sheet import
+// dialog. FIX370.3.2.1/.1.1/.2.2 (removed): no more URL-entry popup or
+// last-URL Local Storage memory — FIX370.3.2.2.1 now reads the URL straight
+// from <setup-properties-gsheet> (FIX508.2.5), so the dialog jumps directly
+// to consistency checks → recap → apply → done.
 export default function GsheetImportDialog({ project, onClose, onDone }) {
-  const [stage, setStage] = useState('url');
-  const [url, setUrl] = useState(() => localStorage.getItem(STORAGE_KEY) || '');
+  const hasUrl = !!(project.properties_gsheet_url || '').trim();
+  const [stage, setStage] = useState(hasUrl ? 'fetching' : 'errors');
   const [errors, setErrors] = useState([]);
-  const [fatal, setFatal] = useState(null);
+  const [fatal, setFatal] = useState(hasUrl ? null : 'No Properties Google sheet is set up for this project (Setup > General).');
   const [recap, setRecap] = useState(null);
   const [plan, setPlan] = useState(null);
   const [result, setResult] = useState(null);
 
-  async function handleFetch(e) {
-    e.preventDefault();
+  async function runImportCheck() {
     setStage('fetching');
     setErrors([]);
     setFatal(null);
     try {
-      const res = await planFromUrl(url, project);
-      localStorage.setItem(STORAGE_KEY, url);
+      const res = await planFromUrl(project.properties_gsheet_url, project);
       if (res.errors && res.errors.length > 0) {
         setErrors(res.errors);
         setStage('errors');
@@ -36,6 +35,13 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
       setStage('errors');
     }
   }
+
+  // FIX370.3.2.2.1: starts the read + consistency checks the moment the
+  // dialog opens, no separate confirmation step (FIX370.3.2.2 removed).
+  useEffect(() => {
+    if (hasUrl) runImportCheck();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleImport() {
     setStage('importing');
@@ -62,36 +68,6 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
       <div
         className="modal gsheet-dialog"
       >
-        {stage === 'url' && (
-          <form className="gsheet-stage" onSubmit={handleFetch}>
-            <h2>Import from Google Sheet</h2>
-            <p className="gsheet-hint">
-              The sheet must be shared as <b>Anyone with the link can view</b>.
-              If you want to import a specific tab, open it first and copy the
-              URL from the address bar.
-            </p>
-            <label>
-              Google Sheet URL
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                autoFocus
-                required
-                placeholder="https://docs.google.com/spreadsheets/d/…"
-              />
-            </label>
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary" disabled={!url.trim()}>
-                Next
-              </button>
-            </div>
-          </form>
-        )}
-
         {stage === 'fetching' && (
           <div className="gsheet-stage">
             <h2>Reading the sheet…</h2>
@@ -121,13 +97,15 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
               <button type="button" className="btn-cancel" onClick={onClose}>
                 Close
               </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => setStage('url')}
-              >
-                Back
-              </button>
+              {hasUrl && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={runImportCheck}
+                >
+                  Retry
+                </button>
+              )}
             </div>
           </div>
         )}

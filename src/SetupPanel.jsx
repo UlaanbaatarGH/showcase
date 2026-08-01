@@ -52,6 +52,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
     show_items_with_no_img: initialViewSetup?.show_items_with_no_img !== false,
     show_items_with_no_date: initialViewSetup?.show_items_with_no_date !== false,
     select_first_item: !!initialViewSetup?.select_first_item,
+    // FIX508.2.5 / <setup-properties-gsheet>: the gsheet URL
+    // <cmd-import-properties-gsheet> (FIX370) reads from and
+    // <cmd-open-properties-gsheet> (FIX375) opens.
+    properties_gsheet_url: initialViewSetup?.properties_gsheet_url || '',
   });
   // FIX508.2.4 <item-short-label>: stack of (property, max_length)
   // entries. The Contact panel item list (FIX420.2.2) and other
@@ -122,6 +126,8 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           // FIX508.2.3 / <setup-select-first-item>: when false, the
           // Showcase view opens with no item selected.
           select_first_item: generalSetup.select_first_item,
+          // FIX508.2.5 / <setup-properties-gsheet>.
+          properties_gsheet_url: generalSetup.properties_gsheet_url.trim(),
           // FIX508.2.4 / <item-short-label>: persist the stack only
           // with parts pointing at known properties (drop orphans
           // pointing at deleted properties). FIX508.2.4.2: optional
@@ -459,6 +465,24 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                   + Add part
                 </button>
               </div>
+              {/* FIX508.2.5 / <setup-properties-gsheet>: the gsheet URL
+                  <cmd-import-properties-gsheet> (FIX370.3.2.2.1) reads
+                  from and <cmd-open-properties-gsheet> (FIX375) opens. */}
+              <label className="setup-inline-row">
+                <span>Properties Google sheet</span>
+                <input
+                  type="text"
+                  data-yagu-id="setup-properties-gsheet"
+                  value={generalSetup.properties_gsheet_url}
+                  onChange={(e) =>
+                    setGeneralSetup({
+                      ...generalSetup,
+                      properties_gsheet_url: e.target.value,
+                    })
+                  }
+                  placeholder="https://docs.google.com/spreadsheets/d/…"
+                />
+              </label>
             </section>
           )}
           {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app

@@ -1094,8 +1094,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   };
   // FIX655.3: pushes a brand-new client-side-only item ({ id:
   // `local-item-{ref}` }, mirroring images' own `local-` id convention)
-  // into data.folders and selects it — used for the off-line branch, where
-  // there's no DB row to create.
+  // into data.folders and selects it. A just-added item earns its real DB
+  // id only at Publish (FIX652.2.3) — never at add time, on-line or off —
+  // so both handleAddItemClick branches below go through this.
   const createLocalItem = (itemName) => {
     const newFolder = {
       id: `local-item-${itemName}`, name: itemName,
@@ -1107,12 +1108,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   };
   // FIX655 <cmd-add-item> / FIX655.1: on-line assigns the next ref (existing
   // upper number + 1, same computation handleStartCameraCapture already
-  // uses) and creates a real DB item, same posture as FIX620.4.2.2's
-  // camera-capture item creation. Off-line has no "last ref" from the
-  // website, so the first click this session prompts for one instead
-  // (offlineNextRefRef/offlineAddItemPopup below), and later clicks +1 from
-  // there.
-  const handleAddItemClick = async () => {
+  // uses) straight away, since live data.folders is already at hand. Off-line
+  // has no "last ref" from the website, so the first click this session
+  // prompts for one instead (offlineNextRefRef/offlineAddItemPopup below),
+  // and later clicks +1 from there.
+  const handleAddItemClick = () => {
     if (!isLocalApp) return;
     if (isLocalModeActive()) {
       if (offlineNextRefRef.current == null) {
@@ -1128,16 +1128,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       .map((f) => Number(f.name))
       .filter((n) => Number.isFinite(n));
     const itemName = String((existingRefs.length ? Math.max(...existingRefs) : 0) + 1).padStart(3, '0');
-    try {
-      const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: itemName });
-      const newFolder = { id: newFolderId, name: itemName, is_main: false, sort_order: 0, zoom_factor: null };
-      setData((prev) => (prev ? { ...prev, folders: [...(prev.folders || []), newFolder] } : prev));
-      selectOnly(newFolderId);
-      await ensureStagingFolder(itemName);
-      reloadShowcase();
-    } catch (e) {
-      setError(e.message || String(e));
-    }
+    createLocalItem(itemName);
   };
   const confirmAddLocalItemRef = () => {
     const raw = (offlineAddItemPopup?.value || '').trim();
@@ -2011,8 +2002,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // FIX658.2.1.1: a public item staged for deletion reuses this same
       // not-yet-published red styling, plus a strike-through so 'crossed
       // out' reads as its own state rather than just another pending edit.
+      // FIX655.2 <file-flag-new-item>: a just-added item has no DB id at
+      // all yet (local-item-* — it only earns one at Publish, FIX652.2.3),
+      // so it's eligible for Publish the moment it exists, even with zero
+      // images — the per-image status check below can't see that, since
+      // there's nothing in imagesByFolderRef yet.
       const needsPublish = isLocalApp && (
         folder.pendingRemoval ||
+        typeof folder.id === 'string' ||
         isLocalModeActive() ||
         (imagesByFolderRef.current[folder.id] || []).some((im) => im.status)
       );

@@ -2102,7 +2102,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                   </li>
                 )}
                 {/* FIX657 <cmd-new-item-ref>: enabled only when 1+ items
-                    selected (FIX657.1). */}
+                    selected (FIX657.1). FIX657.2: prefill with the current
+                    ref of the first selected item. */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -2110,7 +2111,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       role="menuitem"
                       data-yagu-id="cmd-new-item-ref"
                       disabled={selectedFolderIds.length === 0}
-                      onClick={() => { setMenuOpen(false); setNewItemRefPopup({ value: '', error: null }); }}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        const firstRef = (data?.folders || []).find((f) => f.id === selectedFolderIds[0])?.name || '';
+                        setNewItemRefPopup({ value: firstRef, error: null });
+                      }}
                     >
                       New item ref
                     </button>

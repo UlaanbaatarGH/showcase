@@ -65,6 +65,7 @@ export const updateProject = impl.updateProject;
 export const signProjectCoverUpload = impl.signProjectCoverUpload;
 export const createFolder = impl.createFolder;
 export const renameFolder = impl.renameFolder;
+export const deleteFolder = impl.deleteFolder;
 export const setFolderProperty = impl.setFolderProperty;
 export const getEditLock = impl.getEditLock;
 export const acquireEditLock = impl.acquireEditLock;

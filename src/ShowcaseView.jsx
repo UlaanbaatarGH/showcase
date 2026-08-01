@@ -23,14 +23,14 @@ import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
   acquireEditLock, heartbeatEditLock, releaseEditLock, listProjects,
-  createFolder, isLocalModeActive, createLocalProject,
+  createFolder, renameFolder, deleteFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
 import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath, listStagingItems } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -433,27 +433,72 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     });
   };
 
-  // FIX652 [ex-FIX375] <cmd-publish-changes>: publish every item's staged changes,
-  // project-wide, local-app only — "exactly what <button-publish-img>
-  // does but cross-items" (publishItemImages is the same function the
-  // per-item Publish button calls). null | 'recap' | 'running'.
+  // FIX652 [ex-FIX375] <cmd-publish-changes>: publish every item's staged
+  // changes, project-wide, local-app only. FIX652.2: driven by the on-disk
+  // <folder-staged-item> flags, not just imagesByFolderRef — a plain
+  // (unflagged) item still just publishes its staged image changes
+  // (FIX652.2.4, "exactly what <button-publish-img> does but cross-items"),
+  // but <file-flag-removed-item>/<file-flag-chged-item-ref>/
+  // <file-flag-new-item> items now get their own real action too
+  // (FIX652.2.1/.2/.3). null | 'recap' | 'running'.
   const [crossPublishStage, setCrossPublishStage] = useState(null);
   const [crossPublishPlan, setCrossPublishPlan] = useState(null);
   const [crossPublishProgress, setCrossPublishProgress] = useState(null);
-  const handleOpenCrossPublish = () => {
+  const handleOpenCrossPublish = async () => {
     // FIX680: Publish needs the network (upload + DB write) that local mode
     // means we don't have, and FIX680.2 keeps local mode sticky for the
     // rest of the session — no point letting this run.
     if (isLocalModeActive()) return;
+    const root = await getStagingRoot();
+    const staged = await listStagingItems(root, data?.project?.name);
     const plan = [];
-    for (const [folderIdStr, imgs] of Object.entries(imagesByFolderRef.current)) {
+    for (const item of staged) {
+      if (item.flag === 'removed') {
+        // FIX652.2.1 <file-flag-removed-item>: matches a real item FIX658
+        // already flagged pendingRemoval.
+        const folder = (data?.folders || []).find((f) => f.name === item.ref && f.pendingRemoval);
+        if (!folder) continue;
+        plan.push({ kind: 'removed', ref: item.ref, dir: item.dir, folderId: folder.id });
+        continue;
+      }
+      if (item.flag === 'new') {
+        // FIX652.2.3 <file-flag-new-item>: a local-only item, never given a
+        // real DB row yet — everything staged for it is "new" by definition.
+        const localId = `local-item-${item.ref}`;
+        const folder = (data?.folders || []).find((f) => f.id === localId);
+        if (!folder) continue;
+        const imgs = imagesByFolderRef.current[localId] || [];
+        const scopeIdxs = imgs.map((_, idx) => idx);
+        plan.push({
+          kind: 'new', ref: item.ref, dir: item.dir, localId, scopeIdxs,
+          addCount: scopeIdxs.length, removeCount: 0, moveCount: 0, changeCount: 0,
+        });
+        continue;
+      }
+      if (item.flag === 'renamed') {
+        // FIX652.2.2 <file-flag-chged-item-ref>: a real item mid-rename
+        // (FIX657) — data.folders already carries the new ref optimistically.
+        const folder = (data?.folders || []).find((f) => f.name === item.ref && typeof f.id !== 'string');
+        if (!folder) continue;
+        const imgs = imagesByFolderRef.current[folder.id] || [];
+        const scopeIdxs = imgs.map((_, idx) => idx).filter((idx) => imgs[idx].status);
+        plan.push({
+          kind: 'renamed', ref: item.ref, oldRef: item.oldRef, dir: item.dir, folderId: folder.id, scopeIdxs,
+          addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
+          removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
+          moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
+          changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
+        });
+        continue;
+      }
+      // FIX652.2.4: no flag — a real item with plain staged image changes.
+      const folder = (data?.folders || []).find((f) => f.name === item.ref && typeof f.id !== 'string');
+      if (!folder) continue;
+      const imgs = imagesByFolderRef.current[folder.id] || [];
       const scopeIdxs = imgs.map((_, idx) => idx).filter((idx) => imgs[idx].status);
-      if (scopeIdxs.length === 0) continue;
-      const folder = (data?.folders || []).find((f) => String(f.id) === folderIdStr);
+      if (scopeIdxs.length === 0) continue; // nothing actually pending
       plan.push({
-        folderId: Number(folderIdStr),
-        name: folder?.name ?? folderIdStr,
-        scopeIdxs,
+        kind: 'plain', ref: item.ref, dir: item.dir, folderId: folder.id, scopeIdxs,
         addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
         removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
         moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
@@ -461,53 +506,106 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
       });
     }
-    // Show the recap regardless — an empty plan just shows all-zero counts
+    // Show the recap regardless — an empty plan just shows an all-zero line
     // with Confirm disabled, rather than a blocking error.
     setCrossPublishPlan(plan);
     setCrossPublishStage('recap');
   };
+  // Shared by the 'new'/'renamed'/'plain' branches below: publishes the
+  // in-scope images for a (now-real) folder id, updates the in-memory
+  // caches, and resyncs/removes the on-disk staging folder afterward
+  // (FIX670.30) — the same cleanup every publish path already relies on.
+  const publishAndSync = async (folderId, itemName, images, scopeIdxs, onProgress) => {
+    const finalImages = await publishItemImages({
+      projectId: data.project.id,
+      itemName,
+      folderId,
+      images,
+      scopeIdxs,
+      onProgress,
+    });
+    imagesByFolderRef.current[folderId] = finalImages;
+    if (folderId === selectedFolderId) setImages(finalImages);
+    try {
+      const root = await getStagingRoot();
+      await syncStagingFolder({
+        root,
+        projectName: data.project?.name,
+        itemName,
+        images: finalImages,
+        setImages: (updater) => {
+          const prev = imagesByFolderRef.current[folderId] || [];
+          const next = typeof updater === 'function' ? updater(prev) : updater;
+          imagesByFolderRef.current[folderId] = next;
+          if (folderId === selectedFolderId) setImages(next);
+        },
+      });
+    } catch {
+      // Best-effort — matches FIX670's posture everywhere else.
+    }
+    return finalImages;
+  };
   const confirmCrossPublish = async () => {
     if (!crossPublishPlan?.length) return;
     setCrossPublishStage('running');
-    const totalUnits = crossPublishPlan.reduce((s, p) => s + p.scopeIdxs.length, 0);
+    // Every plan entry counts for at least 1 progress unit, even a pure
+    // delete/rename with no image changes of its own.
+    const totalUnits = crossPublishPlan.reduce((s, p) => s + Math.max(p.scopeIdxs?.length || 0, 1), 0);
     let doneUnits = 0;
     setCrossPublishProgress({ done: 0, total: totalUnits });
     setError(null);
     try {
       for (const p of crossPublishPlan) {
-        const folder = (data?.folders || []).find((f) => f.id === p.folderId);
-        const finalImages = await publishItemImages({
-          projectId: data.project.id,
-          itemName: folder?.name,
-          folderId: p.folderId,
-          images: imagesByFolderRef.current[p.folderId],
-          scopeIdxs: p.scopeIdxs,
-          onProgress: (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
-        });
-        doneUnits += p.scopeIdxs.length;
-        imagesByFolderRef.current[p.folderId] = finalImages;
-        if (p.folderId === selectedFolderId) setImages(finalImages);
-        // FIX670.30: resync the item's staging folder against what's left
-        // pending after this publish — removes the folder entirely once
-        // nothing's left (the common case), or prunes/rewrites list.txt for
-        // whatever a partial-scope publish left staged.
-        try {
-          const root = await getStagingRoot();
-          await syncStagingFolder({
-            root,
-            projectName: data.project?.name,
-            itemName: folder?.name,
-            images: finalImages,
-            setImages: (updater) => {
-              const prev = imagesByFolderRef.current[p.folderId] || [];
-              const next = typeof updater === 'function' ? updater(prev) : updater;
-              imagesByFolderRef.current[p.folderId] = next;
-              if (p.folderId === selectedFolderId) setImages(next);
-            },
-          });
-        } catch {
-          // Best-effort — matches FIX670's posture everywhere else.
+        if (p.kind === 'removed') {
+          // FIX652.2.1: delete on both the public site and locally.
+          await deleteFolder(p.folderId);
+          await rmPath(p.dir).catch(() => {});
+          setData((prev) => (prev ? { ...prev, folders: prev.folders.filter((f) => f.id !== p.folderId) } : prev));
+          delete imagesByFolderRef.current[p.folderId];
+          setSelectedFolderIds((prev) => prev.filter((id) => id !== p.folderId));
+          doneUnits += 1;
+          setCrossPublishProgress({ done: doneUnits, total: totalUnits });
+          continue;
         }
+        if (p.kind === 'new') {
+          // FIX652.2.3: add it on the website, then publish everything
+          // staged for it (all-new, so the whole image list is in scope).
+          const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: p.ref });
+          await publishAndSync(
+            newFolderId, p.ref, imagesByFolderRef.current[p.localId] || [], p.scopeIdxs,
+            (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+          );
+          doneUnits += Math.max(p.scopeIdxs.length, 1);
+          delete imagesByFolderRef.current[p.localId];
+          setData((prev) => (prev ? {
+            ...prev,
+            folders: prev.folders.map((f) => (f.id === p.localId ? { ...f, id: newFolderId } : f)),
+          } : prev));
+          setSelectedFolderIds((prev) => prev.map((id) => (id === p.localId ? newFolderId : id)));
+          continue;
+        }
+        if (p.kind === 'renamed') {
+          // FIX652.2.2: apply the ref swap on the public site, then publish
+          // whatever image changes were also staged for it.
+          await renameFolder(p.folderId, p.ref);
+          if (p.scopeIdxs.length > 0) {
+            await publishAndSync(
+              p.folderId, p.ref, imagesByFolderRef.current[p.folderId] || [], p.scopeIdxs,
+              (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+            );
+          } else {
+            await rmPath(p.dir).catch(() => {});
+          }
+          doneUnits += Math.max(p.scopeIdxs.length, 1);
+          setCrossPublishProgress({ done: doneUnits, total: totalUnits });
+          continue;
+        }
+        // FIX652.2.4: plain — publish the staged image changes.
+        await publishAndSync(
+          p.folderId, p.ref, imagesByFolderRef.current[p.folderId], p.scopeIdxs,
+          (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+        );
+        doneUnits += Math.max(p.scopeIdxs.length, 1);
       }
       setCrossPublishStage(null);
       setCrossPublishPlan(null);
@@ -1002,9 +1100,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   };
 
   // FIX657 <cmd-new-item-ref>: first selected item gets the input ref, next
-  // ones +1 (FIX657.3.1). Only renames local-only items — real DB items are
-  // left untouched (renameFolder isn't implemented server-side, so there's
-  // no way to keep a real folder row's name in sync).
+  // ones +1 (FIX657.3.1). Renames both local-only and real DB items — a
+  // real item's id stays the same (only its displayed name changes); the
+  // DB row itself is updated later, at Publish (FIX652.2.2), once the
+  // on-disk <file-flag-chged-item-ref> tag confirms the rename stuck.
   const confirmNewItemRef = async () => {
     const raw = (newItemRefPopup?.value || '').trim();
     if (!/^\d+$/.test(raw)) {
@@ -1027,8 +1126,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     setNewItemRefPopup(null);
     const root = await getStagingRoot();
     for (const r of renames) {
-      if (typeof r.id !== 'string') continue; // FIX657: real DB items untouched
       await renameItemFolder(root, data?.project?.name, r.oldName, r.newName).catch(() => {});
+      if (typeof r.id !== 'string') {
+        // Real DB item: id is stable, only the displayed ref changes now.
+        setData((prev) => (prev ? {
+          ...prev,
+          folders: prev.folders.map((f) => (f.id === r.id ? { ...f, name: r.newName } : f)),
+        } : prev));
+        continue;
+      }
       const newId = `local-item-${r.newName}`;
       setData((prev) => (prev ? {
         ...prev,
@@ -3242,10 +3348,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX652-ish [ex-FIX375.1-ish]: <cmd-publish-changes> recap — same pattern as
-          <button-publish-img>'s popup, one Ref line per item with
-          pending changes. Nothing pending shows a single all-zero line
-          with Confirm disabled, rather than an error. */}
+      {/* FIX652 [ex-FIX375.1-ish]: <cmd-publish-changes> recap — same pattern
+          as <button-publish-img>'s popup, one Ref line per item with
+          pending changes, plus FIX652.2's own item-level actions (removed/
+          renamed/new) called out by name rather than an image-change count.
+          Nothing pending shows a single all-zero line with Confirm
+          disabled, rather than an error. */}
       {crossPublishStage === 'recap' && crossPublishPlan && (
         <div className="setup-overlay" onMouseDown={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
@@ -3253,8 +3361,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               <p>0 new, 0 remove, 0 move, 0 change</p>
             ) : (
               crossPublishPlan.map((p) => (
-                <p key={p.folderId}>
-                  Ref {p.name}: {p.addCount} new, {p.removeCount} remove, {p.moveCount} move, {p.changeCount} change
+                <p key={p.ref}>
+                  {p.kind === 'removed' && `Ref ${p.ref}: item removed`}
+                  {p.kind === 'new' && `Ref ${p.ref}: new item, ${p.addCount} new`}
+                  {p.kind === 'renamed' && (
+                    `Ref ${p.ref}: renamed from ${p.oldRef}, ${p.addCount} new, ${p.removeCount} remove, `
+                    + `${p.moveCount} move, ${p.changeCount} change`
+                  )}
+                  {p.kind === 'plain' && (
+                    `Ref ${p.ref}: ${p.addCount} new, ${p.removeCount} remove, ${p.moveCount} move, ${p.changeCount} change`
+                  )}
                 </p>
               ))
             )}

@@ -254,6 +254,33 @@ export async function listStagingItemNames(root, projectName) {
   return names;
 }
 
+// FIX652.2: enumerates every one of a project's staged item folders on
+// disk, together with the flag (if any) its name carries —
+// <cmd-publish-changes> drives its per-item action (FIX652.2.1-.2.4) off
+// this, unlike listStagingItemNames above which only needs the bare ref.
+// `oldRef` is only set for an ' (ex-{oldRef})' (<file-flag-chged-item-ref>)
+// folder, extracted straight from the postfix text.
+export async function listStagingItems(root, projectName) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const entries = await listEntries(projectDir);
+  return entries
+    .filter((e) => e.type === 'folder')
+    .map((e) => {
+      const { ref, postfix } = parseItemFolderName(e.name);
+      const exMatch = postfix.match(/^ \(ex-(.+)\)$/);
+      let flag = 'plain';
+      if (postfix === NEW_POSTFIX) flag = 'new';
+      else if (postfix === REMOVED_ITEM_POSTFIX) flag = 'removed';
+      else if (exMatch) flag = 'renamed';
+      return {
+        dir: `${projectDir}/${e.name}`,
+        ref,
+        flag,
+        oldRef: exMatch ? exMatch[1] : null,
+      };
+    });
+}
+
 // FIX680.1.1.2: fetches a staged image's bytes as a Blob — same Agent route
 // (`/agent/dir/image`) the reconciliation-on-load effect already uses.
 export async function fetchStagedImageBlob(path) {

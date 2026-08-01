@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, resolveItemFolderDir, markItemFolderRemoved, rmPath, listStagingItems, readStagedItemImages } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderRemoved, rmPath, listStagingItems, readStagedItemImages } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -422,22 +422,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.project?.id, isLocalApp]);
 
-  // FIX658.2.1.1: pendingRemoval is a client-only annotation on top of a
-  // real, server-sourced folder — it never persisted anywhere, so a public
-  // item flagged (removed) via <cmd-delete-item> in an earlier session
-  // looked completely normal again on the next load, even though its
-  // staging folder was still tagged on disk. Restores the flag (and the
-  // crossed-out/red display it drives, renderBodyCell below) from
-  // <file-flag-removed-item> the moment the project's staged items are
-  // known, same disk-is-truth posture as FIX652.2.3's readStagedItemImages.
+  // FIX658.2.1.1 / FIX657.4: pendingRemoval and originalRef are client-only
+  // annotations on top of a real, server-sourced folder — neither ever
+  // persisted anywhere, so a public item flagged (removed) or mid-rename
+  // via <cmd-delete-item>/<cmd-new-item-ref> in an earlier session looked
+  // completely normal again on the next load, even though its staging
+  // folder was still tagged on disk. Restores both (and the crossed-out/
+  // red/'!' display they drive, renderBodyCell below) from
+  // <file-flag-removed-item>/<file-flag-chged-item-ref> the moment the
+  // project's staged items are known, same disk-is-truth posture as
+  // FIX652.2.3's readStagedItemImages.
   //
   // Depends on data?.folders (not just the project id) so it self-heals any
-  // time folders gets replaced wholesale after the flag was already applied
-  // — e.g. StrictMode's dev-only double-invoke of the initial getShowcase
-  // effect, or any later reloadShowcase() call — instead of only ever
-  // running once per project load and losing the race. Idempotent (skips
-  // the setData call once every already-removed folder is already flagged),
-  // so this doesn't loop.
+  // time folders gets replaced wholesale after the flags were already
+  // applied — e.g. StrictMode's dev-only double-invoke of the initial
+  // getShowcase effect, or any later reloadShowcase() call — instead of
+  // only ever running once per project load and losing the race. Idempotent
+  // (skips the setData call once every folder already carries its flag), so
+  // this doesn't loop.
   useEffect(() => {
     const pid = data?.project?.id;
     const projectName = data?.project?.name;
@@ -449,14 +451,23 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         const root = await getStagingRoot();
         const staged = await listStagingItems(root, projectName);
         const removedRefs = new Set(staged.filter((i) => i.flag === 'removed').map((i) => i.ref));
-        if (removedRefs.size === 0 || cancelled) return;
+        const renamedRefs = new Map(
+          staged.filter((i) => i.flag === 'renamed').map((i) => [i.ref, i.oldRef]),
+        );
+        if (removedRefs.size === 0 && renamedRefs.size === 0) return;
+        if (cancelled) return;
         setData((prev) => {
           if (!prev) return prev;
           let changed = false;
           const nextFolders = prev.folders.map((f) => {
-            if (removedRefs.has(f.name) && typeof f.id !== 'string' && !f.pendingRemoval) {
+            if (typeof f.id === 'string') return f;
+            if (removedRefs.has(f.name) && !f.pendingRemoval) {
               changed = true;
               return { ...f, pendingRemoval: true };
+            }
+            if (renamedRefs.has(f.name) && f.originalRef == null) {
+              changed = true;
+              return { ...f, originalRef: renamedRefs.get(f.name) };
             }
             return f;
           });
@@ -653,6 +664,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           } else {
             await rmPath(p.dir).catch(() => {});
           }
+          // FIX657.4/.5: the rename is live now — clear the pending flag
+          // (and its '!' display) so it doesn't linger on a published item.
+          setData((prev) => (prev ? {
+            ...prev,
+            folders: prev.folders.map((f) => (f.id === p.folderId ? { ...f, originalRef: null } : f)),
+          } : prev));
           doneUnits += Math.max(p.scopeIdxs.length, 1);
           setCrossPublishProgress({ done: doneUnits, total: totalUnits });
           continue;
@@ -1160,11 +1177,19 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     }
     const start = Number(raw);
     const ids = selectedFolderIds;
-    const renames = ids.map((id, i) => ({
-      id,
-      oldName: (data?.folders || []).find((f) => f.id === id)?.name,
-      newName: String(start + i).padStart(3, '0'),
-    }));
+    const renames = ids.map((id, i) => {
+      const folder = (data?.folders || []).find((f) => f.id === id);
+      return {
+        id,
+        oldName: folder?.name,
+        // FIX657.5: the ref this item had before *any* rename this
+        // session — set once on the first rename, carried through further
+        // ones (mirrors <file-flag-chged-item-ref>'s own ' (ex-...)' tag,
+        // which likewise never overwrites itself on a second rename).
+        originalRef: folder?.originalRef ?? folder?.name,
+        newName: String(start + i).padStart(3, '0'),
+      };
+    });
     const untouchedNames = new Set((data?.folders || []).filter((f) => !ids.includes(f.id)).map((f) => f.name));
     const collision = renames.find((r) => untouchedNames.has(r.newName));
     if (collision) {
@@ -1174,15 +1199,25 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     setNewItemRefPopup(null);
     const root = await getStagingRoot();
     for (const r of renames) {
-      await renameItemFolder(root, data?.project?.name, r.oldName, r.newName).catch(() => {});
       if (typeof r.id !== 'string') {
         // Real DB item: id is stable, only the displayed ref changes now.
+        // FIX657.5: renaming back to the original ref clears the pending
+        // rename entirely instead of re-tagging it with itself.
+        const reverted = r.newName === r.originalRef;
+        if (reverted) {
+          await clearRenameTag(root, data?.project?.name, r.oldName).catch(() => {});
+        } else {
+          await renameItemFolder(root, data?.project?.name, r.oldName, r.newName).catch(() => {});
+        }
         setData((prev) => (prev ? {
           ...prev,
-          folders: prev.folders.map((f) => (f.id === r.id ? { ...f, name: r.newName } : f)),
+          folders: prev.folders.map((f) => (f.id === r.id
+            ? { ...f, name: r.newName, originalRef: reverted ? null : r.originalRef }
+            : f)),
         } : prev));
         continue;
       }
+      await renameItemFolder(root, data?.project?.name, r.oldName, r.newName).catch(() => {});
       const newId = `local-item-${r.newName}`;
       setData((prev) => (prev ? {
         ...prev,
@@ -2007,12 +2042,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // so it's eligible for Publish the moment it exists, even with zero
       // images — the per-image status check below can't see that, since
       // there's nothing in imagesByFolderRef yet.
+      // FIX657.4 <file-flag-chged-item-ref>: a real item mid-rename
+      // (originalRef set by confirmNewItemRef / restored on load above) is
+      // just as not-yet-published as a new or removed item.
       const needsPublish = isLocalApp && (
         folder.pendingRemoval ||
         typeof folder.id === 'string' ||
+        folder.originalRef != null ||
         isLocalModeActive() ||
         (imagesByFolderRef.current[folder.id] || []).some((im) => im.status)
       );
+      // FIX655.4: added items show '{ref}+'. FIX657.4: renamed items show
+      // '{ref}!'. Suffix, not a separate marker — the Ref column is too
+      // narrow for extra words (FIX630.1's same reasoning for using red
+      // text over a suffix there — this is the one place a single
+      // character still fits).
+      let suffix = '';
+      if (typeof folder.id === 'string') suffix = '+';
+      else if (folder.originalRef != null) suffix = '!';
       return (
         <td key={key} className="sc-td-name" style={cellStyle}>
           <span style={needsPublish ? {
@@ -2020,7 +2067,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             textDecoration: folder.pendingRemoval ? 'line-through' : undefined,
           } : undefined}
           >
-            {folder.name}
+            {folder.name}{suffix}
           </span>
         </td>
       );

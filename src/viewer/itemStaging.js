@@ -122,6 +122,36 @@ export async function renameItemFolder(root, projectName, oldRef, newRef) {
   return newPath;
 }
 
+// FIX657.5: reverts a real item's staged rename — used when the admin sets
+// the ref back to what it was before any <cmd-new-item-ref> use this
+// session, clearing the <file-flag-chged-item-ref> tag entirely (bare
+// name) rather than re-tagging it with itself. No-op if the folder isn't
+// currently ' (ex-...)'-tagged. Removes the folder outright if nothing
+// else is staged for it (FIX670.20) rather than leaving an empty bare
+// folder behind.
+export async function clearRenameTag(root, projectName, currentRef) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const wanted = sanitizeSegment(currentRef);
+  const entries = await listEntries(projectDir);
+  const match = entries.find((e) => e.type === 'folder' && parseItemFolderName(e.name).ref === wanted);
+  if (!match) return null;
+  const { postfix } = parseItemFolderName(match.name);
+  const oldPath = `${projectDir}/${match.name}`;
+  if (!EX_POSTFIX_RE.test(postfix)) return oldPath; // nothing to clear
+  const manifest = await readManifestEntries(oldPath);
+  if (manifest.length === 0) {
+    await rmPath(oldPath);
+    return null;
+  }
+  const newPath = stagingItemDir(root, projectName, currentRef, '');
+  await fetch(`${AGENT_URL}/agent/dir/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPath, newPath }),
+  });
+  return newPath;
+}
+
 // FIX658.2.1.1: tags a public item's staging folder ' (removed)' — deletion
 // itself is deferred to publish (there's no delete-folder API for a real DB
 // item), this just marks the terminal state on disk, overriding whatever

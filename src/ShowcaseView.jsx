@@ -2565,6 +2565,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 projectId={data.project?.id}
                 projectName={data.project?.name}
                 itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
+                itemRefs={(data?.folders || []).map((f) => f.name)}
                 hideSections={hideSections}
                 publishDisabled={isLocalModeActive()}
                 onItemBytesChange={(bytes) =>

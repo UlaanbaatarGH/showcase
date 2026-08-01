@@ -59,6 +59,7 @@ export default function ShowcaseImgListEditor({
   projectId,  // FIX610.3.1 / .3.5: needed for sign-upload / confirm
   projectName, // FIX670.1: staging folder segment (tech/data/staging/{projectName}/{itemName})
   itemName,   // FIX610.3.1 / .3.5: item folder name (item_name on the API)
+  itemRefs,   // FIX610.3.5.4: every item Ref in the project, for the duplicate check
   hideSections, // FIX654.2 <cmd-hide-sections>: hide Section/Caption columns
   publishDisabled, // FIX680: true while in local/offline mode — Publish needs the network
 }) {
@@ -114,6 +115,9 @@ export default function ShowcaseImgListEditor({
   // FIX610.3.5.1: recap popup shown on <button-publish-img> click, before
   // anything is actually sent — { addCount, removeCount } or null when closed.
   const [publishRecap, setPublishRecap] = useState(null);
+  // FIX610.3.5.4: 'Publication error' popup — holds the duplicate Ref, or
+  // null when closed. Blocks the recap popup above from opening at all.
+  const [publishDupError, setPublishDupError] = useState(null);
   // FIX610.3.5.2: { done, total } counting in-scope deletes/uploads only —
   // not the incidental sort_order renumbering of out-of-scope public rows.
   const [publishProgress, setPublishProgress] = useState(null);
@@ -693,10 +697,27 @@ export default function ShowcaseImgListEditor({
   const publishScopeIdxs = () =>
     images.map((_, idx) => idx).filter((idx) => selIdxs.has(idx) && images[idx].status !== '');
 
+  // FIX610.3.5.4: two items sharing the same Ref would publish/import
+  // ambiguously (whichever one a lookup-by-name happens to match) — block
+  // Publish outright and point out the duplicate instead of proceeding.
+  const findDuplicateRef = () => {
+    const seen = new Set();
+    for (const ref of itemRefs || []) {
+      if (seen.has(ref)) return ref;
+      seen.add(ref);
+    }
+    return null;
+  };
+
   // FIX610.3.5.1: <button-publish-img> click opens the recap popup — nothing
   // is sent yet. Cancel just closes it; Confirm runs confirmPublish below.
   const handlePublishClick = () => {
     if (!isLocalApp || publishing || publishDisabled) return;
+    const dupRef = findDuplicateRef();
+    if (dupRef != null) {
+      setPublishDupError(dupRef);
+      return;
+    }
     const scope = publishScopeIdxs();
     if (scope.length === 0) return;
     setPublishRecap({
@@ -1604,6 +1625,24 @@ export default function ShowcaseImgListEditor({
         <div className="setup-overlay">
           <div className="sc-shrink-box">
             <p>Shrinking… {shrinkProgress?.done ?? 0}/{shrinkProgress?.total ?? 0}</p>
+          </div>
+        </div>
+      )}
+
+      {/* FIX610.3.5.4: blocks publication outright when two items share a
+          Ref — shown instead of (never alongside) the recap popup below. */}
+      {publishDupError != null && (
+        <div className="setup-overlay" onMouseDown={() => setPublishDupError(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Publication error</strong></p>
+            <p>
+              Resolve duplicates before triggering publication.
+              <br />
+              Two items have the same Ref {publishDupError}.
+            </p>
+            <div className="sc-shrink-actions">
+              <button type="button" className="primary" onClick={() => setPublishDupError(null)}>OK</button>
+            </div>
           </div>
         </div>
       )}

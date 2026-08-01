@@ -430,6 +430,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // crossed-out/red display it drives, renderBodyCell below) from
   // <file-flag-removed-item> the moment the project's staged items are
   // known, same disk-is-truth posture as FIX652.2.3's readStagedItemImages.
+  //
+  // Depends on data?.folders (not just the project id) so it self-heals any
+  // time folders gets replaced wholesale after the flag was already applied
+  // — e.g. StrictMode's dev-only double-invoke of the initial getShowcase
+  // effect, or any later reloadShowcase() call — instead of only ever
+  // running once per project load and losing the race. Idempotent (skips
+  // the setData call once every already-removed folder is already flagged),
+  // so this doesn't loop.
   useEffect(() => {
     const pid = data?.project?.id;
     const projectName = data?.project?.name;
@@ -455,13 +463,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           return changed ? { ...prev, folders: nextFolders } : prev;
         });
       } catch {
-        // Agent unreachable — retried on next load; the staging folder's
-        // own tag is untouched, so nothing is lost.
+        // Agent unreachable — retried next time folders changes; the
+        // staging folder's own tag is untouched, so nothing is lost.
       }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.project?.id, isLocalApp]);
+  }, [data?.project?.id, isLocalApp, data?.folders]);
 
   // Wraps setImages so every update to the current folder's images is also
   // mirrored into the cross-item cache, without ShowcaseImgListEditor (or

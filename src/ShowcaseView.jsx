@@ -2025,10 +2025,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             two options — Images, Image Properties. Local app: always shown
             (login/admin-gating dropped there), but per FIX656 this is now
             the 'Commands' menu instead — <cmd-capture-cam-img>,
-            <cmd-add-item>, <cmd-publish-changes> — same shared container Id
-            as the website's Import menu (FIX369.0 doesn't define a
-            separate one for FIX656), Images/Image Properties stay
-            website-only either way. */}
+            <cmd-add-item>, <cmd-new-item-ref>, <cmd-delete-item>,
+            <cmd-publish-changes> — same shared container Id as the
+            website's Import menu (FIX369.0 doesn't define a separate one
+            for FIX656), Images/Image Properties stay website-only
+            either way. */}
         {(isLocalApp || isAdminOrManager) && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button

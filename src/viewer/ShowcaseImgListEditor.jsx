@@ -583,9 +583,9 @@ export default function ShowcaseImgListEditor({
     const updated = rotated.map((im, k) => ({ ...im, sort_order: orders[k] }));
     const newImages = [...images];
     for (let k = 0; k < updated.length; k++) newImages[rangeStart + k] = updated[k];
-    // FIX610.3.4 <cmd-local-move-img-up> (down: same flavour, opposite
-    // delta — see caller): recheck EVERY row (not just the ones this
-    // rotation touched) against its last-published baseline (origSortOrder) —
+    // FIX610.3.4 <cmd-local-move-img-up> / FIX610.3.9 <cmd-local-move-img-down>
+    // (same flavour, opposite delta): recheck EVERY row (not just the ones
+    // this rotation touched) against its last-published baseline (origSortOrder) —
     // a move that cancels out an earlier one (up then back down) must
     // clear 'Moved' again, not leave it stuck. A row already 'Removed'
     // keeps that status; an 'Added' row has no public rank so it's
@@ -606,8 +606,9 @@ export default function ShowcaseImgListEditor({
     setSelIdxs(new Set(Array.from({ length: newHi - newLo + 1 }, (_, k) => newLo + k)));
     setSelectedIdx(selectedIdx + delta);
     setAnchor(anchor + delta);
-    // FIX610.3.4: local-app reorders are staged (see above) — the actual
-    // sort_order PATCH happens at Publish time for in-scope 'Moved' rows.
+    // FIX610.3.4 / FIX610.3.9: local-app reorders are staged (see above) —
+    // the actual sort_order PATCH happens at Publish time for in-scope
+    // 'Moved' rows.
     // Outside the local app, keep the existing immediate-save behavior.
     if (isLocalApp) {
       syncAfterEdit(restaged); // FIX670.14: list.txt mirrors the new order

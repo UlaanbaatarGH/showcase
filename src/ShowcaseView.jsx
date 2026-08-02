@@ -625,7 +625,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
         removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
         moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
-        // FIX610.3.7: same cumulate rule as the per-item recap.
+        // FIX610.3.12 [ex-610.3.7]: same cumulate rule as the per-item recap.
         changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
       });
     }

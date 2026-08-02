@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas, { bakeRotatedCrop } from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
-  setEditLockPendingChanges,
+  setEditLockPendingChanges, getFolderImages,
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 import { publishItemImages, isLocalRow } from './publishItemImages.js';
@@ -594,8 +594,9 @@ export default function ShowcaseImgListEditor({
       ? newImages.map((im) => {
           if (isLocalRow(im) || im.status === 'Removed') return im;
           const baseline = im.origSortOrder ?? im.sort_order;
-          // FIX610.3.7: a move that cancels out shouldn't drop a still-pending
-          // field edit — fall back to 'Changed' rather than '' when so.
+          // FIX610.3.12 [ex-610.3.7]: a move that cancels out shouldn't drop
+          // a still-pending field edit — fall back to 'Changed' rather than
+          // '' when so.
           const atBaseline = im.sort_order === baseline;
           return { ...im, status: atBaseline ? (im.fieldsChanged ? 'Changed' : '') : 'Moved' };
         })
@@ -642,9 +643,10 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX610.3.6 <cmd-local-chg-img-attr>: a row not already Added/Removed/Moved
-  // gets tagged 'Changed' when Section, Caption or Main is edited.
-  // FIX610.3.7: a row already
+  // FIX610.3.6 <cmd-local-chg-img-and-attr> [ex-<cmd-local-chg-img-attr>]:
+  // a row not already Added/Removed/Moved gets tagged 'Changed' when
+  // Section, Caption, Main, or the image itself (crop/rotate) is edited.
+  // FIX610.3.12 [ex-610.3.7]: a row already
   // Added/Removed/Moved instead gets `fieldsChanged: true` so the status
   // badge can cumulate ("Moved, Changed") instead of the field edit being
   // silently dropped from the display — the actual field values were
@@ -753,6 +755,46 @@ export default function ShowcaseImgListEditor({
     syncAfterEdit(next); // FIX670.13: strip the ' (removed)' marker in list.txt
   };
 
+  // FIX610.3.7 <cmd-local-reset-img-and-attr-chg>: discards a public image's
+  // locally-staged crop/rotate + caption/section/main, restoring the
+  // on-line values. Only ever applies to a public row (an Added row is
+  // never 'Chged' — stageChanged keeps it 'Added' with fieldsChanged
+  // instead, per FIX610.3.12). Re-fetches fresh server truth rather than
+  // trusting any cached copy, since that's the "reset from on-line site"
+  // the spec asks for.
+  const [resettingChange, setResettingChange] = useState(false);
+  const handleResetChangeClick = async () => {
+    const idx = selIdxs.size === 1 ? [...selIdxs][0] : null;
+    const target = idx != null ? images[idx] : null;
+    if (!target || isLocalRow(target) || !(target.status === 'Changed' || target.fieldsChanged)) return;
+    setResettingChange(true);
+    try {
+      const fresh = await getFolderImages(folderId);
+      const server = fresh.find((f) => f.image_id === target.image_id);
+      if (!server) return;
+      if (target.stagedPath) URL.revokeObjectURL(target.url);
+      const next = images.map((im, i) => (i !== idx ? im : {
+        ...im,
+        caption: server.caption,
+        section: server.section,
+        is_main: server.is_main,
+        rotation: server.rotation,
+        crop: server.crop,
+        url: server.url,
+        localFile: undefined,
+        stagedPath: undefined,
+        status: im.status === 'Changed' ? '' : im.status,
+        fieldsChanged: false,
+      }));
+      setImages(next);
+      syncAfterEdit(next); // drops the staged file + '(chged)' tag once status no longer 'Changed'
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setResettingChange(false);
+    }
+  };
+
   // FIX610.3.5 <button-publish-img>: Publish only the *selected* images that
   // carry a status — selecting everything naturally reduces to "every staged
   // row" since blank-status rows have nothing to publish. Order: deletions
@@ -793,8 +835,8 @@ export default function ShowcaseImgListEditor({
       addCount: scope.filter((idx) => images[idx].status === 'Added').length,
       removeCount: scope.filter((idx) => images[idx].status === 'Removed').length,
       moveCount: scope.filter((idx) => images[idx].status === 'Moved').length,
-      // FIX610.3.7: a Moved/Added/Removed row with a pending field edit
-      // counts toward "change" too, not just its move/add/remove count.
+      // FIX610.3.12 [ex-610.3.7]: a Moved/Added/Removed row with a pending
+      // field edit counts toward "change" too, not just its move/add/remove count.
       changeCount: scope.filter((idx) => images[idx].status === 'Changed' || images[idx].fieldsChanged).length,
     });
   };
@@ -1263,6 +1305,30 @@ export default function ShowcaseImgListEditor({
                     </button>
                   </li>
                 )}
+                {/* FIX610.3.7 <cmd-local-reset-img-and-attr-chg>: local-app
+                    only. Enabled only on a single selected public image
+                    carrying the 'Chged' tag (FIX610.3.7.1). */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-local-reset-img-and-attr-chg"
+                      onClick={() => { setCommandsMenuOpen(false); handleResetChangeClick(); }}
+                      disabled={
+                        interactionLocked
+                        || resettingChange
+                        || selIdxs.size !== 1
+                        || (() => {
+                          const im = images[[...selIdxs][0]];
+                          return !im || isLocalRow(im) || !(im.status === 'Changed' || im.fieldsChanged);
+                        })()
+                      }
+                    >
+                      Reset changes
+                    </button>
+                  </li>
+                )}
                 {/* FIX521.2.1.5 <button-shrink-image-list>: enabled when 1+
                     rows are selected (FIX521.2.1.5.1). */}
                 <li>
@@ -1445,8 +1511,9 @@ export default function ShowcaseImgListEditor({
                       />
                     </td>
                     {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'.
-                        FIX610.3.7: cumulates with ', Changed' when a
-                        Added/Removed/Moved row also has a pending field edit.
+                        FIX610.3.12 [ex-610.3.7]: cumulates with ', Changed'
+                        when a Added/Removed/Moved row also has a pending
+                        field edit.
                         Displayed as 'New' rather than the internal 'Added'
                         status value (label only, kept as-is everywhere it
                         drives logic/disk tags). */}

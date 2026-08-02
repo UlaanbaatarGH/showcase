@@ -1769,7 +1769,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       const cmp = compareValues(aVal, bVal);
       return dir === 'desc' ? -cmp : cmp;
     };
-    if (sortKeys.length > 0 || orderedCols.length > 0) {
+    // FIX631.2: the local app's list panel is always Ref-ordered — it
+    // ignores any user column-sort / row_order config so a Ref change or
+    // a newly-added item always reflows to its increasing-Ref position
+    // (this useMemo re-runs whenever liveFolders' names change).
+    if (isLocalApp) {
+      rows = [...rows].sort((a, b) => compareValues(a.name ?? '', b.name ?? ''));
+    } else if (sortKeys.length > 0 || orderedCols.length > 0) {
       const colByKey = new Map(configuredColumns.map((c) => [columnKey(c), c]));
       rows = [...rows].sort((a, b) => {
         for (const { key, dir } of sortKeys) {
@@ -1826,6 +1832,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   }, [data, initialItemId]);
 
   const handleHeaderClick = (key, ctrl) => {
+    if (isLocalApp) return; // FIX631.2: local app list is always Ref-ordered, not user-sortable
     setSortKeys((keys) => {
       const idx = keys.findIndex((k) => k.key === key);
       if (ctrl) {

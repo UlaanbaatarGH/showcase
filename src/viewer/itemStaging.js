@@ -90,15 +90,19 @@ function parseItemFolderName(folderName) {
 // FIX655.2 / FIX657: resolves an item's *current* on-disk folder, which may
 // carry a ' (new)'/' (ex-{old-ref})' postfix from earlier — every operational
 // lookup (sync on edit, offline image list, rename) should go through this
-// instead of the bare stagingItemDir. Falls back to a fresh ' (new)' path
-// when nothing exists yet — no folder exists on the public site either, so
-// every first-ever local folder is marked the same way, not just <cmd-add-item>'s.
+// instead of the bare stagingItemDir. A genuinely new item already has its
+// ' (new)'-postfixed folder by the time this is reached (ensureStagingFolder
+// / createItemStagingFolder creates it at <cmd-add-item> time, per
+// FIX655.2 — before any image can be added to it), so the fallback below —
+// for an existing/published item's first-ever local edit — is a bare,
+// unpostfixed folder: FIX655.2 scopes the ' (new)' tag to <cmd-add-item>
+// alone, nothing spec's it for a plain item that merely gained a local edit.
 export async function resolveItemFolderDir(root, projectName, itemRef) {
   const projectDir = `${root}/${sanitizeSegment(projectName)}`;
   const wanted = sanitizeSegment(itemRef);
   const entries = await listEntries(projectDir);
   const match = entries.find((e) => e.type === 'folder' && parseItemFolderName(e.name).ref === wanted);
-  return match ? `${projectDir}/${match.name}` : stagingItemDir(root, projectName, itemRef, NEW_POSTFIX);
+  return match ? `${projectDir}/${match.name}` : stagingItemDir(root, projectName, itemRef);
 }
 
 // FIX657.3.1 / FIX657.3.2: renames an item's staging folder to a new ref,

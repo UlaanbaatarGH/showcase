@@ -34,7 +34,7 @@ let targetVite = null; // reference to the spawned target Vite process
 let registeredFilePath = null; // currently registered file for read/write (/file/open + /file/save)
 let targetStartupProject = null; // --project path for the currently running target
 
-app.use(express.json({ limit: '50mb' })); // FIX501.4: raised for base64 image save
+app.use(express.json({ limit: '50mb' })); // FIX524: raised for base64 image save
 
 // CORS
 app.use((req, res, next) => {
@@ -208,7 +208,7 @@ app.get('/agent/dir/image', (req, res) => {
 });
 
 // ── POST /agent/dir/image/save ───────────────────────────────────────────────
-// FIX501.4.4.11: Destructive save — write base64-encoded image data to disk.
+// FIX524.4.11: Destructive save — write base64-encoded image data to disk.
 // Body: { path: string, data: string (base64) }
 app.post('/agent/dir/image/save', (req, res) => {
   const { path: filePath, data } = req.body;

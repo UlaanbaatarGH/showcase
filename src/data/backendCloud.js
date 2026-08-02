@@ -157,7 +157,7 @@ export default {
   // FIX371 orphan cleanup: drop a bucket object that has no image DB row.
   deleteOrphanImage: (body) =>
     call('/api/images/delete-orphan', { method: 'POST', body }),
-  // FIX501.4.4.10 non-destructive save: update rotation and/or crop on the
+  // FIX524.4.10 non-destructive save: update rotation and/or crop on the
   // Image row. Partial payloads are accepted (omit keys to leave them
   // unchanged). Returns { id, rotation, crop }.
   updateImage: (imageId, patch) =>

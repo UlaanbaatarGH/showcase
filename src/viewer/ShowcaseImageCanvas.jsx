@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-// FIX520.2 / FIX501.4.4.10: canvas-based viewer that honors image.rotation
+// FIX520.2 / FIX524.4.10: canvas-based viewer that honors image.rotation
 // and image.crop (both set non-destructively via PATCH /api/images/:id).
 //
 // Crop coords are in rotated-image space — same convention as the photo
@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 // In `cropMode`, the component draws the full rotated image (ignoring the
 // current crop) and captures two clicks to produce a new crop rectangle.
 // A dashed preview rectangle follows the mouse between the clicks
-// (FIX501.4.3.1 two-click flow).
+// (FIX524.3.1 two-click flow).
 export default function ShowcaseImageCanvas({
   url,
   rotation = 0,
@@ -119,7 +119,7 @@ export default function ShowcaseImageCanvas({
     ctx.drawImage(buffer, 0, 0);
 
     if (cropMode && mousePos) {
-      // FIX501.4.3.1.1.1: dotted vertical + horizontal guide lines at the
+      // FIX524.3.1.1.1: dotted vertical + horizontal guide lines at the
       // cursor position — helps the user aim before each click.
       ctx.save();
       ctx.strokeStyle = 'rgba(245, 215, 66, 0.8)';

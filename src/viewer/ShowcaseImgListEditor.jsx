@@ -583,8 +583,9 @@ export default function ShowcaseImgListEditor({
     const updated = rotated.map((im, k) => ({ ...im, sort_order: orders[k] }));
     const newImages = [...images];
     for (let k = 0; k < updated.length; k++) newImages[rangeStart + k] = updated[k];
-    // FIX610.3.4: recheck EVERY row (not just the ones this rotation
-    // touched) against its last-published baseline (origSortOrder) —
+    // FIX610.3.4 <cmd-local-move-img-up> (down: same flavour, opposite
+    // delta — see caller): recheck EVERY row (not just the ones this
+    // rotation touched) against its last-published baseline (origSortOrder) —
     // a move that cancels out an earlier one (up then back down) must
     // clear 'Moved' again, not leave it stuck. A row already 'Removed'
     // keeps that status; an 'Added' row has no public rank so it's
@@ -640,8 +641,9 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX610.3.6: a row not already Added/Removed/Moved gets tagged 'Changed'
-  // when Section, Caption or Main is edited. FIX610.3.7: a row already
+  // FIX610.3.6 <cmd-local-chg-img-attr>: a row not already Added/Removed/Moved
+  // gets tagged 'Changed' when Section, Caption or Main is edited.
+  // FIX610.3.7: a row already
   // Added/Removed/Moved instead gets `fieldsChanged: true` so the status
   // badge can cumulate ("Moved, Changed") instead of the field edit being
   // silently dropped from the display — the actual field values were
@@ -663,7 +665,9 @@ export default function ShowcaseImgListEditor({
   const patchFolderImage = async (fiId, patch) => {
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
     if (isLocalApp) {
-      setImages((prev) => prev.map((im) => (im.id === fiId ? stageChanged(im) : im)));
+      const next = images.map((im) => (im.id === fiId ? stageChanged(im) : im));
+      setImages(next);
+      syncAfterEdit(next); // FIX610.3.6.1: manifest '(chged)' tag, create the file if needed
       return;
     }
     try {
@@ -689,14 +693,14 @@ export default function ShowcaseImgListEditor({
   // it on every sibling — both locally (snappy UI) and on the server in
   // a single PATCH (the backend re-applies the same atomic clear).
   const setMain = async (fiId, value) => {
-    setImages((prev) =>
-      prev.map((im) => {
-        if (im.id !== fiId) return { ...im, is_main: value ? false : im.is_main };
-        const next = { ...im, is_main: value };
-        // FIX610.3.6: stage in the local app instead of saving immediately.
-        return isLocalApp ? stageChanged(next) : next;
-      }),
-    );
+    const next = images.map((im) => {
+      if (im.id !== fiId) return { ...im, is_main: value ? false : im.is_main };
+      const updated = { ...im, is_main: value };
+      // FIX610.3.6: stage in the local app instead of saving immediately.
+      return isLocalApp ? stageChanged(updated) : updated;
+    });
+    setImages(next);
+    if (isLocalApp) syncAfterEdit(next); // FIX610.3.6.1: manifest '(chged)' tag, create the file if needed
     // FIX610.3.1: a not-yet-published row has no real id to PATCH — applied at Publish instead.
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
     if (isLocalApp) return; // FIX610.3.6: deferred to Publish
@@ -707,10 +711,11 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX610.3.2 <button-local-remove-img>: local-app only. A not-yet-published
-  // ('Added') row is dropped immediately (it never reached the server); a
-  // public row is soft-marked 'Removed' — actually deleted only on Publish
-  // (FIX610.3.5), so it stays undoable via Unremove (FIX610.3.3) until then.
+  // FIX610.3.2 <cmd-local-remove-img> [ex-<button-local-remove-img>]:
+  // local-app only. A not-yet-published ('Added') row is dropped
+  // immediately (it never reached the server); a public row is
+  // soft-marked 'Removed' — actually deleted only on Publish (FIX610.3.5),
+  // so it stays undoable via Unremove (FIX610.3.3) until then.
   const handleRemoveClick = () => {
     if (!isLocalApp) { setRemoveConfirm(true); return; }
     const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
@@ -733,8 +738,9 @@ export default function ShowcaseImgListEditor({
     syncAfterEdit(next);
   };
 
-  // FIX610.3.3 <button-local-unremove-img>: clears the 'Removed' status on
-  // any selected public row that has it, restoring it to the published list.
+  // FIX610.3.3 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
+  // clears the 'Removed' status on any selected public row that has it,
+  // restoring it to the published list.
   const handleUnremoveClick = () => {
     const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
     const ids = new Set(
@@ -1235,16 +1241,16 @@ export default function ShowcaseImgListEditor({
                     Remove
                   </button>
                 </li>
-                {/* FIX610.3.3 <button-local-unremove-img>: local-app only.
-                    FIX610.3.3.1: enabled only when exactly 1 image is
-                    selected AND it's currently at status 'Removed' — not
-                    just "something is selected". */}
+                {/* FIX610.3.3 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
+                    local-app only. FIX610.3.3.1: enabled only when exactly
+                    1 image is selected AND it's currently at status
+                    'Removed' — not just "something is selected". */}
                 {isLocalApp && (
                   <li>
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="button-local-unremove-img"
+                      data-yagu-id="cmd-local-unremove-img"
                       onClick={() => { setCommandsMenuOpen(false); handleUnremoveClick(); }}
                       disabled={
                         interactionLocked

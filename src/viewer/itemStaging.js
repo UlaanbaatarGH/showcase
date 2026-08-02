@@ -423,7 +423,11 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
       .map((e) => rmPath(`${dir}/${e.name}`)),
   );
 
-  const toCopy = stagedRows.filter((im) => !im.stagedPath);
+  // FIX610.3.6.1: a caption/section/main-only 'Changed' row has no image
+  // bytes to write at all (just the manifest tag below) -- only copy when
+  // there's an actual pending blob, or this would try to FileReader a
+  // undefined localFile.
+  const toCopy = stagedRows.filter((im) => im.localFile && !im.stagedPath);
   if (toCopy.length) {
     await Promise.all(toCopy.map((im) => writeLocalImageBytes(`${dir}/${im.filename}`, im.localFile)));
     const copiedIds = new Set(toCopy.map((im) => im.id));

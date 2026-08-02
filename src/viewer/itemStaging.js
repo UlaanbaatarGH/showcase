@@ -13,6 +13,10 @@ const AGENT_URL = 'http://localhost:3001';
 
 const MANIFEST_FILENAME = 'list.txt';
 const REMOVED_SUFFIX = ' (removed)';
+// FIX610.3.1.1: a manifest line for a newly-added, not-yet-published image
+// carries this same-worded ' (new)' tag (line-level, distinct from
+// NEW_POSTFIX below, which tags a whole item *folder*).
+const NEW_SUFFIX = ' (new)';
 // FIX655.2 / FIX657.3.2 / FIX658.2.1.1: staging-folder-name postfixes — a
 // freshly <cmd-add-item>-created folder is marked ' (new)'; <cmd-new-item-ref>
 // marks a renamed one ' (ex-{old-ref})' (the ref it carried just before this
@@ -182,17 +186,25 @@ function manifestPath(itemDir) {
   return `${itemDir}/${MANIFEST_FILENAME}`;
 }
 
-// FIX670.11 / FIX670.13: a manifest line is a bare filename, or filename +
-// ' (removed)' for a public image staged for removal.
+// FIX670.11 / FIX670.13 / FIX610.3.1.1: a manifest line is a bare filename,
+// filename + ' (removed)' for a public image staged for removal, or
+// filename + ' (new)' for a not-yet-published Added image — the durable
+// on-disk record of that status, read back on reconciliation instead of
+// re-derived from scratch.
 function parseManifestLine(line) {
   if (line.endsWith(REMOVED_SUFFIX)) {
-    return { filename: line.slice(0, -REMOVED_SUFFIX.length), removed: true };
+    return { filename: line.slice(0, -REMOVED_SUFFIX.length), removed: true, added: false };
   }
-  return { filename: line, removed: false };
+  if (line.endsWith(NEW_SUFFIX)) {
+    return { filename: line.slice(0, -NEW_SUFFIX.length), removed: false, added: true };
+  }
+  return { filename: line, removed: false, added: false };
 }
 
-function formatManifestLine({ filename, removed }) {
-  return removed ? `${filename}${REMOVED_SUFFIX}` : filename;
+function formatManifestLine({ filename, removed, added }) {
+  if (removed) return `${filename}${REMOVED_SUFFIX}`;
+  if (added) return `${filename}${NEW_SUFFIX}`;
+  return filename;
 }
 
 // FIX670.10: reads the item's list.txt (public + local images, display
@@ -403,9 +415,15 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
     );
   }
 
-  // FIX670.10/.11/.13/.14: list.txt mirrors the current display order,
-  // marking public rows staged for removal.
-  const entries = images.map((im) => ({ filename: im.filename, removed: im.status === 'Removed' }));
+  // FIX670.10/.11/.13/.14 / FIX610.3.1.1: list.txt mirrors the current
+  // display order, marking public rows staged for removal and local rows
+  // staged as Added — the change status itself, not just the filename,
+  // must survive on disk.
+  const entries = images.map((im) => ({
+    filename: im.filename,
+    removed: im.status === 'Removed',
+    added: im.status === 'Added',
+  }));
   await writeManifestEntries(dir, entries);
 }
 

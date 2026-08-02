@@ -1644,7 +1644,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX510.3 / <setup-property-tagged-deleted>: items whose value for the
   // configured deletion property is non-blank are hidden from the Showcase
   // view — they don't participate in sorting, filtering or grouping.
-  const deletedPropertyId = viewSetup.file_explorer?.deleted_property_id ?? null;
+  const deletedPropertyId = viewSetup.item_filters?.deleted_property_id ?? null;
   // FIX508.2.1 / <show-items-with-no-img>: when off, items without any
   // image are hidden from the Showcase list (FIX510.5.1) and grouping
   // (FIX374.2.15). Default true (FIX508.2.1.1).
@@ -1655,7 +1655,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // list (FIX510.5.2) and grouping (FIX374.2.16). Default toggle is
   // on (FIX508.2.2.1) — filter only kicks in when the user explicitly
   // unchecks it.
-  const datePropertyId = viewSetup.file_explorer?.date_property_id ?? null;
+  const datePropertyId = viewSetup.item_filters?.date_property_id ?? null;
   const showItemsWithNoDate = viewSetup.show_items_with_no_date !== false;
   const liveFolders = useMemo(() => {
     let all = data?.folders ?? [];

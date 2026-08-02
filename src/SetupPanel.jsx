@@ -34,17 +34,17 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
   );
-  const [fileExplorer, setFileExplorer] = useState({
+  const [itemFilters, setItemFilters] = useState({
     // FIX506.2.3 / <setup-property-tagged-deleted>: id of the property
     // that marks an item as deleted when non-blank. null = no such property.
-    deleted_property_id: initialViewSetup?.file_explorer?.deleted_property_id ?? null,
+    deleted_property_id: initialViewSetup?.item_filters?.deleted_property_id ?? null,
     // FIX506.2.4 / <setup-date-property>: id of the property that holds
     // the item's date. Used by FIX510.5.2 / FIX374.2.16 to optionally
     // hide items missing a date. null = no such property.
-    date_property_id: initialViewSetup?.file_explorer?.date_property_id ?? null,
+    date_property_id: initialViewSetup?.item_filters?.date_property_id ?? null,
   });
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
-  // view_setup directly (not under file_explorer) since they affect the
+  // view_setup directly (not under item_filters) since they affect the
   // Showcase too. Default true (FIX508.2.1.1 / .2.2.1).
   // FIX508.2.3 / <setup-select-first-item>: default false — opening the
   // Showcase view leaves the selection empty until the user picks an item.
@@ -114,14 +114,14 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           })),
         view_setup: {
           ...(initialViewSetup || {}),
-          file_explorer: fileExplorer,
+          item_filters: itemFilters,
           // FIX508.2.1 / <show-items-with-no-img>: persists alongside
-          // file_explorer but applies to all views (Showcase included —
+          // item_filters but applies to all views (Showcase included —
           // FIX510.5.1 / FIX374.2.15).
           show_items_with_no_img: generalSetup.show_items_with_no_img,
           // FIX508.2.2 / <show-items-with-no-date>: same shape; drives
           // FIX510.5.2 / FIX374.2.16. The date property itself is
-          // <setup-date-property> on file_explorer above.
+          // <setup-date-property> on item_filters above.
           show_items_with_no_date: generalSetup.show_items_with_no_date,
           // FIX508.2.3 / <setup-select-first-item>: when false, the
           // Showcase view opens with no item selected.
@@ -575,10 +575,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                 Showcase list/sort/filter/grouping (FIX510.3). */}
             <h3>Property indicating Item is deleted</h3>
             <select
-              value={fileExplorer.deleted_property_id ?? ''}
+              value={itemFilters.deleted_property_id ?? ''}
               onChange={(e) =>
-                setFileExplorer({
-                  ...fileExplorer,
+                setItemFilters({
+                  ...itemFilters,
                   deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
                 })
               }
@@ -599,10 +599,10 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             <h3>Property providing item date</h3>
             <select
               data-yagu-id="setup-date-property"
-              value={fileExplorer.date_property_id ?? ''}
+              value={itemFilters.date_property_id ?? ''}
               onChange={(e) =>
-                setFileExplorer({
-                  ...fileExplorer,
+                setItemFilters({
+                  ...itemFilters,
                   date_property_id: e.target.value === '' ? null : Number(e.target.value),
                 })
               }

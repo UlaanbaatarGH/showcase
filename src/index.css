@@ -1,6 +1,4 @@
-/* Color palette — used by components copied from tree-element-list-app
-   (src/photo/*) plus the Showcase / Home styles below.
-   Dark-blue accent for selection (replaces the old orange from tree-element-list-app). */
+/* Color palette used by the Showcase / Home styles below. */
 :root {
   --color-bg:          #1a1a2e;
   --color-bg-light:    #16213e;

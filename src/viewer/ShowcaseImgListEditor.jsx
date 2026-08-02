@@ -1235,7 +1235,10 @@ export default function ShowcaseImgListEditor({
                     Remove
                   </button>
                 </li>
-                {/* FIX610.3.3 <button-local-unremove-img>: local-app only. */}
+                {/* FIX610.3.3 <button-local-unremove-img>: local-app only.
+                    FIX610.3.3.1: enabled only when exactly 1 image is
+                    selected AND it's currently at status 'Removed' — not
+                    just "something is selected". */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -1243,7 +1246,11 @@ export default function ShowcaseImgListEditor({
                       role="menuitem"
                       data-yagu-id="button-local-unremove-img"
                       onClick={() => { setCommandsMenuOpen(false); handleUnremoveClick(); }}
-                      disabled={interactionLocked || selIdxs.size === 0}
+                      disabled={
+                        interactionLocked
+                        || selIdxs.size !== 1
+                        || images[[...selIdxs][0]]?.status !== 'Removed'
+                      }
                     >
                       Unremove
                     </button>

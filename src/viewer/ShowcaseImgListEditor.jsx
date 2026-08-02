@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import ShowcaseImageCanvas from './ShowcaseImageCanvas.jsx';
+import ShowcaseImageCanvas, { bakeRotatedCrop } from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
   setEditLockPendingChanges,
@@ -349,43 +349,105 @@ export default function ShowcaseImgListEditor({
     setCropMode(false);
   };
 
-  // FIX610.3.1: a locally-staged row (not yet Published) has no server-side
-  // image row yet — image_id is null until Publish uploads and confirms it
-  // (publishItemImages.js). Rotation/crop on such a row is staged straight
-  // onto it instead, same posture as every other FIX610 local-row edit
-  // (patchFolderImage / setMain do the same). Without this, clicking Save
-  // on a staged image silently no-op'd — draftForCurrent stayed set (Save/
-  // Cancel never greyed out) because the `!currentImage.image_id` guard hit
-  // its early return before anything else ran.
+  // FIX524.4.10 <action-save-img>: load the source pixels and bake the
+  // current rotation/crop into them -- the destructive counterpart of
+  // reencodeByFactor's shrink re-encode (same canvas.toBlob -> base64
+  // pattern), just with a rotate+crop transform instead of a uniform scale.
+  const loadImageEl = (url) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Could not load image'));
+      img.src = url;
+    });
+  const canvasToBase64 = (canvas) =>
+    new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) { reject(new Error('Could not encode image')); return; }
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result).split(',')[1]);
+        fr.onerror = () => reject(fr.error);
+        fr.readAsDataURL(blob);
+      }, 'image/jpeg', 0.9);
+    });
+  const canvasToBlob = (canvas) =>
+    new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not encode image'))), 'image/jpeg', 0.9);
+    });
+
+  // FIX611.1 <action-save-img> (local app adaptation of FIX524.4.10): Save
+  // always stages the baked result to the item's <folder-staged-item>
+  // instead of a live PATCH/upload -- whether currentImage is a
+  // not-yet-published Added row (overwrite its already-staged file) or an
+  // existing public row (its first-ever staged file, tagged '(chged)' via
+  // stageChanged below). `stagedPath: null` is what tells syncStagingFolder
+  // (via syncAfterEdit) to (re)write the bytes; isLocalRow can only occur
+  // inside the local app, so this branch fully replaces the old always-live
+  // isLocalRow short-circuit that used to sit here.
   const saveImageEdit = async () => {
     if (!draftForCurrent || !currentImage) return;
-    if (isLocalRow(currentImage)) {
-      setImages((prev) =>
-        prev.map((im) =>
-          im.id === currentImage.id
-            ? { ...im, rotation: draftForCurrent.rotation, crop: draftForCurrent.crop }
-            : im,
-        ),
-      );
-      setImageDraft(null);
-      setDraftForId(null);
-      setCropMode(false);
+    if (isLocalApp) {
+      setSavingImage(true);
+      try {
+        const hasEdit = draftForCurrent.rotation !== 0 || draftForCurrent.crop != null;
+        let nextRow = { ...currentImage, rotation: 0, crop: null };
+        if (hasEdit) {
+          const img = await loadImageEl(currentImage.url);
+          const canvas = bakeRotatedCrop(img, draftForCurrent.rotation, draftForCurrent.crop);
+          const blob = await canvasToBlob(canvas);
+          if (isLocalRow(currentImage)) URL.revokeObjectURL(currentImage.url);
+          nextRow = {
+            ...(isLocalRow(currentImage) ? nextRow : stageChanged(nextRow)),
+            url: URL.createObjectURL(blob),
+            localFile: blob,
+            stagedPath: null,
+          };
+        }
+        const nextImages = images.map((im) => (im.id === currentImage.id ? nextRow : im));
+        setImages(nextImages);
+        if (hasEdit) syncAfterEdit(nextImages); // FIX611.1 steps 1-2: bytes + manifest tag
+        setImageDraft(null);
+        setDraftForId(null);
+        setCropMode(false);
+      } catch (e) {
+        setError(e.message || String(e));
+      } finally {
+        setSavingImage(false);
+      }
       return;
     }
+    // FIX524.4.10 <action-save-img> (on-line site): no server-side staging
+    // to defer to -- bake and store the result directly.
     if (!currentImage.image_id) return;
     setSavingImage(true);
     try {
-      const updated = await updateImage(currentImage.image_id, {
-        rotation: draftForCurrent.rotation,
-        crop: draftForCurrent.crop,
-      });
-      setImages((prev) =>
-        prev.map((im) =>
-          im.image_id === currentImage.image_id
-            ? { ...im, rotation: updated.rotation, crop: updated.crop }
-            : im,
-        ),
-      );
+      // FIX524.4.10.1: only actually bake/re-upload when there's a
+      // rotation or crop to apply -- an untouched Save (draft resolves
+      // back to identity) would otherwise cost a needless lossy re-encode.
+      if (draftForCurrent.rotation !== 0 || draftForCurrent.crop != null) {
+        const img = await loadImageEl(currentImage.url);
+        const canvas = bakeRotatedCrop(img, draftForCurrent.rotation, draftForCurrent.crop);
+        const base64 = await canvasToBase64(canvas);
+        const uploaded = await replaceImageBytes(currentImage.image_id, {
+          data_base64: base64,
+          content_type: 'image/jpeg',
+          // FIX521.5.8.1: baking changes the pixel dims (crop shrinks them).
+          zoom_factor: zoomFactor(canvas.width, canvas.height),
+        });
+        // FIX524.4.10.2: the transform is now baked into the stored pixels
+        // -- clear the record of it (rotation/crop metadata), this app's
+        // equivalent of removing a File-Explorer-style sidecar metadata
+        // file once a destructive save has been applied.
+        await updateImage(currentImage.image_id, { rotation: 0, crop: null });
+        setImages((prev) =>
+          prev.map((im) =>
+            im.image_id === currentImage.image_id
+              ? { ...im, url: uploaded.url, rotation: 0, crop: null }
+              : im,
+          ),
+        );
+      }
       setImageDraft(null);
       setDraftForId(null);
       setCropMode(false);

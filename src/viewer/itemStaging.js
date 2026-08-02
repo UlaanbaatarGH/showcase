@@ -17,6 +17,11 @@ const REMOVED_SUFFIX = ' (removed)';
 // carries this same-worded ' (new)' tag (line-level, distinct from
 // NEW_POSTFIX below, which tags a whole item *folder*).
 const NEW_SUFFIX = ' (new)';
+// FIX611.1: a public image locally re-saved (crop/rotate) carries this tag
+// on its manifest line — the durable record that its staged bytes now
+// differ from the published ones, mirroring NEW_SUFFIX's role for a
+// brand-new image.
+const CHANGED_SUFFIX = ' (chged)';
 // FIX655.2 / FIX657.3.2 / FIX658.2.1.1: staging-folder-name postfixes — a
 // freshly <cmd-add-item>-created folder is marked ' (new)'; <cmd-new-item-ref>
 // marks a renamed one ' (ex-{old-ref})' (the ref it carried just before this
@@ -190,24 +195,29 @@ function manifestPath(itemDir) {
   return `${itemDir}/${MANIFEST_FILENAME}`;
 }
 
-// FIX670.11 / FIX670.13 / FIX610.3.1.1: a manifest line is a bare filename,
-// filename + ' (removed)' for a public image staged for removal, or
-// filename + ' (new)' for a not-yet-published Added image — the durable
-// on-disk record of that status, read back on reconciliation instead of
-// re-derived from scratch.
+// FIX670.11 / FIX670.13 / FIX610.3.1.1 / FIX611.1: a manifest line is a bare
+// filename, filename + ' (removed)' for a public image staged for removal,
+// filename + ' (new)' for a not-yet-published Added image, or filename +
+// ' (chged)' for a public image locally re-saved (crop/rotate) — the
+// durable on-disk record of that status, read back on reconciliation
+// instead of re-derived from scratch.
 function parseManifestLine(line) {
   if (line.endsWith(REMOVED_SUFFIX)) {
-    return { filename: line.slice(0, -REMOVED_SUFFIX.length), removed: true, added: false };
+    return { filename: line.slice(0, -REMOVED_SUFFIX.length), removed: true, added: false, chged: false };
   }
   if (line.endsWith(NEW_SUFFIX)) {
-    return { filename: line.slice(0, -NEW_SUFFIX.length), removed: false, added: true };
+    return { filename: line.slice(0, -NEW_SUFFIX.length), removed: false, added: true, chged: false };
   }
-  return { filename: line, removed: false, added: false };
+  if (line.endsWith(CHANGED_SUFFIX)) {
+    return { filename: line.slice(0, -CHANGED_SUFFIX.length), removed: false, added: false, chged: true };
+  }
+  return { filename: line, removed: false, added: false, chged: false };
 }
 
-function formatManifestLine({ filename, removed, added }) {
+function formatManifestLine({ filename, removed, added, chged }) {
   if (removed) return `${filename}${REMOVED_SUFFIX}`;
   if (added) return `${filename}${NEW_SUFFIX}`;
+  if (chged) return `${filename}${CHANGED_SUFFIX}`;
   return filename;
 }
 
@@ -397,8 +407,11 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
   }
   await mkdir(dir);
 
-  const localRows = images.filter((im) => isLocalRow(im));
-  const keepFilenames = new Set(localRows.map((im) => im.filename));
+  // FIX611.1: a public image locally re-saved (crop/rotate) has real staged
+  // bytes on disk too, just like a not-yet-published Added row — both are
+  // tracked here by the same `stagedPath`/`localFile` fields.
+  const stagedRows = images.filter((im) => isLocalRow(im) || im.status === 'Changed');
+  const keepFilenames = new Set(stagedRows.map((im) => im.filename));
 
   // FIX670.12: a local image's file is deleted from the folder the moment
   // it's no longer in the staged list (e.g. just Removed) — public/removed
@@ -410,7 +423,7 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
       .map((e) => rmPath(`${dir}/${e.name}`)),
   );
 
-  const toCopy = localRows.filter((im) => !im.stagedPath);
+  const toCopy = stagedRows.filter((im) => !im.stagedPath);
   if (toCopy.length) {
     await Promise.all(toCopy.map((im) => writeLocalImageBytes(`${dir}/${im.filename}`, im.localFile)));
     const copiedIds = new Set(toCopy.map((im) => im.id));
@@ -419,14 +432,15 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
     );
   }
 
-  // FIX670.10/.11/.13/.14 / FIX610.3.1.1: list.txt mirrors the current
-  // display order, marking public rows staged for removal and local rows
-  // staged as Added — the change status itself, not just the filename,
-  // must survive on disk.
+  // FIX670.10/.11/.13/.14 / FIX610.3.1.1 / FIX611.1: list.txt mirrors the
+  // current display order, marking public rows staged for removal or
+  // locally re-saved (chged), and local rows staged as Added — the change
+  // status itself, not just the filename, must survive on disk.
   const entries = images.map((im) => ({
     filename: im.filename,
     removed: im.status === 'Removed',
     added: im.status === 'Added',
+    chged: im.status === 'Changed',
   }));
   await writeManifestEntries(dir, entries);
 }

@@ -240,3 +240,35 @@ export default function ShowcaseImageCanvas({
     />
   );
 }
+
+// FIX524.4.10 <action-save-img>: same rotate+crop composition as the draw
+// effect above (lines 71-101), factored out so Save can bake the exact
+// pixels the user is previewing instead of re-deriving the math. A fresh
+// canvas per call, unlike the component's reused bufferRef — this only
+// ever runs once per Save, not per frame.
+export function bakeRotatedCrop(img, rotation, crop) {
+  const rad = ((rotation % 360) * Math.PI) / 180;
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const rotW = iw * cos + ih * sin;
+  const rotH = iw * sin + ih * cos;
+
+  const cx = crop ? crop.x : 0;
+  const cy = crop ? crop.y : 0;
+  const cw = crop ? crop.width : rotW;
+  const ch = crop ? crop.height : rotH;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(cw));
+  canvas.height = Math.max(1, Math.round(ch));
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(-cx, -cy);
+  ctx.translate(rotW / 2, rotH / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
+  ctx.restore();
+  return canvas;
+}

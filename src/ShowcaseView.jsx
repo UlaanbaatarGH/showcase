@@ -1509,10 +1509,17 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       return;
     }
     setImages([]);
-    // FIX655.3: a local-item-* id has no DB row (FIX652.2.3) — nothing to
-    // fetch. Should already be cached (createLocalItem seeds it empty), but
-    // guard here too rather than let getFolderImages 422 on a non-numeric id.
-    if (typeof selectedFolderId === 'string') return;
+    // FIX655.3: a pendingNew item (local-item-* id, no DB row — FIX652.2.3)
+    // has nothing to fetch. Should already be cached (createLocalItem seeds
+    // it empty), but guard here too rather than let getFolderImages 422 on
+    // a non-numeric id. Checked via the flag, not id shape: FIX680.1.1 gives
+    // *every* item a synthetic string id in full off-line mode, not just
+    // brand-new ones (same ambiguity the FIX655.4 '+' suffix already solves
+    // this same way) — an existing item's string id still has real
+    // <file-staged-item-img-list> images to fetch (FIX680.1.1.2), so only
+    // pendingNew should short-circuit here.
+    const folder = (data?.folders || []).find((f) => f.id === selectedFolderId);
+    if (folder?.pendingNew) return;
     getFolderImages(selectedFolderId)
       .then((imgs) => {
         // FIX610.3.4: baseline sort_order snapshot, so the local app can tell

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useReducer } from 'react';
 import AdminMenu from './AdminMenu.jsx';
 import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
@@ -304,6 +304,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   useEffect(() => {
     imagesByFolderRef.current = {};
   }, [data?.project?.id]);
+  // Mutating imagesByFolderRef alone doesn't trigger a re-render — the
+  // reconciliation-on-load effect below updates it for every staged item on
+  // disk, but only the *selected* one also gets a setImages call. Without
+  // this, needsPublish's red styling for every other reconciled item stays
+  // stale (rendered from before the ref was populated) until some unrelated
+  // state change happens to re-render the list — e.g. clicking one of them.
+  const [, bumpImagesByFolderTick] = useReducer((c) => c + 1, 0);
 
   // FIX670.1 / FIX670.10-FIX670.14: on opening a project, rebuild any
   // staged-but-unpublished local edits (add/remove/unremove/move) from the
@@ -338,6 +345,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(projectDir)}`);
         if (!res.ok) return; // nothing staged for this project, or agent unreachable
         const { entries } = await res.json();
+        let anyReconciled = false;
         for (const entry of entries || []) {
           if (cancelled) return;
           if (entry.type !== 'folder') continue;
@@ -411,8 +419,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           }
           if (rows.length === 0 || cancelled) continue;
           imagesByFolderRef.current[folder.id] = rows;
+          anyReconciled = true;
           if (folder.id === selectedFolderIdRef.current) setImages(rows);
         }
+        // Every OTHER reconciled item's red styling only lives in the ref
+        // above until something re-renders — force it once, rather than
+        // leaving it stuck black until the user happens to click one.
+        if (anyReconciled && !cancelled) bumpImagesByFolderTick();
       } catch {
         // Agent unreachable — reconciliation just skips this time; the
         // staged files on disk aren't touched, so nothing is lost.

@@ -1446,10 +1446,16 @@ export default function ShowcaseImgListEditor({
                     </td>
                     {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'.
                         FIX610.3.7: cumulates with ', Changed' when a
-                        Added/Removed/Moved row also has a pending field edit. */}
+                        Added/Removed/Moved row also has a pending field edit.
+                        Displayed as 'New' rather than the internal 'Added'
+                        status value (label only, kept as-is everywhere it
+                        drives logic/disk tags). */}
                     {isLocalApp && (
                       <td className="sc-img-list-status">
-                        {[im.status, (im.fieldsChanged && im.status !== 'Changed') ? 'Changed' : '']
+                        {[
+                          im.status === 'Added' ? 'New' : im.status,
+                          (im.fieldsChanged && im.status !== 'Changed') ? 'Changed' : '',
+                        ]
                           .filter(Boolean)
                           .join(', ')}
                       </td>

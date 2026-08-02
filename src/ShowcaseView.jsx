@@ -379,13 +379,35 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           const origOrders = publicBaseline.map((im) => im.sort_order).sort((a, b) => a - b);
           let publicPos = 0;
           const rows = [];
-          for (const { filename, removed } of manifest) {
+          for (const { filename, removed, chged } of manifest) {
             if (cancelled) return;
             const pub = byFilename.get(filename);
             if (pub) {
               usedFilenames.add(filename);
               const sort_order = origOrders[publicPos];
               publicPos += 1;
+              if (chged) {
+                // FIX611.1: a public image locally re-saved (crop/rotate) —
+                // serve the staged, already-baked bytes instead of the
+                // stale public URL, and restore the 'Changed' status the
+                // manifest tag records. rotation/crop reset to identity:
+                // the transform is baked into these pixels already, pub's
+                // live DB values (never touched by the local-app save)
+                // would otherwise get re-applied on top by the viewer.
+                const filePath = `${itemDir}/${filename}`;
+                const imgRes = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(filePath)}`);
+                if (imgRes.ok) {
+                  const blob = await imgRes.blob();
+                  rows.push({
+                    ...pub, sort_order, status: 'Changed', rotation: 0, crop: null,
+                    url: URL.createObjectURL(blob), localFile: blob, stagedPath: filePath,
+                  });
+                  continue;
+                }
+                // Staged file missing — fall through to the plain-public
+                // row below (best-effort, matches this loop's posture
+                // elsewhere for a failed disk read).
+              }
               // FIX670.11/.13: the manifest's ' (removed)' marker is the
               // durable record of a pending removal/unremoval.
               rows.push({ ...pub, sort_order, status: removed ? 'Removed' : (sort_order === pub.origSortOrder ? '' : 'Moved') });

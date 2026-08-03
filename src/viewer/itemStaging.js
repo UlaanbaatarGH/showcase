@@ -2,9 +2,9 @@
 // replaces) what FIX653 built ad hoc for camera captures alone — a folder per
 // item under a staging root on disk, so add/remove/unremove/move survive a
 // reload/crash before Publish, not just the raw captured file. FIX653 and
-// FIX610.3.8 (and every other local-edit path in ShowcaseImgListEditor.jsx)
-// now go through this shared module instead of each keeping its own partial
-// copy of the mechanism.
+// FIX610.3.10[ex-610.3.8] (and every other local-edit path in
+// ShowcaseImgListEditor.jsx) now go through this shared module instead of
+// each keeping its own partial copy of the mechanism.
 //
 // FIX653 durable capture staging: same local Agent server ShowcaseView.jsx /
 // publishItemImages.js talk to — no shared module for this literal, matching

@@ -7,6 +7,21 @@ export function setAuthToken(t) {
   authToken = t || null;
 }
 
+// Bug fix: FastAPI validation errors return `detail` as an array of
+// { type, loc, msg, input } objects, not a string -- String(detail) on
+// that array stringified each element via the default Object.toString,
+// showing the user a literal "[object Object]" instead of the message.
+function detailToText(detail) {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => (d && typeof d === 'object' && d.msg) ? d.msg : JSON.stringify(d))
+      .join('; ');
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+  return String(detail);
+}
+
 async function call(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
@@ -45,11 +60,11 @@ async function call(url, opts = {}) {
       authToken = null;
       try {
         window.dispatchEvent(new CustomEvent('auth:invalid', {
-          detail: { reason: String(detail).slice(0, 200) },
+          detail: { reason: detailToText(detail).slice(0, 200) },
         }));
       } catch { /* ignore — non-browser env */ }
     }
-    const err = new Error(String(detail).slice(0, 200));
+    const err = new Error(detailToText(detail).slice(0, 200));
     err.status = r.status;
     throw err;
   }

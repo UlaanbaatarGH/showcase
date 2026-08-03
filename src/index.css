@@ -1282,16 +1282,17 @@ body {
    doesn't honor overflow reliably, so we move the flex+overflow here
    and keep the table at intrinsic size inside. */
 .sc-img-list-scroll {
-  /* FIX610.3.8: flex-grow 0 — the table only takes the space its rows need
-     (shrinking with overflow:auto when the list is long) so the drop area
-     below it (flex-grow 1) can claim the rest of the pane. */
+  /* FIX610.3.10[ex-610.3.8]: flex-grow 0 — the table only takes the space
+     its rows need (shrinking with overflow:auto when the list is long) so
+     the drop area below it (flex-grow 1) can claim the rest of the pane. */
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
 }
-/* FIX610.3.8 <panel-image-dropping>: fills the whole gap between the last
-   image row and the panel bottom (flex-grow 1, FIX521.2.1.20.1) so the
-   entire gap — not just a strip at the very bottom — accepts a drop.
+/* FIX610.3.10[ex-610.3.8] <panel-image-dropping>: fills the whole gap
+   between the last image row and the panel bottom (flex-grow 1,
+   FIX521.2.1.20.1) so the entire gap — not just a strip at the very bottom
+   — accepts a drop.
    min-height keeps it at least ~2 list rows tall (FIX521.2.1.20.1) even
    when the list is long enough to leave the scroll pane no free space to
    give it. */

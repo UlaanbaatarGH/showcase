@@ -922,8 +922,10 @@ export default function ShowcaseImgListEditor({
             if (!blob) { reject(new Error('Could not encode image')); return; }
             const fr = new FileReader();
             // Return the new pixel dims too, so the caller can store the
-            // image's recomputed ZF (FIX521.5.8.1 <img-zoom-factor>).
-            fr.onload = () => resolve({ base64: String(fr.result).split(',')[1], bytes: blob.size, w, h });
+            // image's recomputed ZF (FIX521.5.8.1 <img-zoom-factor>). Also
+            // return the blob itself -- the local-app staging path (bug fix,
+            // see runShrink) needs it as-is, not re-decoded from base64.
+            fr.onload = () => resolve({ base64: String(fr.result).split(',')[1], blob, bytes: blob.size, w, h });
             fr.onerror = () => reject(fr.error);
             fr.readAsDataURL(blob);
           },
@@ -945,7 +947,7 @@ export default function ShowcaseImgListEditor({
     const targets = [...selIdxs].sort((a, b) => a - b).map((i) => images[i]).filter(Boolean);
     setShrinkStage('running');
     setShrinkProgress({ done: 0, total: targets.length });
-    const updates = {}; // image_id -> { url, bytes }
+    const updates = {}; // im.id -> { url, bytes, blob? }
     try {
       for (let k = 0; k < targets.length; k++) {
         const im = targets[k];
@@ -953,22 +955,39 @@ export default function ShowcaseImgListEditor({
         const current = cd ? zoomFactor(cd.w, cd.h) : null;
         if (current != null && current > target) {
           const f = target / current;
-          const { base64, w, h } = await reencodeByFactor(im.url, f);
-          const res = await replaceImageBytes(im.image_id, {
-            data_base64: base64,
-            content_type: 'image/jpeg',
-            // FIX521.5.8.1: store the shrunk image's recomputed ZF.
-            zoom_factor: zoomFactor(w, h),
-          });
-          updates[im.image_id] = { url: res.url, bytes: res.bytes };
+          const { base64, blob, w, h } = await reencodeByFactor(im.url, f);
+          if (isLocalApp) {
+            // FIX610.3.8 <cmd-local-shrink-img>: like any other local-app img
+            // change action, modifies a local img file in the item's staged
+            // folder (mirrors saveImageEdit's FIX611.1 staging path) instead
+            // of always PATCHing the on-line backend via
+            // replaceImageBytes(im.image_id, ...) -- a not-yet-published row
+            // has image_id: null, so that 422'd ("/api/images/null/replace-
+            // bytes"). stageChanged below adds the 'Chged' status tag
+            // (FIX610.3.8.1.1) when the shrunk image is a published one.
+            if (isLocalRow(im)) URL.revokeObjectURL(im.url);
+            updates[im.id] = { url: URL.createObjectURL(blob), bytes: blob.size, blob };
+          } else {
+            const res = await replaceImageBytes(im.image_id, {
+              data_base64: base64,
+              content_type: 'image/jpeg',
+              // FIX521.5.8.1: store the shrunk image's recomputed ZF.
+              zoom_factor: zoomFactor(w, h),
+            });
+            updates[im.id] = { url: res.url, bytes: res.bytes };
+          }
         }
         setShrinkProgress({ done: k + 1, total: targets.length });
       }
-      setImages((prev) =>
-        prev.map((im) =>
-          updates[im.image_id] ? { ...im, url: updates[im.image_id].url } : im,
-        ),
-      );
+      const nextImages = images.map((im) => {
+        const u = updates[im.id];
+        if (!u) return im;
+        return isLocalApp
+          ? { ...(isLocalRow(im) ? im : stageChanged(im)), url: u.url, localFile: u.blob, stagedPath: null }
+          : { ...im, url: u.url };
+      });
+      setImages(nextImages);
+      if (isLocalApp) syncAfterEdit(nextImages); // bytes + manifest '(chged)' tag, same as saveImageEdit
       // FIX521.3.10.2: reflect the new sizes in the list immediately.
       setSizesByUrl((prev) => {
         const next = { ...prev };
@@ -980,7 +999,7 @@ export default function ShowcaseImgListEditor({
       let total = 0;
       let allKnown = true;
       for (const im of images) {
-        const u = updates[im.image_id];
+        const u = updates[im.id];
         const b = u ? u.bytes : sizesByUrl[im.url];
         if (b == null) { allKnown = false; break; }
         total += b;
@@ -1010,10 +1029,11 @@ export default function ShowcaseImgListEditor({
     Number.isFinite(Number(shrinkRatio)) &&
     Number(shrinkRatio) >= 1;
 
-  // FIX610.3.1 <button-local-add-img>: open a file selector; each picked
-  // image is inserted at the end, or right after the selected image when
-  // exactly one row is selected, with status 'Added'. Not uploaded yet —
-  // just a client-side preview (object URL) until Publish (FIX610.3.5).
+  // FIX610.3.1 <command-local-add-img> [ex-<button-local-add-img>]: open a
+  // file selector; each picked image is inserted at the end, or right
+  // after the selected image when exactly one row is selected, with status
+  // 'Added'. Not uploaded yet — just a client-side preview (object URL)
+  // until Publish (FIX610.3.5).
   const addInputRef = useRef(null);
   const localIdRef = useRef(0);
   const makeLocalRow = (filename, file) => ({
@@ -1064,7 +1084,7 @@ export default function ShowcaseImgListEditor({
     setSelectedIdx(newIdxs[0]);
     setAnchor(newIdxs[0]);
     // FIX670.10: copy the new file(s) into the item's staging folder and
-    // write list.txt — covers Add, drag-drop (FIX610.3.8), and this file's
+    // write list.txt — covers Add, drag-drop (FIX610.3.10), and this file's
     // own FIX620 auto-insert watcher, all of which funnel through here.
     syncAfterEdit(nextImages);
   };
@@ -1076,10 +1096,10 @@ export default function ShowcaseImgListEditor({
     insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
   };
 
-  // FIX610.3.8 <panel-image-dropping> (Id per FIX521.2.1.20.0): local-app
-  // only, at the bottom of the list while in edition. FIX610.3.8.1 —
-  // "Update of FIX521.2.1.20.3" — dropped images are staged exactly like
-  // <button-local-add-img> instead of the website's immediate-upload
+  // FIX610.3.10[ex-610.3.8] <cmd-local-drop-img> <panel-image-dropping>
+  // (Id per FIX521.2.1.20.0): local-app only, at the bottom of the list
+  // while in edition. FIX610.3.10.1 — dropped images are staged exactly
+  // like <command-local-add-img> instead of the website's immediate-upload
   // default (FIX521.2.1.20.3 itself, out of scope here — website behavior
   // isn't part of this local-app change) — reuses makeLocalRow/insertLocalRows.
   const [dropAreaActive, setDropAreaActive] = useState(false);
@@ -1135,7 +1155,7 @@ export default function ShowcaseImgListEditor({
     }
   };
   // FIX620.4: sync process — poll the folder while active, stage each newly
-  // arrived supported-extension file exactly like <button-local-add-img>.
+  // arrived supported-extension file exactly like <command-local-add-img>.
   useEffect(() => {
     if (!autoInsertActive || !autoInsertDir) return undefined;
     const poll = async () => {
@@ -1229,7 +1249,7 @@ export default function ShowcaseImgListEditor({
               <IconCamera size={18} />
             </button>
           )}
-          {/* FIX610.3.1 <button-local-add-img>: hidden input stays mounted
+          {/* FIX610.3.1 <command-local-add-img>: hidden input stays mounted
               regardless of the commands menu's open state. */}
           {isLocalApp && (
             <input
@@ -1257,13 +1277,13 @@ export default function ShowcaseImgListEditor({
             </button>
             {commandsMenuOpen && (
               <ul className="sc-menu-items" role="menu">
-                {/* FIX610.3.1 <button-local-add-img>: local-app only. */}
+                {/* FIX610.3.1 <command-local-add-img>: local-app only. */}
                 {isLocalApp && (
                   <li>
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="button-local-add-img"
+                      data-yagu-id="command-local-add-img"
                       onClick={() => { setCommandsMenuOpen(false); handleAddClick(); }}
                       disabled={interactionLocked}
                     >
@@ -1394,7 +1414,7 @@ export default function ShowcaseImgListEditor({
         <table className="sc-img-list-table" data-yagu-id="table-item-img-info">
           <thead>
             <tr>
-              {/* FIX610.3.11: rank column, local-app only, first column. */}
+              {/* FIX610.2.2[ex-610.3.11]: rank column, local-app only, first column. */}
               {isLocalApp && <th title="Rank, as it is on the website">#</th>}
               {/* FIX521.2.1.9.2 / .9.3: leftmost select column with a select-all
                   checkbox in the header. */}
@@ -1421,14 +1441,14 @@ export default function ShowcaseImgListEditor({
               {/* FIX521.2.1.1.5 / <item-main-img>: per-row Main flag.
                   At most one is set per item (FIX521.5.6). */}
               <th title="Main image of the item">Main</th>
-              {/* FIX610.3.10: Status column, local-app only. */}
+              {/* FIX610.2.1[ex-610.3.10]: Status column, local-app only. */}
               {isLocalApp && <th>Status</th>}
             </tr>
           </thead>
           <tbody>
             {(() => { let publicRank = 0; return images.map((im, idx) => {
-              // FIX610.3.11: 1-based rank among rows actually live on the
-              // website — an 'Added' row has no public rank yet.
+              // FIX610.2.2[ex-610.3.11]: 1-based rank among rows actually live
+              // on the website — an 'Added' row has no public rank yet.
               const rank = im.status === 'Added' ? '' : ++publicRank;
               const isSelected = selIdxs.has(idx);
               const dimsZ = dimsByUrl[im.url];
@@ -1445,7 +1465,7 @@ export default function ShowcaseImgListEditor({
                     className={rowClass}
                     onClick={(e) => onRowClick(e, idx)}
                   >
-                    {/* FIX610.3.11: rank column, local-app only, first column. */}
+                    {/* FIX610.2.2[ex-610.3.11]: rank column, local-app only, first column. */}
                     {isLocalApp && <td style={{ textAlign: 'center' }} className="sc-img-list-rank">{rank}</td>}
                     {/* FIX521.2.1.9.2: easy row selection via a toggle BUTTON
                         (not a checkbox) so it is visually distinct from the Main
@@ -1510,7 +1530,7 @@ export default function ShowcaseImgListEditor({
                         disabled={publishing}
                       />
                     </td>
-                    {/* FIX610.3.10: Status column — '', 'Added' or 'Removed'.
+                    {/* FIX610.2.1[ex-610.3.10]: Status column — '', 'Added' or 'Removed'.
                         FIX610.3.12 [ex-610.3.7]: cumulates with ', Changed'
                         when a Added/Removed/Moved row also has a pending
                         field edit.
@@ -1536,7 +1556,7 @@ export default function ShowcaseImgListEditor({
                       className={`${rowClass} sc-img-list-detail-row`}
                       onClick={(e) => onRowClick(e, idx)}
                     >
-                      {/* Blank cells under the rank (FIX610.3.11) and select
+                      {/* Blank cells under the rank (FIX610.2.2[ex-610.3.11]) and select
                           columns — the detail line spreads from under
                           Section, not the row selector. */}
                       {isLocalApp && <td></td>}
@@ -1575,9 +1595,10 @@ export default function ShowcaseImgListEditor({
           </tbody>
         </table>
         </div>
-        {/* FIX610.3.8 <panel-image-dropping>: drop area at the bottom of
-            the list, local-app only. FIX610.3.8.1: dropped images are staged
-            like <button-local-add-img> (updates FIX521.2.1.20.3's
+        {/* FIX610.3.10[ex-610.3.8] <cmd-local-drop-img> <panel-image-dropping>:
+            drop area at the bottom of the list, local-app only.
+            FIX610.3.10.1: dropped images are staged like
+            <command-local-add-img> (updates FIX521.2.1.20.3's
             immediate-upload default for the local app specifically). */}
         {isLocalApp && (
           <div

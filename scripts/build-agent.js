@@ -1,13 +1,15 @@
 /**
  * build-agent.js — packages agent/agent.js into a standalone Windows exe
  * for installation on a PC without Node.js, so it can drive the already
- * deployed Showcase website's local file access.
+ * deployed Showcase website's local file access. "agent" is the internal/
+ * technical name for this process; the user-facing name is "Local App"
+ * (see tech/installation) — only the shipped artifact name reflects that.
  *
  * Steps: esbuild bundles the ESM agent to a single CJS file (pkg's ESM
  * loader can't resolve modules from its own snapshot — see agent.js's
  * __filename fallback comment), then pkg packages that into an exe.
  *
- * Output: tech/installation/dist/showcase-agent.exe
+ * Output: tech/installation/dist/showcase-local-app.exe
  *
  * Usage: npm run build:agent
  */
@@ -21,7 +23,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const bundlePath = path.join(projectRoot, 'agent', '.build', 'agent.cjs');
 const outDir = path.resolve(projectRoot, '..', 'installation', 'dist');
-const outExe = path.join(outDir, 'showcase-agent.exe');
+const outExe = path.join(outDir, 'showcase-local-app.exe');
 
 // Pin to a version pkg-fetch actually has a prebuilt Windows binary for
 // (check https://github.com/yao-pkg/pkg-fetch/releases/tag/v3.6 if this

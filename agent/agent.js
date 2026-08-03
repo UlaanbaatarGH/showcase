@@ -10,7 +10,13 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { createConnection } from 'net';
 
-const __filename = fileURLToPath(import.meta.url);
+// esbuild transpiles this file to CJS for the packaged build (see
+// tech/installation), where import.meta.url is unavailable — fall back to
+// argv[1] there. Only dev-only endpoints (/runner/*) depend on the exact
+// value, so the fallback's precision doesn't matter for a packaged install.
+const __filename = (typeof import.meta !== 'undefined' && import.meta.url)
+  ? fileURLToPath(import.meta.url)
+  : process.argv[1];
 const __dirname  = path.dirname(__filename);
 
 const app  = express();
@@ -33,6 +39,19 @@ function resolveFsPath(p) {
 let targetVite = null; // reference to the spawned target Vite process
 let registeredFilePath = null; // currently registered file for read/write (/file/open + /file/save)
 let targetStartupProject = null; // --project path for the currently running target
+
+// FIX1000 (spec: TECH2, "Build local app executable"): in dev, __dirname
+// sits under tech/dev/agent so 'data' can
+// be found by walking up to the sibling tech/data folder. A pkg-packaged exe
+// has no such source tree on disk (__dirname points into the pkg snapshot),
+// so fall back to a 'data' folder next to the executable itself.
+function getDataRoot() {
+  if (process.env.SHOWCASE_DATA_ROOT) return process.env.SHOWCASE_DATA_ROOT;
+  if (process.pkg) return path.join(path.dirname(process.execPath), 'data');
+  return path.resolve(__dirname, '..', '..', 'data');
+}
+const dataRoot = getDataRoot();
+fs.mkdirSync(dataRoot, { recursive: true });
 
 app.use(express.json({ limit: '50mb' })); // FIX524: raised for base64 image save
 
@@ -91,11 +110,9 @@ app.get('/agent/status', (req, res) => {
     ready: true,
     targetViteRunning: targetVite !== null,
     // FIX653 durable capture staging: lets the browser app build a stable
-    // staging root under the project itself (tech/data, a sibling of
-    // tech/dev where this agent lives) rather than the OS home dir —
-    // resolved from __dirname so it's correct regardless of the agent's
-    // launch cwd.
-    dataRoot: path.resolve(__dirname, '..', '..', 'data'),
+    // staging root rather than the OS home dir. See getDataRoot() above for
+    // how the root is picked in dev vs. a packaged install.
+    dataRoot,
   });
 });
 

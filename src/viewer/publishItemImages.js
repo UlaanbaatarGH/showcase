@@ -134,7 +134,7 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       return {
         ...withBaseline,
         status: pending.status,
-        // FIX610.3.12 [ex-610.3.7]: carry the cumulate flag through the merge too, so a
+        // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: carry the cumulate flag through the merge too, so a
         // still-pending Moved+Changed row doesn't lose its "Changed" half.
         fieldsChanged: pending.fieldsChanged,
         sort_order: pending.status === 'Moved' ? pending.sort_order : withBaseline.sort_order,

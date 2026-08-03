@@ -73,7 +73,7 @@ export default function ShowcaseImgListEditor({
   // staged locally (not yet uploaded, synthetic string id) apart from a
   // real folder_image row (numeric id).
 
-  // FIX610.3.20.2: report to the server whenever this item's staged status
+  // FIX610.4.5.2[ex-610.3.20.2]: report to the server whenever this item's staged status
   // set transitions between "something pending" and "nothing pending", so
   // the website can be blocked while the local app has unpublished changes
   // — independent of whether this editor is currently open. Known scope
@@ -594,7 +594,7 @@ export default function ShowcaseImgListEditor({
       ? newImages.map((im) => {
           if (isLocalRow(im) || im.status === 'Removed') return im;
           const baseline = im.origSortOrder ?? im.sort_order;
-          // FIX610.3.12 [ex-610.3.7]: a move that cancels out shouldn't drop
+          // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: a move that cancels out shouldn't drop
           // a still-pending field edit — fall back to 'Changed' rather than
           // '' when so.
           const atBaseline = im.sort_order === baseline;
@@ -646,7 +646,7 @@ export default function ShowcaseImgListEditor({
   // FIX610.3.6 <cmd-local-chg-img-and-attr> [ex-<cmd-local-chg-img-attr>]:
   // a row not already Added/Removed/Moved gets tagged 'Changed' when
   // Section, Caption, Main, or the image itself (crop/rotate) is edited.
-  // FIX610.3.12 [ex-610.3.7]: a row already
+  // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: a row already
   // Added/Removed/Moved instead gets `fieldsChanged: true` so the status
   // badge can cumulate ("Moved, Changed") instead of the field edit being
   // silently dropped from the display — the actual field values were
@@ -759,7 +759,7 @@ export default function ShowcaseImgListEditor({
   // locally-staged crop/rotate + caption/section/main, restoring the
   // on-line values. Only ever applies to a public row (an Added row is
   // never 'Chged' — stageChanged keeps it 'Added' with fieldsChanged
-  // instead, per FIX610.3.12). Re-fetches fresh server truth rather than
+  // instead, per FIX610.4.1[ex-610.3.12]). Re-fetches fresh server truth rather than
   // trusting any cached copy, since that's the "reset from on-line site"
   // the spec asks for.
   const [resettingChange, setResettingChange] = useState(false);
@@ -835,7 +835,7 @@ export default function ShowcaseImgListEditor({
       addCount: scope.filter((idx) => images[idx].status === 'Added').length,
       removeCount: scope.filter((idx) => images[idx].status === 'Removed').length,
       moveCount: scope.filter((idx) => images[idx].status === 'Moved').length,
-      // FIX610.3.12 [ex-610.3.7]: a Moved/Added/Removed row with a pending
+      // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: a Moved/Added/Removed row with a pending
       // field edit counts toward "change" too, not just its move/add/remove count.
       changeCount: scope.filter((idx) => images[idx].status === 'Changed' || images[idx].fieldsChanged).length,
     });
@@ -1531,20 +1531,25 @@ export default function ShowcaseImgListEditor({
                       />
                     </td>
                     {/* FIX610.2.1[ex-610.3.10]: Status column — '', 'Added' or 'Removed'.
-                        FIX610.3.12 [ex-610.3.7]: cumulates with ', Changed'
-                        when a Added/Removed/Moved row also has a pending
-                        field edit.
+                        FIX610.4.1[ex-610.3.12] [ex-610.3.7]: cumulates as
+                        'Removed/Chged/Moved' (whichever apply, in that
+                        order) when a Added/Removed/Moved row also has a
+                        pending field edit — 'Chged' is the display label,
+                        the internal status value stays 'Changed' (same
+                        label-only convention as 'Added' → 'New' below).
                         Displayed as 'New' rather than the internal 'Added'
                         status value (label only, kept as-is everywhere it
                         drives logic/disk tags). */}
                     {isLocalApp && (
                       <td className="sc-img-list-status">
                         {[
-                          im.status === 'Added' ? 'New' : im.status,
-                          (im.fieldsChanged && im.status !== 'Changed') ? 'Changed' : '',
+                          im.status === 'Removed' ? 'Removed' : '',
+                          (im.status === 'Changed' || im.fieldsChanged) ? 'Chged' : '',
+                          im.status === 'Moved' ? 'Moved' : '',
+                          im.status === 'Added' ? 'New' : '',
                         ]
                           .filter(Boolean)
-                          .join(', ')}
+                          .join('/')}
                       </td>
                     )}
                   </tr>

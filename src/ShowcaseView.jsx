@@ -237,7 +237,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [error, setError] = useState(null);
   const isLocalApp = import.meta.env.DEV;
 
-  // FIX610.3.20: per-project edit lock over <panel-showcase-img-list-editor>
+  // FIX610.4.5[ex-610.3.20]: per-project edit lock over <panel-showcase-img-list-editor>
   // (the Images tab in edition mode), coordinating the website and the
   // local app so only one side can have it open at a time. One session
   // token per browser tab; a heartbeat keeps the lease alive while the
@@ -248,7 +248,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   );
   const editLockHolder = isLocalApp ? 'local' : 'website';
   const editLockHeldRef = useRef(false);
-  // FIX610.3.20.1/.2: a failed acquire (locked by the other side, or the
+  // FIX610.4.5.1[ex-610.3.20.1] and FIX610.4.5.2[ex-610.3.20.2]: a failed acquire (locked by the other side, or the
   // local app has unpublished changes) is a normal, expected outcome, not
   // an app-breaking error — show it as a dismissable popup and drop back
   // out of edition mode, instead of replacing the whole view (setError).
@@ -625,7 +625,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
         removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
         moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
-        // FIX610.3.12 [ex-610.3.7]: same cumulate rule as the per-item recap.
+        // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: same cumulate rule as the per-item recap.
         changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
       });
     }
@@ -3762,9 +3762,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX610.3.20.1/.2 <button-edit>: acquiring the cross-side edit
-          lock failed (held by the other side, or local has unpublished
-          changes) — a dismissable popup, not a page-replacing error. */}
+      {/* FIX610.4.5.1[ex-610.3.20.1] and FIX610.4.5.2[ex-610.3.20.2] <button-edit>:
+          acquiring the cross-side edit lock failed (held by the other side, or
+          local has unpublished changes) — a dismissable popup, not a page-replacing error. */}
       {editLockError && (
         <div className="setup-overlay" onMouseDown={() => setEditLockError(null)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>

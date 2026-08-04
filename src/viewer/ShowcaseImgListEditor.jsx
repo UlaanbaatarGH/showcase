@@ -83,7 +83,7 @@ export default function ShowcaseImgListEditor({
   // multiple items at once.
   useEffect(() => {
     if (!isLocalApp || projectId == null) return;
-    const pending = images.some((im) => im.status);
+    const pending = images.some((im) => im.added || im.chged || im.moved || im.deleted);
     setEditLockPendingChanges(projectId, { pending }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images, isLocalApp, projectId]);
@@ -583,22 +583,20 @@ export default function ShowcaseImgListEditor({
     const updated = rotated.map((im, k) => ({ ...im, sort_order: orders[k] }));
     const newImages = [...images];
     for (let k = 0; k < updated.length; k++) newImages[rangeStart + k] = updated[k];
-    // FIX610.3.4 <cmd-local-move-img-up> / FIX610.3.9 <cmd-local-move-img-down>
-    // (same flavour, opposite delta): recheck EVERY row (not just the ones
-    // this rotation touched) against its last-published baseline (origSortOrder) —
-    // a move that cancels out an earlier one (up then back down) must
-    // clear 'Moved' again, not leave it stuck. A row already 'Removed'
-    // keeps that status; an 'Added' row has no public rank so it's
-    // never tagged.
+    // FIX670.10.5 <cmd-local-move-img-up> / <cmd-local-move-img-down> (same
+    // flavour, opposite delta): recheck EVERY row (not just the ones this
+    // rotation touched) against its original public position
+    // (origSortOrder) — a move that cancels out an earlier one (up then
+    // back down) must clear `moved` again, not leave it stuck. `moved` is
+    // independent of `chged`/`deleted` (moving the item's container doesn't
+    // change the image itself), so it's set on its own without touching
+    // either. A row already `deleted` keeps that flag; an `added` row has
+    // no public rank so it's never tagged moved.
     const restaged = isLocalApp
       ? newImages.map((im) => {
-          if (isLocalRow(im) || im.status === 'Removed') return im;
+          if (isLocalRow(im) || im.deleted) return im;
           const baseline = im.origSortOrder ?? im.sort_order;
-          // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: a move that cancels out shouldn't drop
-          // a still-pending field edit — fall back to 'Changed' rather than
-          // '' when so.
-          const atBaseline = im.sort_order === baseline;
-          return { ...im, status: atBaseline ? (im.fieldsChanged ? 'Changed' : '') : 'Moved' };
+          return { ...im, moved: im.sort_order !== baseline };
         })
       : newImages;
     setImages(restaged);
@@ -643,28 +641,21 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX610.3.6 <cmd-local-chg-img-and-attr> [ex-<cmd-local-chg-img-attr>]:
-  // a row not already Added/Removed/Moved gets tagged 'Changed' when
-  // Section, Caption, Main, or the image itself (crop/rotate) is edited.
-  // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: a row already
-  // Added/Removed/Moved instead gets `fieldsChanged: true` so the status
-  // badge can cumulate ("Moved, Changed") instead of the field edit being
-  // silently dropped from the display — the actual field values were
-  // always published regardless of which label was shown (see
-  // confirmPublish), only the on-screen status was losing information.
-  const stageChanged = (im) =>
-    (im.status === 'Added' || im.status === 'Removed' || im.status === 'Moved')
-      ? { ...im, fieldsChanged: true }
-      : { ...im, status: 'Changed' };
+  // FIX670.10.4 <cmd-local-chg-img-and-attr> [ex-<cmd-local-chg-img-attr>]:
+  // `chged` is independent of `moved`/`deleted` (Move and Chg are two
+  // separate axes — moving the item's container doesn't change the image),
+  // so staging an edit is just setting the one flag, regardless of whatever
+  // else is already set on the row.
+  const stageChanged = (im) => ({ ...im, chged: true });
 
   // Auto-save caption / section on blur. Updating local images state is
   // done on every keystroke for snappy UI; the PATCH is debounced to blur
   // to avoid hammering the backend while the user types.
-  // FIX610.3.1: a row staged locally (status 'Added', not yet published) has
+  // FIX610.3.1: a row staged locally (`added`, not yet published) has
   // no real folder_image id to PATCH — its caption/section/main just sit in
   // local state until Publish (FIX610.3.5) uploads it and applies them.
-  // FIX610.3.6: in the local app, an existing public row's edit is staged
-  // (status 'Changed') instead of saved immediately — Publish applies it.
+  // FIX670.10.4: in the local app, an existing public row's edit is staged
+  // (`chged: true`) instead of saved immediately — Publish applies it.
   const patchFolderImage = async (fiId, patch) => {
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
     if (isLocalApp) {
@@ -714,10 +705,10 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX610.3.2 <cmd-local-remove-img> [ex-<button-local-remove-img>]:
-  // local-app only. A not-yet-published ('Added') row is dropped
+  // FIX670.10.6 <cmd-local-remove-img> [ex-<button-local-remove-img>]:
+  // local-app only. A not-yet-published (`added`) row is dropped
   // immediately (it never reached the server); a public row is
-  // soft-marked 'Removed' — actually deleted only on Publish (FIX610.3.5),
+  // soft-marked `deleted` — actually deleted only on Publish (FIX610.3.5),
   // so it stays undoable via Unremove (FIX610.3.3) until then.
   const handleRemoveClick = () => {
     if (!isLocalApp) { setRemoveConfirm(true); return; }
@@ -728,7 +719,7 @@ export default function ShowcaseImgListEditor({
     for (const im of targets) if (toDrop.has(im.id)) URL.revokeObjectURL(im.url);
     const next = images
       .filter((im) => !toDrop.has(im.id))
-      .map((im) => (toMark.has(im.id) ? { ...im, status: 'Removed' } : im));
+      .map((im) => (toMark.has(im.id) ? { ...im, deleted: true } : im));
     setImages(next);
     let newIdx = selectedIdx;
     if (next.length === 0) newIdx = 0;
@@ -741,32 +732,31 @@ export default function ShowcaseImgListEditor({
     syncAfterEdit(next);
   };
 
-  // FIX610.3.3 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
-  // clears the 'Removed' status on any selected public row that has it,
-  // restoring it to the published list.
+  // FIX670.10.7 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
+  // clears `deleted` on any selected public row that has it, restoring it
+  // to the published list.
   const handleUnremoveClick = () => {
     const targets = [...selIdxs].map((i) => images[i]).filter(Boolean);
     const ids = new Set(
-      targets.filter((im) => !isLocalRow(im) && im.status === 'Removed').map((im) => im.id),
+      targets.filter((im) => !isLocalRow(im) && im.deleted).map((im) => im.id),
     );
     if (ids.size === 0) return;
-    const next = images.map((im) => (ids.has(im.id) ? { ...im, status: '' } : im));
+    const next = images.map((im) => (ids.has(im.id) ? { ...im, deleted: false } : im));
     setImages(next);
-    syncAfterEdit(next); // FIX670.13: strip the ' (removed)' marker in list.txt
+    syncAfterEdit(next); // FIX670.10.7: strip the ' (deleted)' marker in list.txt
   };
 
   // FIX610.3.7 <cmd-local-reset-img-and-attr-chg>: discards a public image's
   // locally-staged crop/rotate + caption/section/main, restoring the
-  // on-line values. Only ever applies to a public row (an Added row is
-  // never 'Chged' — stageChanged keeps it 'Added' with fieldsChanged
-  // instead, per FIX610.4.1[ex-610.3.12]). Re-fetches fresh server truth rather than
-  // trusting any cached copy, since that's the "reset from on-line site"
-  // the spec asks for.
+  // on-line values. Only ever applies to a public row carrying `chged`
+  // (an `added` row is never `chged`). Re-fetches fresh server truth rather
+  // than trusting any cached copy, since that's the "reset from on-line
+  // site" the spec asks for.
   const [resettingChange, setResettingChange] = useState(false);
   const handleResetChangeClick = async () => {
     const idx = selIdxs.size === 1 ? [...selIdxs][0] : null;
     const target = idx != null ? images[idx] : null;
-    if (!target || isLocalRow(target) || !(target.status === 'Changed' || target.fieldsChanged)) return;
+    if (!target || isLocalRow(target) || !target.chged) return;
     setResettingChange(true);
     try {
       const fresh = await getFolderImages(folderId);
@@ -783,11 +773,10 @@ export default function ShowcaseImgListEditor({
         url: server.url,
         localFile: undefined,
         stagedPath: undefined,
-        status: im.status === 'Changed' ? '' : im.status,
-        fieldsChanged: false,
+        chged: false,
       }));
       setImages(next);
-      syncAfterEdit(next); // drops the staged file + '(chged)' tag once status no longer 'Changed'
+      syncAfterEdit(next); // drops the staged file + '(chged)' tag now that chged is false
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -806,7 +795,7 @@ export default function ShowcaseImgListEditor({
   // row's real id (matched by filename, since a folder holds no two images
   // of the same name).
   const publishScopeIdxs = () =>
-    images.map((_, idx) => idx).filter((idx) => selIdxs.has(idx) && images[idx].status !== '');
+    images.map((_, idx) => idx).filter((idx) => selIdxs.has(idx) && (images[idx].added || images[idx].chged || images[idx].moved || images[idx].deleted));
 
   // FIX610.3.5.4: two items sharing the same Ref would publish/import
   // ambiguously (whichever one a lookup-by-name happens to match) — block
@@ -832,12 +821,13 @@ export default function ShowcaseImgListEditor({
     const scope = publishScopeIdxs();
     if (scope.length === 0) return;
     setPublishRecap({
-      addCount: scope.filter((idx) => images[idx].status === 'Added').length,
-      removeCount: scope.filter((idx) => images[idx].status === 'Removed').length,
-      moveCount: scope.filter((idx) => images[idx].status === 'Moved').length,
-      // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: a Moved/Added/Removed row with a pending
-      // field edit counts toward "change" too, not just its move/add/remove count.
-      changeCount: scope.filter((idx) => images[idx].status === 'Changed' || images[idx].fieldsChanged).length,
+      addCount: scope.filter((idx) => images[idx].added).length,
+      removeCount: scope.filter((idx) => images[idx].deleted).length,
+      moveCount: scope.filter((idx) => images[idx].moved).length,
+      // FIX670.10: chged is independent of added/moved/deleted, so a row
+      // counts toward "change" whenever it's set, regardless of what else
+      // is set on the same row.
+      changeCount: scope.filter((idx) => images[idx].chged).length,
     });
   };
 
@@ -1047,7 +1037,10 @@ export default function ShowcaseImgListEditor({
     sort_order: 0, // recomputed against final order at Publish
     rotation: 0,
     crop: null,
-    status: 'Added',
+    added: true,
+    chged: false,
+    moved: false,
+    deleted: false,
     localFile: file,
   });
 
@@ -1304,10 +1297,10 @@ export default function ShowcaseImgListEditor({
                     Remove
                   </button>
                 </li>
-                {/* FIX610.3.3 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
-                    local-app only. FIX610.3.3.1: enabled only when exactly
-                    1 image is selected AND it's currently at status
-                    'Removed' — not just "something is selected". */}
+                {/* FIX670.10.7 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
+                    local-app only. Enabled only when exactly 1 image is
+                    selected AND it's currently marked `deleted` — not just
+                    "something is selected". */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -1318,7 +1311,7 @@ export default function ShowcaseImgListEditor({
                       disabled={
                         interactionLocked
                         || selIdxs.size !== 1
-                        || images[[...selIdxs][0]]?.status !== 'Removed'
+                        || !images[[...selIdxs][0]]?.deleted
                       }
                     >
                       Unremove
@@ -1327,7 +1320,7 @@ export default function ShowcaseImgListEditor({
                 )}
                 {/* FIX610.3.7 <cmd-local-reset-img-and-attr-chg>: local-app
                     only. Enabled only on a single selected public image
-                    carrying the 'Chged' tag (FIX610.3.7.1). */}
+                    carrying the `chged` flag (FIX610.3.7.1). */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -1341,7 +1334,7 @@ export default function ShowcaseImgListEditor({
                         || selIdxs.size !== 1
                         || (() => {
                           const im = images[[...selIdxs][0]];
-                          return !im || isLocalRow(im) || !(im.status === 'Changed' || im.fieldsChanged);
+                          return !im || isLocalRow(im) || !im.chged;
                         })()
                       }
                     >
@@ -1448,8 +1441,8 @@ export default function ShowcaseImgListEditor({
           <tbody>
             {(() => { let publicRank = 0; return images.map((im, idx) => {
               // FIX610.2.2[ex-610.3.11]: 1-based rank among rows actually live
-              // on the website — an 'Added' row has no public rank yet.
-              const rank = im.status === 'Added' ? '' : ++publicRank;
+              // on the website — an `added` row has no public rank yet.
+              const rank = im.added ? '' : ++publicRank;
               const isSelected = selIdxs.has(idx);
               const dimsZ = dimsByUrl[im.url];
               const zf = dimsZ ? zoomFactor(dimsZ.w, dimsZ.h) : null; // FIX521.2.1.1.7
@@ -1530,23 +1523,18 @@ export default function ShowcaseImgListEditor({
                         disabled={publishing}
                       />
                     </td>
-                    {/* FIX610.2.1[ex-610.3.10]: Status column — '', 'Added' or 'Removed'.
-                        FIX610.4.1[ex-610.3.12] [ex-610.3.7]: cumulates as
-                        'Removed/Chged/Moved' (whichever apply, in that
-                        order) when a Added/Removed/Moved row also has a
-                        pending field edit — 'Chged' is the display label,
-                        the internal status value stays 'Changed' (same
-                        label-only convention as 'Added' → 'New' below).
-                        Displayed as 'New' rather than the internal 'Added'
-                        status value (label only, kept as-is everywhere it
-                        drives logic/disk tags). */}
+                    {/* FIX610.2.1[ex-610.3.10]: Status column. FIX670.10:
+                        added/chged/moved/deleted are independent flags —
+                        any combination the row actually carries is joined,
+                        no fixed cumulate/priority formatting (FIX610.4.1,
+                        which specified that, is retired). */}
                     {isLocalApp && (
                       <td className="sc-img-list-status">
                         {[
-                          im.status === 'Removed' ? 'Removed' : '',
-                          (im.status === 'Changed' || im.fieldsChanged) ? 'Chged' : '',
-                          im.status === 'Moved' ? 'Moved' : '',
-                          im.status === 'Added' ? 'New' : '',
+                          im.deleted ? 'Deleted' : '',
+                          im.chged ? 'Chged' : '',
+                          im.moved ? 'Moved' : '',
+                          im.added ? 'New' : '',
                         ]
                           .filter(Boolean)
                           .join('/')}

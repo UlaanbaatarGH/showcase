@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderRemoved, rmPath, listStagingItems, readStagedItemImages } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, rmPath, listStagingItems, readStagedItemImages } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -357,7 +357,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           // mistaken for "already reconciled".
           if (!folder) continue;
           const already = imagesByFolderRef.current[folder.id];
-          if (already && already.some((im) => im.status || isLocalRow(im))) continue;
+          if (already && already.some((im) => im.added || im.chged || im.moved || im.deleted || isLocalRow(im))) continue;
           const itemDir = `${projectDir}/${entry.name}`;
           // FIX670.10: list.txt is the manifest of every public + local
           // image in display order — an item folder only exists on disk
@@ -365,41 +365,41 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           // manifest here means nothing left to reconstruct.
           const manifest = await readManifestEntries(itemDir);
           if (manifest.length === 0 || cancelled) continue;
-          const publicBaseline = await getFolderImages(folder.id)
-            .then((imgs) => imgs.map((im) => ({ ...im, origSortOrder: im.sort_order })))
-            .catch(() => null);
+          const publicBaseline = await getFolderImages(folder.id).catch(() => null);
           if (publicBaseline == null || cancelled) continue;
           const byFilename = new Map(publicBaseline.map((im) => [im.filename, im]));
           const usedFilenames = new Set();
-          // FIX670.14: reassign sort_order positionally from the original
-          // baseline values, same rotation-over-a-range convention
-          // ShowcaseImgListEditor.jsx's moveSelected already uses, so a row
-          // back at its original position resolves to '' rather than
-          // 'Moved'.
-          const origOrders = publicBaseline.map((im) => im.sort_order).sort((a, b) => a - b);
-          let publicPos = 0;
+          // FIX670.1.2.2.2: `moved` is a pure comparison between the
+          // manifest's immutable origPosition (frozen the moment this
+          // folder was created, never recomputed) and this public image's
+          // current rank among public images as walked in manifest order —
+          // no live fetch of the true public order needed to detect it, so
+          // this survives an offline restart.
+          let publicRank = 0;
           const rows = [];
-          for (const { filename, removed, chged } of manifest) {
+          for (const { filename, origPosition, chged, moved: wasMoved, deleted } of manifest) {
             if (cancelled) return;
             const pub = byFilename.get(filename);
             if (pub) {
               usedFilenames.add(filename);
-              const sort_order = origOrders[publicPos];
-              publicPos += 1;
+              publicRank += 1;
+              const sort_order = publicRank - 1;
+              const origSortOrder = (origPosition ?? publicRank) - 1;
+              const moved = sort_order !== origSortOrder;
               if (chged) {
                 // FIX611.1: a public image locally re-saved (crop/rotate) —
                 // serve the staged, already-baked bytes instead of the
-                // stale public URL, and restore the 'Changed' status the
-                // manifest tag records. rotation/crop reset to identity:
-                // the transform is baked into these pixels already, pub's
-                // live DB values (never touched by the local-app save)
-                // would otherwise get re-applied on top by the viewer.
+                // stale public URL. rotation/crop reset to identity: the
+                // transform is baked into these pixels already, pub's live
+                // DB values (never touched by the local-app save) would
+                // otherwise get re-applied on top by the viewer.
                 const filePath = `${itemDir}/${filename}`;
                 const imgRes = await fetch(`${AGENT_URL}/agent/dir/image?path=${encodeURIComponent(filePath)}`);
                 if (imgRes.ok) {
                   const blob = await imgRes.blob();
                   rows.push({
-                    ...pub, sort_order, status: 'Changed', rotation: 0, crop: null,
+                    ...pub, sort_order, origSortOrder, added: false, chged: true, moved, deleted: !!deleted,
+                    rotation: 0, crop: null,
                     url: URL.createObjectURL(blob), localFile: blob, stagedPath: filePath,
                   });
                   continue;
@@ -408,9 +408,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 // row below (best-effort, matches this loop's posture
                 // elsewhere for a failed disk read).
               }
-              // FIX670.11/.13: the manifest's ' (removed)' marker is the
-              // durable record of a pending removal/unremoval.
-              rows.push({ ...pub, sort_order, status: removed ? 'Removed' : (sort_order === pub.origSortOrder ? '' : 'Moved') });
+              rows.push({ ...pub, sort_order, origSortOrder, added: false, chged: false, moved, deleted: !!deleted });
               continue;
             }
             const filePath = `${itemDir}/${filename}`;
@@ -428,7 +426,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               sort_order: 0,
               rotation: 0,
               crop: null,
-              status: 'Added',
+              added: true, chged: false, moved: false, deleted: false,
               localFile: blob,
               stagedPath: filePath,
             });
@@ -437,7 +435,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           // this shouldn't normally fire: a public row the manifest didn't
           // mention is appended unmarked, preserving its baseline order.
           for (const pub of publicBaseline) {
-            if (!usedFilenames.has(pub.filename)) rows.push({ ...pub, status: '' });
+            if (!usedFilenames.has(pub.filename)) rows.push({ ...pub, added: false, chged: false, moved: false, deleted: false });
           }
           if (rows.length === 0 || cancelled) continue;
           imagesByFolderRef.current[folder.id] = rows;
@@ -460,7 +458,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX658.2.1.1 / FIX657.4 / FIX655.4: pendingRemoval/originalRef/pendingNew
   // are client-only annotations (or, for a new item, the whole local-item-*
   // entry itself) on top of a real, server-sourced folder list — none of it
-  // ever persisted anywhere, so an item flagged (removed)/(ex-...)/(new) via
+  // ever persisted anywhere, so an item flagged (deleted)/(ex-...)/(new) via
   // <cmd-delete-item>/<cmd-new-item-ref>/<cmd-add-item> in an earlier
   // session looked completely normal again — or, for a new item, was simply
   // missing from the list — on the next load, even though its staging
@@ -490,7 +488,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       try {
         const root = await getStagingRoot();
         const staged = await listStagingItems(root, projectName);
-        const removedRefs = new Set(staged.filter((i) => i.flag === 'removed').map((i) => i.ref));
+        const removedRefs = new Set(staged.filter((i) => i.flag === 'deleted').map((i) => i.ref));
         const renamedRefs = new Map(
           staged.filter((i) => i.flag === 'renamed').map((i) => [i.ref, i.oldRef]),
         );
@@ -576,20 +574,27 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     const root = await getStagingRoot();
     const staged = await listStagingItems(root, data?.project?.name);
     const plan = [];
+    const scopeIdxsOf = (imgs) => imgs.map((_, idx) => idx).filter((idx) => imgs[idx].added || imgs[idx].chged || imgs[idx].moved || imgs[idx].deleted);
+    const countsOf = (imgs, scopeIdxs) => ({
+      addCount: scopeIdxs.filter((i) => imgs[i].added).length,
+      removeCount: scopeIdxs.filter((i) => imgs[i].deleted).length,
+      moveCount: scopeIdxs.filter((i) => imgs[i].moved).length,
+      changeCount: scopeIdxs.filter((i) => imgs[i].chged).length,
+    });
     for (const item of staged) {
-      if (item.flag === 'removed') {
-        // FIX652.2.1 <file-flag-removed-item>: matches a real item FIX658
-        // already flagged pendingRemoval.
+      if (item.flag === 'deleted') {
+        // FIX670.20 <process-staged-items-publication>: matches a real item
+        // FIX658 already flagged pendingRemoval.
         const folder = (data?.folders || []).find((f) => f.name === item.ref && f.pendingRemoval);
         if (!folder) continue;
-        plan.push({ kind: 'removed', ref: item.ref, dir: item.dir, folderId: folder.id });
+        plan.push({ kind: 'deleted', ref: item.ref, dir: item.dir, folderId: folder.id });
         continue;
       }
       if (item.flag === 'new') {
-        // FIX652.2.3 <file-flag-new-item>: never given a real DB row yet —
-        // rebuilt straight from disk (manifest + files), not
-        // imagesByFolderRef/data.folders, so it publishes correctly even
-        // after a reload wiped this session's in-memory state.
+        // FIX670.20: never given a real DB row yet — rebuilt straight from
+        // disk (manifest + files), not imagesByFolderRef/data.folders, so
+        // it publishes correctly even after a reload wiped this session's
+        // in-memory state.
         const imgs = await readStagedItemImages(item.dir);
         const scopeIdxs = imgs.map((_, idx) => idx);
         plan.push({
@@ -599,35 +604,26 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         continue;
       }
       if (item.flag === 'renamed') {
-        // FIX652.2.2 <file-flag-chged-item-ref>: a real item mid-rename
-        // (FIX657) — data.folders already carries the new ref optimistically.
+        // FIX670.20: a real item mid-rename (FIX657) — data.folders already
+        // carries the new ref optimistically.
         const folder = (data?.folders || []).find((f) => f.name === item.ref && typeof f.id !== 'string');
         if (!folder) continue;
         const imgs = imagesByFolderRef.current[folder.id] || [];
-        const scopeIdxs = imgs.map((_, idx) => idx).filter((idx) => imgs[idx].status);
+        const scopeIdxs = scopeIdxsOf(imgs);
         plan.push({
           kind: 'renamed', ref: item.ref, oldRef: item.oldRef, dir: item.dir, folderId: folder.id, scopeIdxs,
-          addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
-          removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
-          moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
-          changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
+          ...countsOf(imgs, scopeIdxs),
         });
         continue;
       }
-      // FIX652.2.4: no flag — a real item with plain staged image changes.
+      // FIX670.20: 'chged' (or a bare legacy folder) — a real item with
+      // plain staged image changes, no item-level flag.
       const folder = (data?.folders || []).find((f) => f.name === item.ref && typeof f.id !== 'string');
       if (!folder) continue;
       const imgs = imagesByFolderRef.current[folder.id] || [];
-      const scopeIdxs = imgs.map((_, idx) => idx).filter((idx) => imgs[idx].status);
+      const scopeIdxs = scopeIdxsOf(imgs);
       if (scopeIdxs.length === 0) continue; // nothing actually pending
-      plan.push({
-        kind: 'plain', ref: item.ref, dir: item.dir, folderId: folder.id, scopeIdxs,
-        addCount: scopeIdxs.filter((i) => imgs[i].status === 'Added').length,
-        removeCount: scopeIdxs.filter((i) => imgs[i].status === 'Removed').length,
-        moveCount: scopeIdxs.filter((i) => imgs[i].status === 'Moved').length,
-        // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: same cumulate rule as the per-item recap.
-        changeCount: scopeIdxs.filter((i) => imgs[i].status === 'Changed' || imgs[i].fieldsChanged).length,
-      });
+      plan.push({ kind: 'plain', ref: item.ref, dir: item.dir, folderId: folder.id, scopeIdxs, ...countsOf(imgs, scopeIdxs) });
     }
     // Show the recap regardless — an empty plan just shows an all-zero line
     // with Confirm disabled, rather than a blocking error.
@@ -679,8 +675,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     setError(null);
     try {
       for (const p of crossPublishPlan) {
-        if (p.kind === 'removed') {
-          // FIX652.2.1: delete on both the public site and locally.
+        if (p.kind === 'deleted') {
+          // FIX670.20: delete on both the public site and locally.
           await deleteFolder(p.folderId);
           await rmPath(p.dir).catch(() => {});
           setData((prev) => (prev ? { ...prev, folders: prev.folders.filter((f) => f.id !== p.folderId) } : prev));
@@ -691,7 +687,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           continue;
         }
         if (p.kind === 'new') {
-          // FIX652.2.3: add it on the website, then publish everything
+          // FIX670.20: add it on the website, then publish everything
           // staged for it (all-new, so the whole image list is in scope) —
           // p.images came straight from disk, not imagesByFolderRef.
           const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: p.ref });
@@ -718,7 +714,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           continue;
         }
         if (p.kind === 'renamed') {
-          // FIX652.2.2: apply the ref swap on the public site, then publish
+          // FIX670.20: apply the ref swap on the public site, then publish
           // whatever image changes were also staged for it.
           await renameFolder(p.folderId, p.ref);
           if (p.scopeIdxs.length > 0) {
@@ -739,7 +735,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           setCrossPublishProgress({ done: doneUnits, total: totalUnits });
           continue;
         }
-        // FIX652.2.4: plain — publish the staged image changes.
+        // FIX670.20: 'chged'/plain — publish the staged image changes.
         await publishAndSync(
           p.folderId, p.ref, imagesByFolderRef.current[p.folderId], p.scopeIdxs,
           (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
@@ -1308,12 +1304,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     }
   };
 
-  // FIX658 <cmd-delete-item>: local items (string 'local-item-*' ids) are
-  // deleted outright — no DB row exists, so both the list entry and its
-  // staging folder are dropped now (FIX658.2.1.2). Public (real DB) items
-  // have no delete-folder API, so they're left in the list flagged
-  // pendingRemoval for the crossed-out/non-published display (FIX658.2.1.1)
-  // and their staging folder is tagged ' (removed)' for Publish to pick up.
+  // FIX670.10.9 <cmd-delete-item>: local items (string 'local-item-*' ids)
+  // are deleted outright — no DB row exists, so both the list entry and its
+  // staging folder are dropped now. Public (real DB) items have no
+  // delete-folder API, so they're left in the list flagged pendingRemoval
+  // for the crossed-out/non-published display and their staging folder is
+  // tagged ' (deleted)' for Publish to pick up.
   const confirmDeleteItems = async () => {
     setDeleteItemPopup(false);
     const ids = selectedFolderIds;
@@ -1328,7 +1324,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         removedIds.push(id);
         delete imagesByFolderRef.current[id];
       } else {
-        await markItemFolderRemoved(root, data?.project?.name, folder.name).catch(() => {});
+        await markItemFolderDeleted(root, data?.project?.name, folder.name).catch(() => {});
       }
     }
     setData((prev) => (prev ? {
@@ -1477,7 +1473,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               sort_order: 0,
               rotation: 0,
               crop: null,
-              status: 'Added',
+              added: true, chged: false, moved: false, deleted: false,
               localFile: blob,
               stagedPath, // FIX670.30: durable copy on disk, cleaned up at Publish
             };
@@ -2148,7 +2144,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         folder.pendingNew ||
         folder.originalRef != null ||
         isLocalModeActive() ||
-        (imagesByFolderRef.current[folder.id] || []).some((im) => im.status)
+        (imagesByFolderRef.current[folder.id] || []).some((im) => im.added || im.chged || im.moved || im.deleted)
       );
       // FIX655.4: added items show '{ref}+'. FIX657.4: renamed items show
       // '{ref}!'. Suffix, not a separate marker — the Ref column is too
@@ -3561,7 +3557,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             ) : (
               crossPublishPlan.map((p) => (
                 <p key={p.ref}>
-                  {p.kind === 'removed' && `Ref ${p.ref}: item removed`}
+                  {p.kind === 'deleted' && `Ref ${p.ref}: item deleted`}
                   {p.kind === 'new' && `Ref ${p.ref}: new item, ${p.addCount} new`}
                   {p.kind === 'renamed' && (
                     `Ref ${p.ref}: renamed from ${p.oldRef}, ${p.addCount} new, ${p.removeCount} remove, `

@@ -39,7 +39,7 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
 
   for (let idx = 0; idx < images.length; idx++) {
     const im = images[idx];
-    if (scope.has(idx) && im.status === 'Removed' && !isLocalRow(im)) {
+    if (scope.has(idx) && im.deleted && !isLocalRow(im)) {
       await deleteFolderImage(im.id);
       bump();
     }
@@ -48,7 +48,7 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
   const remaining = images
     .map((im, origIdx) => ({ im, origIdx }))
     .filter(({ im, origIdx }) => {
-      if (scope.has(origIdx) && im.status === 'Removed') return false;
+      if (scope.has(origIdx) && im.deleted) return false;
       if (isLocalRow(im) && !scope.has(origIdx)) return false;
       return true;
     });
@@ -94,7 +94,7 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       bump();
     } else if (scope.has(origIdx)) {
       const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };
-      if (im.status === 'Moved') patch.sort_order = im.sort_order;
+      if (im.moved) patch.sort_order = im.sort_order;
       pendingPatches.push({ id: im.id, patch });
     }
   }
@@ -123,7 +123,7 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
   const stillStagedLocal = images.filter((im, idx) => isLocalRow(im) && !scope.has(idx));
   const stillPendingById = new Map(
     images
-      .filter((im, idx) => !isLocalRow(im) && im.status !== '' && !scope.has(idx))
+      .filter((im, idx) => !isLocalRow(im) && (im.chged || im.moved || im.deleted) && !scope.has(idx))
       .map((im) => [im.id, im]),
   );
   const finalFresh = fresh
@@ -133,11 +133,13 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       if (!pending) return withBaseline;
       return {
         ...withBaseline,
-        status: pending.status,
-        // FIX610.4.1[ex-610.3.12] [ex-610.3.7]: carry the cumulate flag through the merge too, so a
-        // still-pending Moved+Changed row doesn't lose its "Changed" half.
-        fieldsChanged: pending.fieldsChanged,
-        sort_order: pending.status === 'Moved' ? pending.sort_order : withBaseline.sort_order,
+        // Chged/Moved/Deleted are independent flags — each carries through
+        // the merge on its own, so a still-pending Moved+Chged row doesn't
+        // lose either half.
+        chged: pending.chged,
+        moved: pending.moved,
+        deleted: pending.deleted,
+        sort_order: pending.moved ? pending.sort_order : withBaseline.sort_order,
         caption: pending.caption,
         section: pending.section,
         is_main: pending.is_main,

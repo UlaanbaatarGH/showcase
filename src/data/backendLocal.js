@@ -110,9 +110,9 @@ async function buildLocalFolders(root, projectName) {
   const staged = await listStagingItems(root, projectName);
   const folders = [];
   for (const item of staged) {
-    if (item.flag === 'plain') {
-      // FIX670.20: an unflagged folder only represents real staged state
-      // while its manifest actually has something in it — new/removed/
+    if (item.flag === 'plain' || item.flag === 'chged') {
+      // FIX670.20: an unflagged/'(chged)' folder only represents real staged
+      // state while its manifest actually has something in it — new/deleted/
       // renamed folders are meaningful by their flag alone, manifest or not.
       const manifest = await readManifestEntries(item.dir);
       if (manifest.length === 0) continue;
@@ -123,7 +123,7 @@ async function buildLocalFolders(root, projectName) {
       is_main: false,
       sort_order: 0,
       zoom_factor: null,
-      pendingRemoval: item.flag === 'removed',
+      pendingRemoval: item.flag === 'deleted',
       pendingNew: item.flag === 'new',
       originalRef: item.flag === 'renamed' ? item.oldRef : null,
     });
@@ -172,18 +172,18 @@ async function getShowcase(slug) {
 
 // FIX680.1.1.2: a manifest entry backed by an actual file on disk becomes a
 // real local row (same shape as ShowcaseImgListEditor.jsx's makeLocalRow /
-// the FIX670 reconciliation effect) — per FIX670.12's invariant, only a
-// genuinely new/local image ever has bytes staged here, so it's always
-// 'Added', never '(removed)'. A manifest entry with no matching file is a
-// *public* image whose bytes only ever lived on the server (FIX670.10.2
-// only stages newly-added images, not existing public ones) — with no
-// network to fetch it, it's rendered as a placeholder (FIX680.1.1.2).
+// the FIX670 reconciliation effect) — only a genuinely new/local image ever
+// has bytes staged here, so it's always `added`, never `deleted`. A
+// manifest entry with no matching file is a *public* image whose bytes only
+// ever lived on the server — with no network to fetch it, it's rendered as
+// a placeholder (FIX680.1.1.2), carrying whatever chged/moved/deleted flags
+// the manifest recorded for it.
 async function buildLocalImageRows(itemDir) {
   const manifest = await readManifestEntries(itemDir);
   const rows = [];
   let localIdCounter = 0;
   for (let i = 0; i < manifest.length; i++) {
-    const { filename, removed } = manifest[i];
+    const { filename, origPosition, chged, moved, deleted } = manifest[i];
     const blob = await fetchStagedImageBlob(`${itemDir}/${filename}`);
     if (blob) {
       rows.push({
@@ -197,7 +197,7 @@ async function buildLocalImageRows(itemDir) {
         sort_order: i,
         rotation: 0,
         crop: null,
-        status: 'Added',
+        added: true, chged: false, moved: false, deleted: false,
         localFile: blob,
         stagedPath: `${itemDir}/${filename}`,
       });
@@ -211,8 +211,11 @@ async function buildLocalImageRows(itemDir) {
         section: '',
         is_main: false,
         sort_order: i,
-        origSortOrder: i,
-        status: removed ? 'Removed' : '',
+        origSortOrder: (origPosition ?? i + 1) - 1,
+        added: false,
+        chged: !!chged,
+        moved: !!moved,
+        deleted: !!deleted,
         isPlaceholder: true, // FIX680.1.1.2: rendered as a grey "Public image {filename}" box
       });
     }

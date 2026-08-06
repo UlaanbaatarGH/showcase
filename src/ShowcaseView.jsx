@@ -296,9 +296,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   }, [data?.project?.id]);
 
   // FIX652 [ex-FIX375]: staged (non-blank status) image changes need to survive
-  // switching items within the local app so <cmd-publish-changes> has
-  // something cross-item to act on — session-only (browser memory), same
-  // as every other FIX610 staging; lost on reload like the rest of it.
+  // switching items within the local app so <cmd-publish-all-changes>/
+  // <cmd-publish-selection> have something cross-item to act on —
+  // session-only (browser memory), same as every other FIX610 staging; lost
+  // on reload like the rest of it.
   // Keyed by folder id. Cleared when the project changes.
   const imagesByFolderRef = useRef({});
   useEffect(() => {
@@ -555,24 +556,27 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     });
   };
 
-  // FIX652 [ex-FIX375] <cmd-publish-changes>: publish every item's staged
-  // changes, project-wide, local-app only. FIX652.2: driven by the on-disk
-  // <folder-staged-item> flags, not just imagesByFolderRef — a plain
-  // (unflagged) item still just publishes its staged image changes
-  // (FIX652.2.4, "exactly what <button-publish-img> does but cross-items"),
-  // but <file-flag-removed-item>/<file-flag-chged-item-ref>/
-  // <file-flag-new-item> items now get their own real action too
-  // (FIX652.2.1/.2/.3). null | 'recap' | 'running'.
+  // FIX652 [ex-FIX375] <cmd-publish-all-changes> / FIX660 <cmd-publish-selection>:
+  // publish every item's staged changes project-wide (FIX652) or restricted
+  // to the current selection's item refs (FIX660.3), local-app only.
+  // FIX652.2: driven by the on-disk <folder-staged-item> flags, not just
+  // imagesByFolderRef — a plain (unflagged) item still just publishes its
+  // staged image changes (FIX652.2.4), but <file-flag-removed-item>/
+  // <file-flag-chged-item-ref>/<file-flag-new-item> items now get their own
+  // real action too (FIX652.2.1/.2/.3). null | 'recap' | 'running'.
   const [crossPublishStage, setCrossPublishStage] = useState(null);
   const [crossPublishPlan, setCrossPublishPlan] = useState(null);
   const [crossPublishProgress, setCrossPublishProgress] = useState(null);
-  const handleOpenCrossPublish = async () => {
+  // `scopeRefs`: null publishes every staged item project-wide (FIX652);
+  // a Set of item refs restricts the plan to those items only (FIX660.3).
+  const handleOpenCrossPublish = async (scopeRefs = null) => {
     // FIX680: Publish needs the network (upload + DB write) that local mode
     // means we don't have, and FIX680.2 keeps local mode sticky for the
     // rest of the session — no point letting this run.
     if (isLocalModeActive()) return;
     const root = await getStagingRoot();
-    const staged = await listStagingItems(root, data?.project?.name);
+    const allStaged = await listStagingItems(root, data?.project?.name);
+    const staged = scopeRefs ? allStaged.filter((item) => scopeRefs.has(item.ref)) : allStaged;
     const plan = [];
     const scopeIdxsOf = (imgs) => imgs.map((_, idx) => idx).filter((idx) => imgs[idx].added || imgs[idx].chged || imgs[idx].moved || imgs[idx].deleted);
     const countsOf = (imgs, scopeIdxs) => ({
@@ -629,6 +633,17 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // with Confirm disabled, rather than a blocking error.
     setCrossPublishPlan(plan);
     setCrossPublishStage('recap');
+  };
+  // FIX660 <cmd-publish-selection>: same recap/confirm pipeline as
+  // <cmd-publish-all-changes> (FIX660.3), scoped to the current selection's
+  // item refs.
+  const handleOpenPublishSelection = () => {
+    const refs = new Set(
+      (data?.folders || [])
+        .filter((f) => selectedFolderIds.includes(f.id))
+        .map((f) => f.name),
+    );
+    handleOpenCrossPublish(refs);
   };
   // Shared by the 'new'/'renamed'/'plain' branches below: publishes the
   // in-scope images for a (now-real) folder id, updates the in-memory
@@ -2418,7 +2433,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             dropped there), but per FIX656 this is now the 'Commands' menu
             instead — <cmd-capture-cam-img>, <cmd-add-item>,
             <cmd-change-item-ref>, <cmd-reset-item>, <cmd-delete-item>,
-            <cmd-publish-changes> —
+            <cmd-publish-all-changes>, <cmd-publish-selection> —
             same shared container Id as the website's Import menu (FIX369.0
             doesn't define a separate one for FIX656), the three Import
             options stay website-only either way. */}
@@ -2577,19 +2592,38 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 )}
-                {/* FIX656 <cmd-publish-changes> / FIX652 [ex-FIX375]:
+                {/* FIX656 <cmd-publish-all-changes> / FIX652 [ex-FIX375]:
                     local-app only. */}
                 {isLocalApp && (
                   <li>
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="cmd-publish-changes"
+                      data-yagu-id="cmd-publish-all-changes"
                       onClick={() => { setMenuOpen(false); handleOpenCrossPublish(); }}
                       disabled={isLocalModeActive()}
                       title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
                     >
-                      Publish changes
+                      Publish all
+                    </button>
+                  </li>
+                )}
+                {/* FIX660 <cmd-publish-selection>: enabled only when 1+ of
+                    the selected items is staged (FIX660.2). */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-publish-selection"
+                      onClick={() => { setMenuOpen(false); handleOpenPublishSelection(); }}
+                      disabled={
+                        isLocalModeActive()
+                        || !selectedFolderIds.some((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
+                      }
+                      title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
+                    >
+                      Publish selection
                     </button>
                   </li>
                 )}
@@ -2932,9 +2966,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 projectId={data.project?.id}
                 projectName={data.project?.name}
                 itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
-                itemRefs={(data?.folders || []).map((f) => f.name)}
                 hideSections={hideSections}
-                publishDisabled={isLocalModeActive()}
                 onItemBytesChange={(bytes) =>
                   setData((prev) =>
                     prev
@@ -3609,12 +3641,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX652 [ex-FIX375.1-ish]: <cmd-publish-changes> recap — same pattern
-          as <button-publish-img>'s popup, one Ref line per item with
-          pending changes, plus FIX652.2's own item-level actions (removed/
-          renamed/new) called out by name rather than an image-change count.
-          Nothing pending shows a single all-zero line with Confirm
-          disabled, rather than an error. */}
+      {/* FIX652 [ex-FIX375.1-ish]: <cmd-publish-all-changes>/<cmd-publish-selection>
+          recap — one Ref line per item with pending changes, plus FIX652.2's
+          own item-level actions (removed/renamed/new) called out by name
+          rather than an image-change count. Nothing pending shows a single
+          all-zero line with Confirm disabled, rather than an error. */}
       {crossPublishStage === 'recap' && crossPublishPlan && (
         <div className="setup-overlay" onMouseDown={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>

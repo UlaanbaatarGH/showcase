@@ -1,8 +1,9 @@
-// FIX610.3.5 / FIX652 [ex-FIX375]: the publish pipeline shared by the per-item
-// <button-publish-img> (ShowcaseImgListEditor) and the cross-item
-// <cmd-publish-changes> command (ShowcaseView) — FIX652 explicitly requires
-// the two to do "exactly" the same thing, just over a different scope of
-// rows, so this is the one implementation both call into.
+// FIX652 [ex-FIX375] / FIX660: the publish pipeline shared by
+// <cmd-publish-all-changes> and <cmd-publish-selection> (ShowcaseView) —
+// FIX660.3 explicitly requires the two to do "exactly" the same thing, just
+// over a different scope of items, so this is the one implementation both
+// call into. FIX610.3.5(removed): originally also backed a per-item Publish
+// button in ShowcaseImgListEditor, since removed.
 import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, updateImage } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 

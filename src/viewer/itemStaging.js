@@ -311,7 +311,7 @@ export async function fetchStagedImageBlob(path) {
 
 // FIX670.20 'new'-flag branch: rebuilds a brand-new item's image list
 // straight from disk — the manifest (file order) plus each file's own
-// bytes — so <cmd-publish-changes> never depends on imagesByFolderRef
+// bytes — so <cmd-publish-all-changes>/<cmd-publish-selection> never depend on imagesByFolderRef
 // having been populated this session. A brand-new item has no public
 // baseline to merge against, so every manifest entry is simply an Added row.
 export async function readStagedItemImages(itemDir) {

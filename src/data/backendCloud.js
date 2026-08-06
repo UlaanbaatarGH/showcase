@@ -207,11 +207,11 @@ export default {
   // FIX620.4.2.2: bare item creation (no image yet) — lets the client stage
   // a captured photo locally before any upload happens.
   createFolder: (body) => call('/api/folders', { method: 'POST', body }),
-  // FIX652.2.2 <cmd-publish-changes>: applies a pending Ref swap (FIX657)
+  // FIX652.2.2 <cmd-publish-all-changes>: applies a pending Ref swap (FIX657)
   // to a real item's folder row.
   renameFolder: (folderId, name) =>
     call(`/api/folders/${encodeURIComponent(folderId)}`, { method: 'PATCH', body: { name } }),
-  // FIX652.2.1 <cmd-publish-changes>: deletes a real item's folder + images.
+  // FIX652.2.1 <cmd-publish-all-changes>: deletes a real item's folder + images.
   deleteFolder: (folderId) =>
     call(`/api/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' }),
   setFolderProperty: notYet('setFolderProperty'),

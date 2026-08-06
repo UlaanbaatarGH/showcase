@@ -5,7 +5,7 @@ import {
   setEditLockPendingChanges, getFolderImages,
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
-import { publishItemImages, isLocalRow } from './publishItemImages.js';
+import { isLocalRow } from './publishItemImages.js';
 import { getStagingRoot, syncStagingFolder } from './itemStaging.js';
 import { isAcceptedImage } from '../images/importImages.js';
 import { IconCamera } from '../Icons.jsx';
@@ -55,13 +55,11 @@ export default function ShowcaseImgListEditor({
   onExitEdit,
   onItemBytesChange, // FIX521.3.5.4: report the item's new total image bytes
   onItemZoomChange,  // FIX521.5.8.1: report the item's Zoom Factor (max ZF)
-  folderId,   // FIX610.3.5: which item to re-fetch from after Publish
-  projectId,  // FIX610.3.1 / .3.5: needed for sign-upload / confirm
+  folderId,   // FIX610.3.7: which item to re-fetch from on Reset changes
+  projectId,  // FIX610.3.1: needed for sign-upload / confirm
   projectName, // FIX670.1: staging folder segment (tech/data/staging/{projectName}/{itemName})
-  itemName,   // FIX610.3.1 / .3.5: item folder name (item_name on the API)
-  itemRefs,   // FIX610.3.5.4: every item Ref in the project, for the duplicate check
+  itemName,   // FIX610.3.1: item folder name (item_name on the API)
   hideSections, // FIX654.2 <cmd-hide-sections>: hide Section/Caption columns
-  publishDisabled, // FIX680: true while in local/offline mode — Publish needs the network
 }) {
   const currentImage = images[selectedIdx] ?? null;
 
@@ -110,17 +108,6 @@ export default function ShowcaseImgListEditor({
   const [cropMode, setCropMode] = useState(false);
   const [savingImage, setSavingImage] = useState(false);
   const [error, setError] = useState(null);
-  // FIX610.3.5: Publish is in flight.
-  const [publishing, setPublishing] = useState(false);
-  // FIX610.3.5.1: recap popup shown on <button-publish-img> click, before
-  // anything is actually sent — { addCount, removeCount } or null when closed.
-  const [publishRecap, setPublishRecap] = useState(null);
-  // FIX610.3.5.4: 'Publication error' popup — holds the duplicate Ref, or
-  // null when closed. Blocks the recap popup above from opening at all.
-  const [publishDupError, setPublishDupError] = useState(null);
-  // FIX610.3.5.2: { done, total } counting in-scope deletes/uploads only —
-  // not the incidental sort_order renumbering of out-of-scope public rows.
-  const [publishProgress, setPublishProgress] = useState(null);
 
   // FIX521.2.1.9: multi-selection for the Shrink action. selectedIdx (owned by
   // the parent) stays the *primary* row that drives the right-hand editor;
@@ -153,8 +140,8 @@ export default function ShowcaseImgListEditor({
   // Every toolbar command except the arrow-up/arrow-down reorder buttons
   // now lives in this dropdown — the flat button row used to overflow and
   // overlap the image editor pane on the right once enough of them (Add,
-  // Capture, Remove, Unremove, Shrink, File details, Publish, Done) were
-  // visible at once.
+  // Capture, Remove, Unremove, Shrink, File details, Done) were visible at
+  // once.
   const [commandsMenuOpen, setCommandsMenuOpen] = useState(false);
   const commandsMenuRef = useRef(null);
   useEffect(() => {
@@ -289,10 +276,7 @@ export default function ShowcaseImgListEditor({
   const draftForCurrent =
     imageDraft && draftForId === currentImage?.id ? imageDraft : null;
   const hasPendingImageEdit = !!draftForCurrent;
-  // FIX610.3.5.3: publishing locks the whole editor the same way a pending
-  // image edit already does — the user cannot edit any item image page
-  // while a Publish is in flight.
-  const interactionLocked = hasPendingImageEdit || publishing;
+  const interactionLocked = hasPendingImageEdit;
   const effectiveRotation = draftForCurrent
     ? draftForCurrent.rotation
     : currentImage?.rotation ?? 0;
@@ -653,7 +637,7 @@ export default function ShowcaseImgListEditor({
   // to avoid hammering the backend while the user types.
   // FIX610.3.1: a row staged locally (`added`, not yet published) has
   // no real folder_image id to PATCH — its caption/section/main just sit in
-  // local state until Publish (FIX610.3.5) uploads it and applies them.
+  // local state until Publish (FIX652/FIX660) uploads it and applies them.
   // FIX670.10.4: in the local app, an existing public row's edit is staged
   // (`chged: true`) instead of saved immediately — Publish applies it.
   const patchFolderImage = async (fiId, patch) => {
@@ -708,7 +692,7 @@ export default function ShowcaseImgListEditor({
   // FIX670.10.6 <cmd-local-remove-img> [ex-<button-local-remove-img>]:
   // local-app only. A not-yet-published (`added`) row is dropped
   // immediately (it never reached the server); a public row is
-  // soft-marked `deleted` — actually deleted only on Publish (FIX610.3.5),
+  // soft-marked `deleted` — actually deleted only on Publish (FIX652/FIX660),
   // so it stays undoable via Unremove (FIX610.3.3) until then.
   const handleRemoveClick = () => {
     if (!isLocalApp) { setRemoveConfirm(true); return; }
@@ -781,89 +765,6 @@ export default function ShowcaseImgListEditor({
       setError(e.message || String(e));
     } finally {
       setResettingChange(false);
-    }
-  };
-
-  // FIX610.3.5 <button-publish-img>: Publish only the *selected* images that
-  // carry a status — selecting everything naturally reduces to "every staged
-  // row" since blank-status rows have nothing to publish. Order: deletions
-  // in scope first, then uploads/renumbering in final display order (so
-  // sort_order matches the list the user built) for every row that will
-  // still be public afterwards — including out-of-scope rows left staged.
-  // confirmImage doesn't accept caption/section/is_main, so those are
-  // applied with a follow-up PATCH once the fresh list gives us the new
-  // row's real id (matched by filename, since a folder holds no two images
-  // of the same name).
-  const publishScopeIdxs = () =>
-    images.map((_, idx) => idx).filter((idx) => selIdxs.has(idx) && (images[idx].added || images[idx].chged || images[idx].moved || images[idx].deleted));
-
-  // FIX610.3.5.4: two items sharing the same Ref would publish/import
-  // ambiguously (whichever one a lookup-by-name happens to match) — block
-  // Publish outright and point out the duplicate instead of proceeding.
-  const findDuplicateRef = () => {
-    const seen = new Set();
-    for (const ref of itemRefs || []) {
-      if (seen.has(ref)) return ref;
-      seen.add(ref);
-    }
-    return null;
-  };
-
-  // FIX610.3.5.1: <button-publish-img> click opens the recap popup — nothing
-  // is sent yet. Cancel just closes it; Confirm runs confirmPublish below.
-  const handlePublishClick = () => {
-    if (!isLocalApp || publishing || publishDisabled) return;
-    const dupRef = findDuplicateRef();
-    if (dupRef != null) {
-      setPublishDupError(dupRef);
-      return;
-    }
-    const scope = publishScopeIdxs();
-    if (scope.length === 0) return;
-    setPublishRecap({
-      addCount: scope.filter((idx) => images[idx].added).length,
-      removeCount: scope.filter((idx) => images[idx].deleted).length,
-      moveCount: scope.filter((idx) => images[idx].moved).length,
-      // FIX670.10: chged is independent of added/moved/deleted, so a row
-      // counts toward "change" whenever it's set, regardless of what else
-      // is set on the same row.
-      changeCount: scope.filter((idx) => images[idx].chged).length,
-    });
-  };
-
-  // FIX652 [ex-FIX375]: the actual publish pipeline now lives in publishItemImages(),
-  // shared with the cross-item <cmd-publish-changes> command in
-  // ShowcaseView — this just supplies the current item and the
-  // selection-based scope.
-  const confirmPublish = async () => {
-    setPublishRecap(null);
-    const scope = publishScopeIdxs();
-    if (scope.length === 0) return;
-    setPublishing(true);
-    setPublishProgress({ done: 0, total: scope.length });
-    setError(null);
-    try {
-      const finalImages = await publishItemImages({
-        projectId,
-        itemName,
-        folderId,
-        images,
-        scopeIdxs: scope,
-        onProgress: (done, total) => setPublishProgress({ done, total }),
-      });
-      setImages(finalImages);
-      setSelIdxs(new Set(finalImages.length ? [0] : []));
-      setSelectedIdx(0);
-      setAnchor(0);
-      // FIX670.30: resync the staging folder against what's left pending —
-      // removes it entirely once nothing is (the common case), or
-      // prunes/rewrites list.txt for a partial-scope publish's remainder.
-      syncAfterEdit(finalImages);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setPublishing(false);
-      setPublishProgress(null);
     }
   };
 
@@ -1023,7 +924,7 @@ export default function ShowcaseImgListEditor({
   // file selector; each picked image is inserted at the end, or right
   // after the selected image when exactly one row is selected, with status
   // 'Added'. Not uploaded yet — just a client-side preview (object URL)
-  // until Publish (FIX610.3.5).
+  // until Publish (FIX652/FIX660).
   const addInputRef = useRef(null);
   const localIdRef = useRef(0);
   const makeLocalRow = (filename, file) => ({
@@ -1367,21 +1268,10 @@ export default function ShowcaseImgListEditor({
                     {fileDetailsOpen ? '✓ ' : ''}File details
                   </button>
                 </li>
-                {/* FIX610.3.5: publish staged Add/Remove changes to the website. */}
-                {isLocalApp && (
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      data-yagu-id="button-publish-img"
-                      onClick={() => { setCommandsMenuOpen(false); handlePublishClick(); }}
-                      disabled={interactionLocked || publishDisabled || publishScopeIdxs().length === 0}
-                      title={publishDisabled ? 'Unavailable while offline' : undefined}
-                    >
-                      {publishing ? 'Publishing…' : 'Publish'}
-                    </button>
-                  </li>
-                )}
+                {/* FIX610.3.5(removed): the per-item Publish command is gone
+                    — replaced project-wide by FIX652 'Publish all' and
+                    FIX660 'Publish selection' in ShowcaseView's Commands
+                    menu. */}
                 <li>
                   <button
                     type="button"
@@ -1494,7 +1384,6 @@ export default function ShowcaseImgListEditor({
                             patchFolderImage(im.id, { section: e.target.value || null })
                           }
                           onFocus={() => focusRowPrimary(idx)}
-                          disabled={publishing}
                         />
                       </td>
                     )}
@@ -1508,7 +1397,6 @@ export default function ShowcaseImgListEditor({
                             patchFolderImage(im.id, { caption: e.target.value || null })
                           }
                           onFocus={() => focusRowPrimary(idx)}
-                          disabled={publishing}
                         />
                       </td>
                     )}
@@ -1520,7 +1408,6 @@ export default function ShowcaseImgListEditor({
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => setMain(im.id, e.target.checked)}
                         title="Use as the item's main image"
-                        disabled={publishing}
                       />
                     </td>
                     {/* FIX610.2.1[ex-610.3.10]: Status column. FIX670.10:
@@ -1622,7 +1509,7 @@ export default function ShowcaseImgListEditor({
                 type="button"
                 data-yagu-id="button-crop"
                 className={cropMode ? 'active' : ''}
-                disabled={!currentImage || currentImage.isPlaceholder || publishing}
+                disabled={!currentImage || currentImage.isPlaceholder}
                 onClick={() => setCropMode((v) => !v)}
               >
                 {cropMode ? 'Cropping…' : 'Crop'}
@@ -1647,7 +1534,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 data-yagu-id="button-rotate270"
-                disabled={!currentImage || currentImage.isPlaceholder || publishing}
+                disabled={!currentImage || currentImage.isPlaceholder}
                 onClick={() => rotateBy(-90)}
                 title="Rotate −90°"
               >
@@ -1656,7 +1543,7 @@ export default function ShowcaseImgListEditor({
               <button
                 type="button"
                 data-yagu-id="button-rotate90"
-                disabled={!currentImage || currentImage.isPlaceholder || publishing}
+                disabled={!currentImage || currentImage.isPlaceholder}
                 onClick={() => rotateBy(90)}
                 title="Rotate +90°"
               >
@@ -1664,7 +1551,7 @@ export default function ShowcaseImgListEditor({
               </button>
               <button
                 type="button"
-                disabled={!currentImage || !draftForCurrent || publishing}
+                disabled={!currentImage || !draftForCurrent}
                 onClick={resetImage}
                 title="Reset rotation & crop"
               >
@@ -1792,41 +1679,6 @@ export default function ShowcaseImgListEditor({
         </div>
       )}
 
-      {/* FIX610.3.5.4: blocks publication outright when two items share a
-          Ref — shown instead of (never alongside) the recap popup below. */}
-      {publishDupError != null && (
-        <div className="setup-overlay" onMouseDown={() => setPublishDupError(null)}>
-          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <p><strong>Publication error</strong></p>
-            <p>
-              Resolve duplicates before triggering publication.
-              <br />
-              Two items have the same Ref {publishDupError}.
-            </p>
-            <div className="sc-shrink-actions">
-              <button type="button" className="primary" onClick={() => setPublishDupError(null)}>OK</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FIX610.3.5.1: <button-publish-img> recap popup — nothing is sent
-          until Confirm. {item ref} is this item's name (itemName prop). */}
-      {publishRecap && (
-        <div className="setup-overlay" onMouseDown={() => setPublishRecap(null)}>
-          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <p>Ref {itemName}: {publishRecap.addCount} new</p>
-            <p>Ref {itemName}: {publishRecap.removeCount} remove</p>
-            <p>Ref {itemName}: {publishRecap.moveCount} move</p>
-            <p>Ref {itemName}: {publishRecap.changeCount} change</p>
-            <div className="sc-shrink-actions">
-              <button type="button" onClick={() => setPublishRecap(null)}>Cancel</button>
-              <button type="button" className="primary" onClick={confirmPublish}>Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* FIX620.3.2: <button-auto-insert-img> popup, shown on push-down while
           off. Cancel closes without starting; Start listening validates the
           folder first (via the Local Agent) before arming the poll. */}
@@ -1854,17 +1706,6 @@ export default function ShowcaseImgListEditor({
         </div>
       )}
 
-      {/* FIX610.3.5.2: progress message — % of in-scope changes published. */}
-      {publishing && publishProgress && (
-        <div className="setup-overlay">
-          <div className="sc-shrink-box">
-            <p>
-              Publishing… {Math.round((publishProgress.done / publishProgress.total) * 100)}%
-              {' '}({publishProgress.done}/{publishProgress.total})
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

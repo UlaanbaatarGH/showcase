@@ -201,7 +201,12 @@ function parseManifestLine(line) {
     else if (rest.endsWith(CHGED_SUFFIX)) { chged = true; rest = rest.slice(0, -CHGED_SUFFIX.length); changed = true; }
     else if (rest.endsWith(NEW_SUFFIX)) { added = true; rest = rest.slice(0, -NEW_SUFFIX.length); changed = true; }
   }
-  return { filename: rest, origPosition, added, chged, moved, deleted };
+  // FIX670.1.2.2.4: `attrs` starts empty and is filled in by the caller
+  // (readManifestEntries) from whatever indented attr lines follow — an
+  // attr absent from the manifest (never staged, or staged back to its
+  // blank/default) simply stays absent from this bag, same as a missing
+  // FIX670.1.2.2.3 tag.
+  return { filename: rest, origPosition, added, chged, moved, deleted, attrs: {} };
 }
 
 function formatManifestLine({ filename, origPosition, added, chged, moved, deleted }) {
@@ -213,6 +218,48 @@ function formatManifestLine({ filename, origPosition, added, chged, moved, delet
   return line;
 }
 
+// FIX670.1.2.2.4 <file-staged-item-img-list> attrs: each filename line may be
+// followed by indented 'attr-name : attr-value' lines. Generic on purpose —
+// this layer knows nothing about which attr-names exist (today: caption/
+// section/main, via imageAttrsToManifest/imageAttrsFromManifest below); a
+// future attribute (another image one, or an item-level one once that
+// lands) is just another key through the same two functions, no format
+// change here. A blank/absent value is skipped — same "optional" posture as
+// FIX670.1.2.2.3's tags.
+function formatAttrLines(attrs) {
+  return Object.entries(attrs || {})
+    .filter(([, value]) => value)
+    .map(([name, value]) => `  ${name} : ${value}`);
+}
+
+function parseAttrLine(trimmedLine, entry) {
+  const sep = trimmedLine.indexOf(' : ');
+  if (sep === -1) return;
+  entry.attrs[trimmedLine.slice(0, sep)] = trimmedLine.slice(sep + 3);
+}
+
+// FIX670.1.2.2.4: today's image attrs — caption/section/is_main are the only
+// per-image fields staged outside the bytes themselves (FIX610.3.6's
+// crop/rotate bake straight into the file). All manifest attr values are
+// raw strings; `main` is stored as the literal 'true' (never written at all
+// when false, matching formatAttrLines' skip-if-blank rule) rather than a
+// real boolean, same convention as every other manifest flag.
+export function imageAttrsToManifest(im) {
+  const attrs = {};
+  if (im.caption) attrs.caption = im.caption;
+  if (im.section) attrs.section = im.section;
+  if (im.is_main) attrs.main = 'true';
+  return attrs;
+}
+
+export function imageAttrsFromManifest(attrs) {
+  return {
+    caption: attrs?.caption || '',
+    section: attrs?.section || '',
+    is_main: attrs?.main === 'true',
+  };
+}
+
 // FIX670.10: reads the item's list.txt (public + local images, display
 // order). Returns [] when the file doesn't exist yet — a brand-new /
 // not-yet-staged item.
@@ -220,11 +267,24 @@ export async function readManifestEntries(itemDir) {
   const res = await fetch(`${AGENT_URL}/file/read?path=${encodeURIComponent(manifestPath(itemDir))}`);
   const body = await res.json().catch(() => ({ content: '' }));
   const content = body.content || '';
-  return content.split('\n').map((l) => l.trim()).filter(Boolean).map(parseManifestLine);
+  const entries = [];
+  for (const rawLine of content.split('\n')) {
+    if (!rawLine.trim()) continue;
+    if (/^\s/.test(rawLine)) {
+      // FIX670.1.2.2.4: an indented attr line belongs to the entry it
+      // immediately follows.
+      if (entries.length) parseAttrLine(rawLine.trim(), entries[entries.length - 1]);
+      continue;
+    }
+    entries.push(parseManifestLine(rawLine));
+  }
+  return entries;
 }
 
 async function writeManifestEntries(itemDir, entries) {
-  const content = entries.map(formatManifestLine).join('\n');
+  const content = entries
+    .flatMap((entry) => [formatManifestLine(entry), ...formatAttrLines(entry.attrs)])
+    .join('\n');
   await fetch(`${AGENT_URL}/file/write`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -317,7 +377,7 @@ export async function fetchStagedImageBlob(path) {
 export async function readStagedItemImages(itemDir) {
   const manifest = await readManifestEntries(itemDir);
   const rows = [];
-  for (const { filename, deleted } of manifest) {
+  for (const { filename, deleted, attrs } of manifest) {
     if (deleted) continue;
     const blob = await fetchStagedImageBlob(`${itemDir}/${filename}`);
     if (!blob) continue;
@@ -326,9 +386,7 @@ export async function readStagedItemImages(itemDir) {
       image_id: null,
       url: URL.createObjectURL(blob),
       filename,
-      caption: '',
-      section: '',
-      is_main: false,
+      ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4: caption/section/is_main
       sort_order: rows.length,
       rotation: 0,
       crop: null,
@@ -444,9 +502,16 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
     );
   }
 
+  // FIX670.1.2.2.4: caption/section/is_main written for every row (not just
+  // chged ones) — cheap redundancy for an unstaged public row (its values
+  // already match the server), but keeps this the one place attrs are
+  // derived rather than special-casing which rows need it.
   const entries = images.map((im) => {
     if (isLocalRow(im)) {
-      return { filename: im.filename, origPosition: null, added: true, chged: false, moved: false, deleted: false };
+      return {
+        filename: im.filename, origPosition: null, added: true, chged: false, moved: false, deleted: false,
+        attrs: imageAttrsToManifest(im),
+      };
     }
     const origPosition = origPositionByFilename.get(im.filename);
     const moved = currentRankByFilename.get(im.filename) !== origPosition;
@@ -457,6 +522,7 @@ export async function syncStagingFolder({ root, projectName, itemName, images, s
       chged: !!im.chged,
       moved,
       deleted: !!im.deleted,
+      attrs: imageAttrsToManifest(im),
     };
   });
   await writeManifestEntries(dir, entries);

@@ -16,7 +16,7 @@ import { projectSlug } from '../router.js';
 import {
   getStagingRoot, sanitizeSegment, mkdir, resolveItemFolderDir,
   listStagingProjectNames, listStagingItems,
-  readManifestEntries, fetchStagedImageBlob,
+  readManifestEntries, fetchStagedImageBlob, imageAttrsFromManifest,
 } from '../viewer/itemStaging.js';
 
 // FIX680.1 (updated, was "If no connection with the public DB then the user
@@ -183,7 +183,7 @@ async function buildLocalImageRows(itemDir) {
   const rows = [];
   let localIdCounter = 0;
   for (let i = 0; i < manifest.length; i++) {
-    const { filename, origPosition, chged, moved, deleted } = manifest[i];
+    const { filename, origPosition, chged, moved, deleted, attrs } = manifest[i];
     const blob = await fetchStagedImageBlob(`${itemDir}/${filename}`);
     if (blob) {
       rows.push({
@@ -191,9 +191,7 @@ async function buildLocalImageRows(itemDir) {
         image_id: null,
         url: URL.createObjectURL(blob),
         filename,
-        caption: '',
-        section: '',
-        is_main: false,
+        ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4
         sort_order: i,
         rotation: 0,
         crop: null,
@@ -207,9 +205,7 @@ async function buildLocalImageRows(itemDir) {
         image_id: null,
         url: null,
         filename,
-        caption: '',
-        section: '',
-        is_main: false,
+        ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4
         sort_order: i,
         origSortOrder: (origPosition ?? i + 1) - 1,
         added: false,

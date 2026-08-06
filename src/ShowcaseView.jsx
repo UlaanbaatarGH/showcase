@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, rmPath, listStagingItems, readStagedItemImages } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -387,7 +387,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           // this survives an offline restart.
           let publicRank = 0;
           const rows = [];
-          for (const { filename, origPosition, chged, moved: wasMoved, deleted } of manifest) {
+          for (const { filename, origPosition, chged, moved: wasMoved, deleted, attrs } of manifest) {
             if (cancelled) return;
             const pub = byFilename.get(filename);
             if (pub) {
@@ -410,6 +410,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                   rows.push({
                     ...pub, sort_order, origSortOrder, added: false, chged: true, moved, deleted: !!deleted,
                     rotation: 0, crop: null,
+                    // FIX670.1.2.2.4: the staged caption/section/is_main —
+                    // pub's are the stale server values, unaffected by a
+                    // local-only edit.
+                    ...imageAttrsFromManifest(attrs),
                     url: URL.createObjectURL(blob), localFile: blob, stagedPath: filePath,
                   });
                   continue;
@@ -430,9 +434,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               image_id: null,
               url: URL.createObjectURL(blob),
               filename,
-              caption: '',
-              section: '',
-              is_main: false,
+              ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4
               sort_order: 0,
               rotation: 0,
               crop: null,

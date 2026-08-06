@@ -606,9 +606,19 @@ export default function ShowcaseImgListEditor({
           );
           const origRankById = new Map(byOrigRank.map((im, idx) => [im.id, idx]));
           const currentRankById = new Map(publicRows.map((im, idx) => [im.id, idx]));
+          // Bug fix: `moved` above was correctly rank-based, but `sort_order`
+          // itself (set a few lines up via the `orders[k]` swap, which just
+          // exchanges each row's OWN pre-move value) still no-ops when the
+          // swapped rows shared the same tied value -- staging correctly
+          // flagged the row Moved, but Publish's `patch.sort_order =
+          // im.sort_order` sent back the same unchanged number, so the
+          // server-side order never actually changed. `sort_order` is now
+          // simply the row's current rank among public rows -- always
+          // distinct regardless of what value(s) it started from.
           return newImages.map((im) => {
             if (isLocalRow(im) || im.deleted) return im;
-            return { ...im, moved: currentRankById.get(im.id) !== origRankById.get(im.id) };
+            const currentRank = currentRankById.get(im.id);
+            return { ...im, sort_order: currentRank, moved: currentRank !== origRankById.get(im.id) };
           });
         })()
       : newImages;

@@ -576,6 +576,16 @@ export default function ShowcaseImgListEditor({
     // change the image itself), so it's set on its own without touching
     // either. A row already `deleted` keeps that flag; an `added` row has
     // no public rank so it's never tagged moved.
+    // FIX670.10.5.1 (Local item) / .5.2 (Unpublished, order unchanged) /
+    // .5.3 (Unpublished, order changed — tags Moved) / .5.4 (Unpublished,
+    // moved back to public order — untags Moved, deletes the folder if
+    // nothing else is pending) / .5.5 (a plain Public item's first-ever
+    // local edit — creates the staging folder as '{ref}(chged)' with every
+    // image, moved ones tagged): all five are this one generic mechanism,
+    // not five separate code paths — `moved` above feeds straight into
+    // syncAfterEdit → syncStagingFolder below, which already handles
+    // create-fresh vs update-existing vs delete-when-nothing's-pending
+    // uniformly for every FIX670.10 action (Add/Modify/Delete img alike).
     const restaged = isLocalApp
       ? newImages.map((im) => {
           if (isLocalRow(im) || im.deleted) return im;

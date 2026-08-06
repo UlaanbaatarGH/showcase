@@ -4,13 +4,24 @@
 // over a different scope of items, so this is the one implementation both
 // call into. FIX610.3.5(removed): originally also backed a per-item Publish
 // button in ShowcaseImgListEditor, since removed.
-import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, updateImage } from '../data/backend.js';
+import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, updateImage, replaceImageBytes } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 
 // FIX610.3.1: rows staged locally (not yet uploaded) carry a synthetic
 // string id in this form.
 export function isLocalRow(im) {
   return typeof im.id === 'string' && im.id.startsWith('local-');
+}
+
+// Reads a Blob into the base64 payload replaceImageBytes expects — mirrors
+// itemStaging.js's writeLocalImageBytes encoding.
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result).split(',')[1]);
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
 }
 
 // Natural pixel dimensions of an image, probed fresh (not reliant on any
@@ -94,6 +105,24 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       // left pending for the item.
       bump();
     } else if (scope.has(origIdx)) {
+      // Bug fix (FIX610.3.6 / FIX611.1): a chged public row may carry
+      // freshly-baked crop/rotate pixels (localFile set — the local-app
+      // save flow bakes the transform into new bytes and resets
+      // rotation/crop to 0/null right there, since the transform now lives
+      // in the pixels, not the metadata) that were never actually uploaded
+      // — the caption/section/is_main-only patch below silently dropped
+      // them. Replace the stored bytes first, same shape saveImageEdit's
+      // own non-local-app (on-line site) branch already uses.
+      if (im.localFile && im.image_id) {
+        const dims = await measureDims(im.url);
+        const data_base64 = await blobToBase64(im.localFile);
+        await replaceImageBytes(im.image_id, {
+          data_base64,
+          content_type: im.localFile.type || 'image/jpeg',
+          zoom_factor: dims ? zoomFactor(dims.w, dims.h) : null,
+        });
+        URL.revokeObjectURL(im.url);
+      }
       const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };
       if (im.moved) patch.sort_order = im.sort_order;
       pendingPatches.push({ id: im.id, patch });

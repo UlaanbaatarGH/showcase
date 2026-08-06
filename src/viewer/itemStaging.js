@@ -454,7 +454,12 @@ function writeLocalImageBytes(path, blob) {
 
 // FIX670.10: the core sync — called (best-effort, fire-and-forget) after
 // every structural or field-level local edit, so the on-disk folder +
-// list.txt always mirror the current `images` staging state.
+// list.txt always mirror the current `images` staging state. This one
+// generic path is what actually satisfies FIX670.10.5.5 (Move img on a
+// plain Public item — 'Create as {ref}(chged)', 'Create with all img, and
+// set tag (moved)') alongside every other FIX670.10 action's own
+// first-ever-edit case (Add/Modify/Delete img); there's no move-specific
+// branch anywhere, so cite the mechanism once here.
 //
 // - Nothing pending (every row is a plain public image, no local rows):
 //   the whole folder is removed (FIX670.20.3.1) rather than left behind

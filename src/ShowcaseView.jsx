@@ -1685,7 +1685,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       .then((imgs) => {
         // FIX610.3.4: baseline sort_order snapshot, so the local app can tell
         // whether a row has actually moved from its last-published position.
-        const withBaseline = imgs.map((im) => ({ ...im, origSortOrder: im.sort_order }));
+        // FIX670.10.5.5: the baseline must be the load-time array rank, not
+        // the raw `sort_order` value — the server doesn't guarantee those
+        // are distinct (a never-reordered item commonly has every row at
+        // sort_order 0), and moveSelected's rank comparison degrades to a
+        // no-op if origSortOrder is itself tied across rows. Same
+        // index-based convention already used by the reconciliation loop
+        // above (publicRank/origPosition) and backendLocal.js's
+        // buildLocalImageRows (sort_order: i).
+        const withBaseline = imgs.map((im, idx) => ({ ...im, origSortOrder: idx }));
         // FIX653: this fetch races the durable-capture reconciliation effect
         // (both target the same just-selected folder right after a project
         // loads) — read the cache fresh here, at resolution time, rather than

@@ -2151,7 +2151,23 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedFolderId]);
 
-  if (error) return <div className="sc-error">Error: {error}</div>;
+  // Bug fix: this used to be a bare `<div>Error: {error}</div>` with no way
+  // to dismiss it -- any of this file's several setError() calls (a failed
+  // Publish, a background fetch) permanently blanked the whole view even
+  // though `data` was still loaded and the app was otherwise usable. A
+  // Dismiss button just clears the flag; the component falls through to its
+  // normal render on the next line since state (data, images, etc.) was
+  // never touched.
+  if (error) {
+    return (
+      <div className="sc-error">
+        <div className="sc-error-content">
+          <div>Error: {error}</div>
+          <button type="button" onClick={() => setError(null)}>Dismiss</button>
+        </div>
+      </div>
+    );
+  }
   if (!data) return <div className="sc-loading">Loading…</div>;
 
   const currentImage = images[currentImageIdx];

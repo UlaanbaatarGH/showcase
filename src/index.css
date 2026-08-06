@@ -1540,6 +1540,7 @@ body {
   text-align: center;
 }
 .sc-error { color: #f88; }
+.sc-error-content { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 
 /* FIX400: Home page — project list + sign in */
 /* FIX400.2: full-width top bar with right-aligned commands.

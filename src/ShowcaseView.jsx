@@ -459,7 +459,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // are client-only annotations (or, for a new item, the whole local-item-*
   // entry itself) on top of a real, server-sourced folder list — none of it
   // ever persisted anywhere, so an item flagged (deleted)/(ex-...)/(new) via
-  // <cmd-delete-item>/<cmd-new-item-ref>/<cmd-add-item> in an earlier
+  // <cmd-delete-item>/<cmd-change-item-ref>/<cmd-add-item> in an earlier
   // session looked completely normal again — or, for a new item, was simply
   // missing from the list — on the next load, even though its staging
   // folder was still tagged on disk. Restores all three (and the display
@@ -804,8 +804,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // added (which already flows through FIX670's syncStagingFolder).
   const offlineNextRefRef = useRef(null);
   const [offlineAddItemPopup, setOfflineAddItemPopup] = useState(null); // null | { value, error }
-  // FIX657 <cmd-new-item-ref>
-  const [newItemRefPopup, setNewItemRefPopup] = useState(null); // null | { value, error }
+  // FIX657 <cmd-change-item-ref>
+  const [changeItemRefPopup, setChangeItemRefPopup] = useState(null); // null | { value, error }
   // FIX658 <cmd-delete-item>: no per-item input, just a Confirm/Cancel gate —
   // true/false is enough state.
   const [deleteItemPopup, setDeleteItemPopup] = useState(false);
@@ -1237,15 +1237,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     createLocalItem(itemName);
   };
 
-  // FIX657 <cmd-new-item-ref>: first selected item gets the input ref, next
+  // FIX657 <cmd-change-item-ref>: first selected item gets the input ref, next
   // ones +1 (FIX657.3.1). Renames both local-only and real DB items — a
   // real item's id stays the same (only its displayed name changes); the
   // DB row itself is updated later, at Publish (FIX652.2.2), once the
   // on-disk <file-flag-chged-item-ref> tag confirms the rename stuck.
-  const confirmNewItemRef = async () => {
-    const raw = (newItemRefPopup?.value || '').trim();
+  const confirmChangeItemRef = async () => {
+    const raw = (changeItemRefPopup?.value || '').trim();
     if (!/^\d+$/.test(raw)) {
-      setNewItemRefPopup((p) => ({ ...p, error: 'Enter a numeric ref' }));
+      setChangeItemRefPopup((p) => ({ ...p, error: 'Enter a numeric ref' }));
       return;
     }
     const start = Number(raw);
@@ -1266,10 +1266,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     const untouchedNames = new Set((data?.folders || []).filter((f) => !ids.includes(f.id)).map((f) => f.name));
     const collision = renames.find((r) => untouchedNames.has(r.newName));
     if (collision) {
-      setNewItemRefPopup((p) => ({ ...p, error: `Ref ${collision.newName} is already in use` }));
+      setChangeItemRefPopup((p) => ({ ...p, error: `Ref ${collision.newName} is already in use` }));
       return;
     }
-    setNewItemRefPopup(null);
+    setChangeItemRefPopup(null);
     const root = await getStagingRoot();
     for (const r of renames) {
       if (typeof r.id !== 'string') {
@@ -2137,7 +2137,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // backendLocal.js's buildLocalFolders), so that alone can't tell a
       // genuinely new item apart from a plain or removed one.
       // FIX657.4 <file-flag-chged-item-ref>: a real item mid-rename
-      // (originalRef set by confirmNewItemRef / restored on load above) is
+      // (originalRef set by confirmChangeItemRef / restored on load above) is
       // just as not-yet-published as a new or removed item.
       const needsPublish = isLocalApp && (
         folder.pendingRemoval ||
@@ -2371,7 +2371,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             properties gsheet. Local app: always shown (login/admin-gating
             dropped there), but per FIX656 this is now the 'Commands' menu
             instead — <cmd-capture-cam-img>, <cmd-add-item>,
-            <cmd-new-item-ref>, <cmd-delete-item>, <cmd-publish-changes> —
+            <cmd-change-item-ref>, <cmd-delete-item>, <cmd-publish-changes> —
             same shared container Id as the website's Import menu (FIX369.0
             doesn't define a separate one for FIX656), the three Import
             options stay website-only either way. */}
@@ -2476,7 +2476,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 )}
-                {/* FIX657 <cmd-new-item-ref>: enabled only when 1+ items
+                {/* FIX657 <cmd-change-item-ref>: enabled only when 1+ items
                     selected (FIX657.1). FIX657.2: prefill with the current
                     ref of the first selected item. */}
                 {isLocalApp && (
@@ -2484,20 +2484,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="cmd-new-item-ref"
+                      data-yagu-id="cmd-change-item-ref"
                       disabled={selectedFolderIds.length === 0}
                       onClick={() => {
                         setMenuOpen(false);
                         const firstRef = (data?.folders || []).find((f) => f.id === selectedFolderIds[0])?.name || '';
-                        setNewItemRefPopup({ value: firstRef, error: null });
+                        setChangeItemRefPopup({ value: firstRef, error: null });
                       }}
                     >
-                      New item ref
+                      Change item ref
                     </button>
                   </li>
                 )}
                 {/* FIX658 <cmd-delete-item>: enabled only when 1+ items
-                    selected, mirroring cmd-new-item-ref's gating. */}
+                    selected, mirroring cmd-change-item-ref's gating. */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -3468,25 +3468,25 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX657 <cmd-new-item-ref>: first-new-ref-of-the-range prompt. */}
-      {newItemRefPopup && (
-        <div className="setup-overlay" onMouseDown={() => setNewItemRefPopup(null)}>
+      {/* FIX657 <cmd-change-item-ref>: first-new-ref-of-the-range prompt. */}
+      {changeItemRefPopup && (
+        <div className="setup-overlay" onMouseDown={() => setChangeItemRefPopup(null)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
             <p>Enter the first new ref of the selection:</p>
             <input
               type="text"
-              data-yagu-id="input-new-item-ref"
-              value={newItemRefPopup.value}
-              onChange={(e) => setNewItemRefPopup((p) => ({ ...p, value: e.target.value }))}
+              data-yagu-id="input-change-item-ref"
+              value={changeItemRefPopup.value}
+              onChange={(e) => setChangeItemRefPopup((p) => ({ ...p, value: e.target.value }))}
               autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter') confirmNewItemRef(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmChangeItemRef(); }}
             />
-            {newItemRefPopup.error && <div className="sc-viewer-err">{newItemRefPopup.error}</div>}
+            {changeItemRefPopup.error && <div className="sc-viewer-err">{changeItemRefPopup.error}</div>}
             <div className="sc-shrink-actions">
-              <button type="button" onClick={() => setNewItemRefPopup(null)}>
+              <button type="button" onClick={() => setChangeItemRefPopup(null)}>
                 Cancel
               </button>
-              <button type="button" className="primary" onClick={confirmNewItemRef}>
+              <button type="button" className="primary" onClick={confirmChangeItemRef}>
                 OK
               </button>
             </div>

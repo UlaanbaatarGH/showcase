@@ -96,7 +96,7 @@ export async function resolveItemFolderDir(root, projectName, itemRef) {
   return match ? `${projectDir}/${match.name}` : stagingItemDir(root, projectName, itemRef);
 }
 
-// FIX670.10.8 <cmd-new-item-ref>: renames an item's staging folder to a new
+// FIX670.10.8 <cmd-change-item-ref>: renames an item's staging folder to a new
 // ref, keeping its ' (new)' postfix or an already-present ' (ex-...)' tag
 // as-is (either takes priority over a fresh rename tag), otherwise tagging
 // it ' (ex-{oldRef})' with the ref it carried right before this rename. A
@@ -120,7 +120,7 @@ export async function renameItemFolder(root, projectName, oldRef, newRef) {
 }
 
 // FIX670.10.8: reverts a real item's staged rename — used when the admin
-// sets the ref back to what it was before any <cmd-new-item-ref> use this
+// sets the ref back to what it was before any <cmd-change-item-ref> use this
 // session, clearing the ' (ex-...)' tag entirely (bare, or ' (chged)' if
 // image changes are also pending) rather than re-tagging it with itself.
 // No-op if the folder isn't currently ' (ex-...)'-tagged. Removes the folder

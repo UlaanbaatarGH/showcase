@@ -641,7 +641,17 @@ export default function ShowcaseImgListEditor({
   // FIX670.10.4: in the local app, an existing public row's edit is staged
   // (`chged: true`) instead of saved immediately — Publish applies it.
   const patchFolderImage = async (fiId, patch) => {
-    if (typeof fiId === 'string' && fiId.startsWith('local-')) return;
+    if (typeof fiId === 'string' && fiId.startsWith('local-')) {
+      // Bug fix: this used to return here with no disk write at all, so a
+      // caption/section typed on a not-yet-published row (added, no real
+      // id to PATCH) survived only in React state — gone on reload, same
+      // failure as FIX670.1.2.2.4 fixed for a chged public row, just for
+      // the added-row path setMain (below) already handled correctly.
+      // onCaptionChange/onSectionChange already staged the typed value
+      // into `images` on every keystroke; just persist it now.
+      syncAfterEdit(images);
+      return;
+    }
     if (isLocalApp) {
       const next = images.map((im) => (im.id === fiId ? stageChanged(im) : im));
       setImages(next);

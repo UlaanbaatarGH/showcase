@@ -342,15 +342,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           // Best-effort — a failed migration just leaves the legacy folder
           // in place to retry next time this project is opened.
         }
-        const projectDir = `${root}/${sanitizeSegment(projectName)}`;
-        const res = await fetch(`${AGENT_URL}/agent/dir/list?path=${encodeURIComponent(projectDir)}`);
-        if (!res.ok) return; // nothing staged for this project, or agent unreachable
-        const { entries } = await res.json();
+        // Bug fix: this used to list the project's staging dir raw and match
+        // folders.find((f) => f.name === entry.name) — entry.name is the
+        // on-disk folder name, which carries a postfix ( (chged)/(deleted)/
+        // (ex-{oldRef})) for anything but a brand-new item, so it never
+        // equals a plain server ref and reconciliation silently no-opped for
+        // every postfixed folder (a plain 'chged' item's staged image edits
+        // vanished from the list on reload). listStagingItems already parses
+        // the ref out of the folder name (used elsewhere in this same file)
+        // — reuse it here instead of re-deriving from a raw dir listing.
+        const staged = await listStagingItems(root, projectName);
+        if (staged.length === 0) return; // nothing staged for this project
         let anyReconciled = false;
-        for (const entry of entries || []) {
+        for (const item of staged) {
           if (cancelled) return;
-          if (entry.type !== 'folder') continue;
-          const folder = folders.find((f) => f.name === entry.name);
+          // FIX670.10.8: a 'renamed' item's parsed ref is the new,
+          // still-unpublished ref — data.folders keeps showing the old
+          // (server) ref until Publish, so match on that instead.
+          const folder = folders.find((f) => f.name === (item.flag === 'renamed' ? item.oldRef : item.ref));
           // FIX670: only skip if this item's cache already carries staged
           // state (already reconciled, or edited this session) — an empty
           // array is a legitimate cache entry the sibling per-item
@@ -359,7 +368,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           if (!folder) continue;
           const already = imagesByFolderRef.current[folder.id];
           if (already && already.some((im) => im.added || im.chged || im.moved || im.deleted || isLocalRow(im))) continue;
-          const itemDir = `${projectDir}/${entry.name}`;
+          const itemDir = item.dir;
           // FIX670.10: list.txt is the manifest of every public + local
           // image in display order — an item folder only exists on disk
           // while something is pending (FIX670.20), so an empty/missing

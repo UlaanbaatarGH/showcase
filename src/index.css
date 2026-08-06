@@ -2022,6 +2022,8 @@ body {
   font: inherit;
 }
 .sc-menu-items button:hover { background: var(--color-bg-light); }
+.sc-menu-items button:disabled { opacity: 0.4; cursor: not-allowed; }
+.sc-menu-items button:disabled:hover { background: transparent; }
 
 /* FIX656 <cmd-...> 'Other…' group: a true nested flyout, not an inline
    expand — .sc-submenu reuses .sc-menu-items' look, just anchored to the

@@ -1336,6 +1336,52 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     setSelectedFolderIds((prev) => prev.filter((id) => !removedIds.includes(id)));
   };
 
+  // FIX659.2 / FIX660.2: an item counts as "staged" for enabling purposes
+  // the same way needsPublish's red styling does (render function below),
+  // minus the isLocalApp gate since these checks only ever run inside the
+  // local app already.
+  const isItemStaged = (folder) => !!folder && (
+    folder.pendingRemoval
+    || folder.pendingNew
+    || folder.originalRef != null
+    || isLocalModeActive()
+    || (imagesByFolderRef.current[folder.id] || []).some((im) => im.added || im.chged || im.moved || im.deleted)
+  );
+
+  // FIX659 <cmd-reset-item> / FIX670.10.11: cancels every locally staged
+  // change for the selected items, in place — FIX659 defines no recap step
+  // (unlike Delete/Publish), so this applies immediately on click.
+  // FIX670.10.11.1: a Local item (string 'local-item-*' id, no public
+  // baseline) has no defined Reset effect per the Google-sheet test-matrix
+  // rule (FIX670.10 <process-item-staging-management>) — left untouched.
+  // FIX670.10.11.2: an Unpublished public item is set back to its published
+  // state — staged folder deleted, ref/pendingRemoval cleared, and every
+  // image row reset to the live public baseline (re-fetched fresh, since no
+  // local edit is ever actually PATCHed to the server before Publish).
+  const handleResetItems = async () => {
+    const root = await getStagingRoot();
+    for (const id of selectedFolderIds) {
+      if (typeof id === 'string') continue; // FIX670.10.11.1: Local item — N/A
+      const folder = (data?.folders || []).find((f) => f.id === id);
+      if (!folder || !isItemStaged(folder)) continue;
+      const dir = await resolveItemFolderDir(root, data?.project?.name, folder.name).catch(() => null);
+      if (dir) await rmPath(dir).catch(() => {});
+      const fresh = await getFolderImages(folder.id).catch(() => null);
+      if (fresh) {
+        const blanked = fresh.map((im) => ({ ...im, added: false, chged: false, moved: false, deleted: false }));
+        imagesByFolderRef.current[folder.id] = blanked;
+        if (folder.id === selectedFolderId) setImages(blanked);
+      }
+      const originalRef = folder.originalRef ?? folder.name;
+      setData((prev) => (prev ? {
+        ...prev,
+        folders: prev.folders.map((f) => (f.id === folder.id
+          ? { ...f, name: originalRef, originalRef: null, pendingRemoval: false }
+          : f)),
+      } : prev));
+    }
+  };
+
   // FIX653 <cmd-capture-cam-img>: same shape as FIX620's per-item toggle
   // (ShowcaseImgListEditor.jsx handleToggleAutoInsert/handleStartListening) —
   // push while off opens the folder popup, push while on stops immediately.
@@ -2371,7 +2417,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             properties gsheet. Local app: always shown (login/admin-gating
             dropped there), but per FIX656 this is now the 'Commands' menu
             instead — <cmd-capture-cam-img>, <cmd-add-item>,
-            <cmd-change-item-ref>, <cmd-delete-item>, <cmd-publish-changes> —
+            <cmd-change-item-ref>, <cmd-reset-item>, <cmd-delete-item>,
+            <cmd-publish-changes> —
             same shared container Id as the website's Import menu (FIX369.0
             doesn't define a separate one for FIX656), the three Import
             options stay website-only either way. */}
@@ -2493,6 +2540,25 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                       }}
                     >
                       Change item ref
+                    </button>
+                  </li>
+                )}
+                {/* FIX659 <cmd-reset-item> / FIX670.10.11: enabled only when
+                    1+ items are selected AND every selected item is staged
+                    (FIX659.2) — no recap popup, applies immediately. */}
+                {isLocalApp && (
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-yagu-id="cmd-reset-item"
+                      disabled={
+                        selectedFolderIds.length === 0
+                        || !selectedFolderIds.every((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
+                      }
+                      onClick={() => { setMenuOpen(false); handleResetItems(); }}
+                    >
+                      Reset item
                     </button>
                   </li>
                 )}

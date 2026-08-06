@@ -1375,6 +1375,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // anything to undelete — a Local item can't reach that state (Delete
   // removes it outright, FIX670.10.9.1) and a plain Public item was never
   // deleted to begin with.
+  // FIX658.2 (the requirements file's own numbering for this Undelete-item
+  // block's Enabling entry, colliding with Delete item's unrelated FIX658.2
+  // above — see the button's disabled condition below, which is this
+  // requirement): "Visible only in the local app. Enabled only when the
+  // items selection has at least 1 item at status to-be-deleted."
   const handleUndeleteItems = async () => {
     const root = await getStagingRoot();
     const ids = selectedFolderIds.filter((id) => {
@@ -1403,6 +1408,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     || isLocalModeActive()
     || (imagesByFolderRef.current[folder.id] || []).some((im) => im.added || im.chged || im.moved || im.deleted)
   );
+
+  // FIX659.2 (updated): Reset item's own enabling scope — a real (non-local)
+  // item that's currently staged. Narrower than isItemStaged alone, which
+  // also counts a pendingNew Local item — Reset has no defined effect on
+  // one of those (FIX670.10.11.1: N/A), so it shouldn't make the command
+  // enabled either.
+  const isUnpublishedPublicItem = (folder) => !!folder && typeof folder.id !== 'string' && isItemStaged(folder);
 
   // FIX659 <cmd-reset-item> / FIX670.10.11: cancels every locally staged
   // change for the selected items, in place — FIX659 defines no recap step
@@ -2648,11 +2660,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             Change item ref
                           </button>
                         </li>
-                        {/* FIX661 <cmd-undelete-item> / FIX670.10.10:
-                            enabled only when the selection has at least 1
-                            item currently staged to-be-deleted — no recap
-                            popup, applies immediately, same posture as
-                            FIX659 Reset item. */}
+                        {/* FIX661 <cmd-undelete-item> / FIX670.10.10 /
+                            FIX658.2 (this block's own Enabling entry,
+                            mis-numbered in the requirements file — see the
+                            comment on handleUndeleteItems above): enabled
+                            only when the selection has at least 1 item
+                            currently staged to-be-deleted — no recap popup,
+                            applies immediately, same posture as FIX659
+                            Reset item. */}
                         <li>
                           <button
                             type="button"
@@ -2664,19 +2679,22 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             Undelete item
                           </button>
                         </li>
-                        {/* FIX659 <cmd-reset-item> / FIX670.10.11: enabled
-                            only when 1+ items are selected AND every
-                            selected item is staged (FIX659.2) — no recap
-                            popup, applies immediately. */}
+                        {/* FIX659 <cmd-reset-item> / FIX670.10.11: FIX659.2
+                            (updated) — visible only in on-line mode, and
+                            enabled when the selection has at least 1
+                            unpublished public item (was: every selected
+                            item must be staged) — no recap popup, applies
+                            immediately. */}
                         <li>
                           <button
                             type="button"
                             role="menuitem"
                             data-yagu-id="cmd-reset-item"
                             disabled={
-                              selectedFolderIds.length === 0
-                              || !selectedFolderIds.every((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
+                              isLocalModeActive()
+                              || !selectedFolderIds.some((id) => isUnpublishedPublicItem((data?.folders || []).find((f) => f.id === id)))
                             }
+                            title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
                             onClick={() => { setMenuOpen(false); handleResetItems(); }}
                           >
                             Reset item

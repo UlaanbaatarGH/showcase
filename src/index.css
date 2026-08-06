@@ -2023,6 +2023,16 @@ body {
 }
 .sc-menu-items button:hover { background: var(--color-bg-light); }
 
+/* FIX656 <cmd-...> 'Other…' group: a true nested flyout, not an inline
+   expand — .sc-submenu reuses .sc-menu-items' look, just anchored to the
+   right of its parent <li> instead of below the trigger button. */
+.sc-submenu-parent { position: relative; }
+.sc-submenu {
+  top: -0.25rem;
+  left: 100%;
+  margin: 0 0 0 0.25rem;
+}
+
 /* FIX351 <panel-project-list>: admin projects + managers modal. */
 .projects-panel {
   width: min(640px, 100%);

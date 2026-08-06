@@ -170,6 +170,33 @@ export async function markItemFolderDeleted(root, projectName, ref) {
   return newPath;
 }
 
+// FIX670.10.10 <cmd-undelete-item>: reverts a public item's staged
+// ' (deleted)' tag — mirrors clearRenameTag's shape exactly (re-tag
+// ' (chged)' if other staged changes remain under it, otherwise remove the
+// folder outright since nothing is pending anymore). No-op if the folder
+// isn't currently ' (deleted)'-tagged.
+export async function clearDeletedTag(root, projectName, ref) {
+  const projectDir = `${root}/${sanitizeSegment(projectName)}`;
+  const match = await findItemFolderEntry(root, projectName, ref);
+  if (!match) return null;
+  const { postfix } = parseItemFolderName(match.name);
+  const oldPath = `${projectDir}/${match.name}`;
+  if (postfix !== DELETED_ITEM_POSTFIX) return oldPath; // nothing to clear
+  const manifest = await readManifestEntries(oldPath);
+  const hasPendingImages = manifest.some((e) => e.added || e.chged || e.moved || e.deleted);
+  if (!hasPendingImages) {
+    await rmPath(oldPath);
+    return null;
+  }
+  const newPath = stagingItemDir(root, projectName, ref, CHGED_POSTFIX);
+  await fetch(`${AGENT_URL}/agent/dir/rename`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldPath, newPath }),
+  });
+  return newPath;
+}
+
 // FIX670.1.2 / FIX670.1.2.0: the manifest file, Id <file-staged-item-img-list>.
 function manifestPath(itemDir) {
   return `${itemDir}/${MANIFEST_FILENAME}`;

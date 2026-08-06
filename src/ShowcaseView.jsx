@@ -30,7 +30,7 @@ import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
-import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
+import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, clearDeletedTag, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
 
 // FIX653 <cmd-capture-cam-img>: same local Agent server the (now-relocated)
 // Photo Module and ShowcaseImgListEditor's FIX620 auto-insert already talk
@@ -793,6 +793,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // <project-introduction>.
   const [aboutOpen, setAboutOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // FIX656 'Other…' group: local-app-only Commands menu items that aren't in
+  // the always-visible top-level set (Add item/Delete item/Publish all) live
+  // in a nested flyout submenu, toggled by this. Reset false on every
+  // open/close of the parent menu so it never persists open to the next
+  // time the whole menu opens.
+  const [otherCommandsOpen, setOtherCommandsOpen] = useState(false);
   // FIX650.1.2.1 / FIX651 <menu-projects>: local-app-only project switcher,
   // replaces the website's <button-home> + project list.
   const [projectsMenuOpen, setProjectsMenuOpen] = useState(false);
@@ -1360,6 +1366,30 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         .map((f) => (ids.includes(f.id) ? { ...f, pendingRemoval: true } : f)),
     } : prev));
     setSelectedFolderIds((prev) => prev.filter((id) => !removedIds.includes(id)));
+  };
+
+  // FIX661 <cmd-undelete-item> / FIX670.10.10: unmarks the selected items
+  // currently staged to-be-deleted, in place — no confirmation popup (FIX661
+  // defines none, same posture as FIX659 Reset item). Per the FIX670.10.10
+  // Google-sheet rule: only a real DB item flagged pendingRemoval has
+  // anything to undelete — a Local item can't reach that state (Delete
+  // removes it outright, FIX670.10.9.1) and a plain Public item was never
+  // deleted to begin with.
+  const handleUndeleteItems = async () => {
+    const root = await getStagingRoot();
+    const ids = selectedFolderIds.filter((id) => {
+      const folder = (data?.folders || []).find((f) => f.id === id);
+      return folder?.pendingRemoval;
+    });
+    if (ids.length === 0) return;
+    for (const id of ids) {
+      const folder = (data?.folders || []).find((f) => f.id === id);
+      await clearDeletedTag(root, data?.project?.name, folder.name).catch(() => {});
+    }
+    setData((prev) => (prev ? {
+      ...prev,
+      folders: prev.folders.map((f) => (ids.includes(f.id) ? { ...f, pendingRemoval: false } : f)),
+    } : prev));
   };
 
   // FIX659.2 / FIX660.2: an item counts as "staged" for enabling purposes
@@ -2442,9 +2472,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             three options — Import images, Open properties gsheet, Import
             properties gsheet. Local app: always shown (login/admin-gating
             dropped there), but per FIX656 this is now the 'Commands' menu
-            instead — <cmd-capture-cam-img>, <cmd-add-item>,
-            <cmd-change-item-ref>, <cmd-reset-item>, <cmd-delete-item>,
-            <cmd-publish-all-changes>, <cmd-publish-selection> —
+            instead — top level <cmd-add-item>, <cmd-delete-item>,
+            <cmd-publish-all-changes>, plus an 'Other…' group holding
+            <cmd-capture-cam-img>, <cmd-change-item-ref>,
+            <cmd-undelete-item>, <cmd-reset-item>, <cmd-publish-selection> —
             same shared container Id as the website's Import menu (FIX369.0
             doesn't define a separate one for FIX656), the three Import
             options stay website-only either way. */}
@@ -2453,7 +2484,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             <button
               type="button"
               className="sc-menu-trigger"
-              onClick={() => setMenuOpen((v) => !v)}
+              onClick={() => { setMenuOpen((v) => !v); setOtherCommandsOpen(false); }}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
@@ -2514,26 +2545,6 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </li>
                   </>
                 )}
-                {/* FIX656 <cmd-capture-cam-img> / FIX653.1 / FIX653.2
-                    (camera icon + text 'Camera capture'): local-app only.
-                    Id realigned to <cmd-capture-cam-img> (was
-                    <cmd-capture-live-img>, FIX650.1.2.2's now-superseded
-                    literal text) to match FIX656's listing and FIX653.0's
-                    own Id for this same command. */}
-                {isLocalApp && (
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      data-yagu-id="cmd-capture-cam-img"
-                      onClick={() => { setMenuOpen(false); handleToggleCameraCapture(); }}
-                    >
-                      {cameraCaptureActive ? '✓ ' : ''}
-                      <IconCamera size={16} style={{ verticalAlign: '-0.2em', marginRight: '0.35em' }} />
-                      Camera capture
-                    </button>
-                  </li>
-                )}
                 {/* FIX655 <cmd-add-item>: local-app only, works both online
                     and off-line (FIX655.1 branches internally). Label 'Add
                     item' (was '+ Item'). */}
@@ -2549,47 +2560,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 )}
-                {/* FIX657 <cmd-change-item-ref>: enabled only when 1+ items
-                    selected (FIX657.1). FIX657.2: prefill with the current
-                    ref of the first selected item. */}
-                {isLocalApp && (
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      data-yagu-id="cmd-change-item-ref"
-                      disabled={selectedFolderIds.length === 0}
-                      onClick={() => {
-                        setMenuOpen(false);
-                        const firstRef = (data?.folders || []).find((f) => f.id === selectedFolderIds[0])?.name || '';
-                        setChangeItemRefPopup({ value: firstRef, error: null });
-                      }}
-                    >
-                      Change item ref
-                    </button>
-                  </li>
-                )}
-                {/* FIX659 <cmd-reset-item> / FIX670.10.11: enabled only when
-                    1+ items are selected AND every selected item is staged
-                    (FIX659.2) — no recap popup, applies immediately. */}
-                {isLocalApp && (
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      data-yagu-id="cmd-reset-item"
-                      disabled={
-                        selectedFolderIds.length === 0
-                        || !selectedFolderIds.every((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
-                      }
-                      onClick={() => { setMenuOpen(false); handleResetItems(); }}
-                    >
-                      Reset item
-                    </button>
-                  </li>
-                )}
                 {/* FIX658 <cmd-delete-item>: enabled only when 1+ items
-                    selected, mirroring cmd-change-item-ref's gating. */}
+                    selected. */}
                 {isLocalApp && (
                   <li>
                     <button
@@ -2619,23 +2591,117 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                     </button>
                   </li>
                 )}
-                {/* FIX660 <cmd-publish-selection>: enabled only when 1+ of
-                    the selected items is staged (FIX660.2). */}
+                {/* FIX656 'Other…': a true nested flyout submenu (not an
+                    inline expand) holding the Commands menu's less-frequent
+                    items. Both this <li> and the flyout live inside the
+                    same outer menuRef div, so a click anywhere in the
+                    flyout is still "inside" the top-level menu for the
+                    outside-click-close handler below. */}
                 {isLocalApp && (
-                  <li>
+                  <li className="sc-submenu-parent">
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="cmd-publish-selection"
-                      onClick={() => { setMenuOpen(false); handleOpenPublishSelection(); }}
-                      disabled={
-                        isLocalModeActive()
-                        || !selectedFolderIds.some((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
-                      }
-                      title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
+                      aria-haspopup="menu"
+                      aria-expanded={otherCommandsOpen}
+                      onClick={(e) => { e.stopPropagation(); setOtherCommandsOpen((v) => !v); }}
                     >
-                      Publish selection
+                      Other… ▸
                     </button>
+                    {otherCommandsOpen && (
+                      <ul className="sc-menu-items sc-submenu" role="menu">
+                        {/* FIX656 <cmd-capture-cam-img> / FIX653.1 /
+                            FIX653.2 (camera icon + text 'Camera capture').
+                            Id realigned to <cmd-capture-cam-img> (was
+                            <cmd-capture-live-img>, FIX650.1.2.2's now-
+                            superseded literal text) to match FIX656's
+                            listing and FIX653.0's own Id for this same
+                            command. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-capture-cam-img"
+                            onClick={() => { setMenuOpen(false); handleToggleCameraCapture(); }}
+                          >
+                            {cameraCaptureActive ? '✓ ' : ''}
+                            <IconCamera size={16} style={{ verticalAlign: '-0.2em', marginRight: '0.35em' }} />
+                            Camera capture
+                          </button>
+                        </li>
+                        {/* FIX657 <cmd-change-item-ref>: enabled only when
+                            1+ items selected (FIX657.1). FIX657.2: prefill
+                            with the current ref of the first selected
+                            item. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-change-item-ref"
+                            disabled={selectedFolderIds.length === 0}
+                            onClick={() => {
+                              setMenuOpen(false);
+                              const firstRef = (data?.folders || []).find((f) => f.id === selectedFolderIds[0])?.name || '';
+                              setChangeItemRefPopup({ value: firstRef, error: null });
+                            }}
+                          >
+                            Change item ref
+                          </button>
+                        </li>
+                        {/* FIX661 <cmd-undelete-item> / FIX670.10.10:
+                            enabled only when the selection has at least 1
+                            item currently staged to-be-deleted — no recap
+                            popup, applies immediately, same posture as
+                            FIX659 Reset item. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-undelete-item"
+                            disabled={!selectedFolderIds.some((id) => (data?.folders || []).find((f) => f.id === id)?.pendingRemoval)}
+                            onClick={() => { setMenuOpen(false); handleUndeleteItems(); }}
+                          >
+                            Undelete item
+                          </button>
+                        </li>
+                        {/* FIX659 <cmd-reset-item> / FIX670.10.11: enabled
+                            only when 1+ items are selected AND every
+                            selected item is staged (FIX659.2) — no recap
+                            popup, applies immediately. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-reset-item"
+                            disabled={
+                              selectedFolderIds.length === 0
+                              || !selectedFolderIds.every((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
+                            }
+                            onClick={() => { setMenuOpen(false); handleResetItems(); }}
+                          >
+                            Reset item
+                          </button>
+                        </li>
+                        {/* FIX660 <cmd-publish-selection>: enabled only
+                            when 1+ of the selected items is staged
+                            (FIX660.2). */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-publish-selection"
+                            onClick={() => { setMenuOpen(false); handleOpenPublishSelection(); }}
+                            disabled={
+                              isLocalModeActive()
+                              || !selectedFolderIds.some((id) => isItemStaged((data?.folders || []).find((f) => f.id === id)))
+                            }
+                            title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
+                          >
+                            Publish selection
+                          </button>
+                        </li>
+                      </ul>
+                    )}
                   </li>
                 )}
               </ul>

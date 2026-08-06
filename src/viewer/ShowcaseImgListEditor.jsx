@@ -1638,7 +1638,13 @@ export default function ShowcaseImgListEditor({
               </button>
               <button
                 type="button"
-                className="primary"
+                // Bug fix: forgetting to click Save (the edit sits as an
+                // in-memory draft until then) silently loses the change —
+                // reported live when a Publish ran before Save was ever
+                // clicked. A flashing highlight while a draft is pending is
+                // a cheap way to flag it without changing the save/reset
+                // flow itself.
+                className={`primary${draftForCurrent && !savingImage ? ' sc-save-pending' : ''}`}
                 onClick={saveImageEdit}
                 disabled={savingImage || !draftForCurrent}
                 title={draftForCurrent ? 'Save changes' : 'No changes to save'}

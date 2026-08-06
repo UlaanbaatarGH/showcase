@@ -1529,6 +1529,16 @@ body {
   font-size: 0.875rem;
 }
 
+/* Bug fix: flag an unsaved rotate/crop draft on the Save button itself --
+   forgetting to click Save silently lost the edit. */
+.sc-save-pending {
+  animation: sc-save-pending-blink 1s ease-in-out infinite;
+}
+@keyframes sc-save-pending-blink {
+  0%, 100% { background-color: #f4d03f; border-color: #f4d03f; color: #1a1a1a; }
+  50% { background-color: transparent; }
+}
+
 .sc-loading, .sc-error {
   min-height: 100vh;
   min-height: 100dvh;

@@ -841,6 +841,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX658 <cmd-delete-item>: no per-item input, just a Confirm/Cancel gate —
   // true/false is enough state.
   const [deleteItemPopup, setDeleteItemPopup] = useState(false);
+  // FIX659.3.1 <cmd-reset-item> / FIX658.3.1 <cmd-undelete-item>: same
+  // Confirm/Cancel-only shape as deleteItemPopup above.
+  const [resetItemPopup, setResetItemPopup] = useState(false);
+  const [undeleteItemPopup, setUndeleteItemPopup] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
   // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
@@ -1369,12 +1373,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   };
 
   // FIX661 <cmd-undelete-item> / FIX670.10.10: unmarks the selected items
-  // currently staged to-be-deleted, in place — no confirmation popup (FIX661
-  // defines none, same posture as FIX659 Reset item). Per the FIX670.10.10
-  // Google-sheet rule: only a real DB item flagged pendingRemoval has
-  // anything to undelete — a Local item can't reach that state (Delete
-  // removes it outright, FIX670.10.9.1) and a plain Public item was never
-  // deleted to begin with.
+  // currently staged to-be-deleted, in place — confirmed via undeleteItemPopup
+  // below (FIX658.3.1) before this runs. Per the FIX670.10.10 Google-sheet
+  // rule: only a real DB item flagged pendingRemoval has anything to
+  // undelete — a Local item can't reach that state (Delete removes it
+  // outright, FIX670.10.9.1) and a plain Public item was never deleted to
+  // begin with.
   // FIX658.2 (the requirements file's own numbering for this Undelete-item
   // block's Enabling entry, colliding with Delete item's unrelated FIX658.2
   // above — see the button's disabled condition below, which is this
@@ -1417,8 +1421,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const isUnpublishedPublicItem = (folder) => !!folder && typeof folder.id !== 'string' && isItemStaged(folder);
 
   // FIX659 <cmd-reset-item> / FIX670.10.11: cancels every locally staged
-  // change for the selected items, in place — FIX659 defines no recap step
-  // (unlike Delete/Publish), so this applies immediately on click.
+  // change for the selected items, in place — confirmed via resetItemPopup
+  // below (FIX659.3.1) before this runs.
   // FIX670.10.11.1: a Local item (string 'local-item-*' id, no public
   // baseline) has no defined Reset effect per the Google-sheet test-matrix
   // rule (FIX670.10 <process-item-staging-management>) — left untouched.
@@ -1438,7 +1442,19 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       if (fresh) {
         const blanked = fresh.map((im) => ({ ...im, added: false, chged: false, moved: false, deleted: false }));
         imagesByFolderRef.current[folder.id] = blanked;
-        if (folder.id === selectedFolderId) setImages(blanked);
+        // Bug fix (FIX659.3.2): setImages alone left the viewer showing
+        // whatever image was at the old currentImageIdx — right for a
+        // same-length, same-order reset but wrong whenever the staged
+        // state had reordered/added/removed rows, and this effect's
+        // sibling load-on-select effect (the one that normally computes
+        // this) only runs on [selectedFolderId], not on an in-place images
+        // update — so it never re-ran here. Recomputed the same way that
+        // effect does: Main image first, else the first image.
+        if (folder.id === selectedFolderId) {
+          setImages(blanked);
+          const mainIdx = blanked.findIndex((i) => i.is_main);
+          setCurrentImageIdx(mainIdx >= 0 ? mainIdx : 0);
+        }
       }
       const originalRef = folder.originalRef ?? folder.name;
       setData((prev) => (prev ? {
@@ -2665,16 +2681,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             mis-numbered in the requirements file — see the
                             comment on handleUndeleteItems above): enabled
                             only when the selection has at least 1 item
-                            currently staged to-be-deleted — no recap popup,
-                            applies immediately, same posture as FIX659
-                            Reset item. */}
+                            currently staged to-be-deleted. FIX658.3.1: opens
+                            the confirmation popup rather than applying
+                            immediately. */}
                         <li>
                           <button
                             type="button"
                             role="menuitem"
                             data-yagu-id="cmd-undelete-item"
                             disabled={!selectedFolderIds.some((id) => (data?.folders || []).find((f) => f.id === id)?.pendingRemoval)}
-                            onClick={() => { setMenuOpen(false); handleUndeleteItems(); }}
+                            onClick={() => { setMenuOpen(false); setUndeleteItemPopup(true); }}
                           >
                             Undelete item
                           </button>
@@ -2683,7 +2699,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             (updated) — visible only in on-line mode, and
                             enabled when the selection has at least 1
                             unpublished public item (was: every selected
-                            item must be staged) — no recap popup, applies
+                            item must be staged). FIX659.3.1: opens the
+                            confirmation popup rather than applying
                             immediately. */}
                         <li>
                           <button
@@ -2695,7 +2712,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                               || !selectedFolderIds.some((id) => isUnpublishedPublicItem((data?.folders || []).find((f) => f.id === id)))
                             }
                             title={isLocalModeActive() ? 'Unavailable while offline' : undefined}
-                            onClick={() => { setMenuOpen(false); handleResetItems(); }}
+                            onClick={() => { setMenuOpen(false); setResetItemPopup(true); }}
                           >
                             Reset item
                           </button>
@@ -3703,6 +3720,66 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 Cancel
               </button>
               <button type="button" className="primary" onClick={confirmDeleteItems}>
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX659.3.1 <cmd-reset-item>: Title 'Item reset', prompt lists only
+          the selected items Reset actually has a defined effect on (public,
+          currently staged ones — FIX670.10.11.1's Local items are silently
+          excluded, same scope as the button's own enabling condition). */}
+      {resetItemPopup && (
+        <div className="setup-overlay" onMouseDown={() => setResetItemPopup(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Item reset</strong></p>
+            <p style={{ whiteSpace: 'pre-line' }}>
+              {`Items: ${selectedFolderIds
+                .map((id) => (data?.folders || []).find((f) => f.id === id))
+                .filter((f) => isUnpublishedPublicItem(f))
+                .map((f) => f.name)
+                .join('\n')}`}
+            </p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setResetItemPopup(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => { setResetItemPopup(false); handleResetItems(); }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX658.3.1 <cmd-undelete-item>: Title 'Item undeletion', prompt
+          lists only the selected to-be-deleted items (FIX658.3.1's own
+          "Can only list to-be-deleted public items" — a real DB item is the
+          only kind that can ever carry pendingRemoval). */}
+      {undeleteItemPopup && (
+        <div className="setup-overlay" onMouseDown={() => setUndeleteItemPopup(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Item undeletion</strong></p>
+            <p style={{ whiteSpace: 'pre-line' }}>
+              {`Items: ${selectedFolderIds
+                .map((id) => (data?.folders || []).find((f) => f.id === id))
+                .filter((f) => f?.pendingRemoval)
+                .map((f) => f.name)
+                .join('\n')}`}
+            </p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setUndeleteItemPopup(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => { setUndeleteItemPopup(false); handleUndeleteItems(); }}
+              >
                 Confirm
               </button>
             </div>

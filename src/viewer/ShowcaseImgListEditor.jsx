@@ -586,12 +586,31 @@ export default function ShowcaseImgListEditor({
     // syncAfterEdit → syncStagingFolder below, which already handles
     // create-fresh vs update-existing vs delete-when-nothing's-pending
     // uniformly for every FIX670.10 action (Add/Modify/Delete img alike).
+    //
+    // Bug fix: `moved` must compare each public row's RANK among public
+    // rows (its position in the current display order) against its
+    // original rank — not raw sort_order values directly. The server
+    // doesn't guarantee those are distinct (a freshly-added item whose
+    // images were never manually reordered commonly has every row at
+    // sort_order 0 — confirmed live on project Test's item 001), so a
+    // direct `!==` on the value silently found no difference: the display
+    // order visibly changed (newImages above is a real array reorder) but
+    // `moved` stayed false for both swapped rows, `pending` in
+    // syncStagingFolder read false, and nothing ever got staged — FIX670.10.5.5
+    // completely no-op'd on exactly the case it's supposed to cover.
     const restaged = isLocalApp
-      ? newImages.map((im) => {
-          if (isLocalRow(im) || im.deleted) return im;
-          const baseline = im.origSortOrder ?? im.sort_order;
-          return { ...im, moved: im.sort_order !== baseline };
-        })
+      ? (() => {
+          const publicRows = newImages.filter((im) => !isLocalRow(im) && !im.deleted);
+          const byOrigRank = [...publicRows].sort(
+            (a, b) => (a.origSortOrder ?? a.sort_order) - (b.origSortOrder ?? b.sort_order),
+          );
+          const origRankById = new Map(byOrigRank.map((im, idx) => [im.id, idx]));
+          const currentRankById = new Map(publicRows.map((im, idx) => [im.id, idx]));
+          return newImages.map((im) => {
+            if (isLocalRow(im) || im.deleted) return im;
+            return { ...im, moved: currentRankById.get(im.id) !== origRankById.get(im.id) };
+          });
+        })()
       : newImages;
     setImages(restaged);
     const newLo = lo + delta;

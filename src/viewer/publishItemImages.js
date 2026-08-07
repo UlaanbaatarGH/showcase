@@ -126,8 +126,22 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       // longer implies "already baked" the way it does for Flatten/Shrink.
       if ((im.localFile || im.rotation || im.crop) && im.image_id) {
         const needsBake = im.rotation || im.crop;
-        const blob = needsBake ? await bakeRotatedCropToBlob(im.url, im.rotation ?? 0, im.crop ?? null) : im.localFile;
-        const bakedUrl = needsBake ? URL.createObjectURL(blob) : im.url;
+        let blob;
+        let bakedUrl;
+        if (needsBake) {
+          // Perf fix: bake from im.localFile (already-fetched original
+          // bytes, staged locally by FIX611.1's edit-time copy) instead of
+          // im.url -- for a plain public row im.url is still the remote
+          // network URL, so baking from it re-downloaded the same full
+          // image a second time, doubling publish latency.
+          const sourceUrl = im.localFile ? URL.createObjectURL(im.localFile) : im.url;
+          blob = await bakeRotatedCropToBlob(sourceUrl, im.rotation ?? 0, im.crop ?? null);
+          if (im.localFile) URL.revokeObjectURL(sourceUrl);
+          bakedUrl = URL.createObjectURL(blob);
+        } else {
+          blob = im.localFile;
+          bakedUrl = im.url;
+        }
         const dims = await measureDims(bakedUrl);
         const data_base64 = await blobToBase64(blob);
         await replaceImageBytes(im.image_id, {

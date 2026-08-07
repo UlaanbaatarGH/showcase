@@ -4,7 +4,7 @@ import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
 import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
-import { publishItemImages, isLocalRow } from './viewer/publishItemImages.js';
+import { publishItemImages, isLocalRow, measureDims } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
@@ -630,16 +630,37 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       moveCount: scopeIdxs.filter((i) => imgs[i].moved).length,
       changeCount: scopeIdxs.filter((i) => imgs[i].chged).length,
     });
-    // FIX652.3.1.1.2 / FIX670.20.3.2: cumulated new+chged image sizes --
-    // localFile is the only place actual pixel bytes live pre-publish (a
-    // not-yet-uploaded Added row, or a chged row carrying either baked
-    // pixels or the FIX611.1 original-bytes staging copy); a chged row with
-    // no image edit at all (caption/section/is_main only) has no localFile
-    // and correctly contributes 0.
-    const bytesOf = (imgs, scopeIdxs) => scopeIdxs.reduce(
-      (sum, i) => sum + ((imgs[i].added || imgs[i].chged) ? (imgs[i].localFile?.size || 0) : 0),
-      0,
-    );
+    // FIX652.3.1.1.2 / FIX670.20.3.2: cumulated new+chged image sizes, as
+    // they'll actually be uploaded. localFile is the only place pre-publish
+    // pixel bytes live (a not-yet-uploaded Added row, or a chged row
+    // carrying either baked pixels or the FIX611.1 original-bytes staging
+    // copy) -- but a row with a pending, un-baked crop still has the
+    // *original* (pre-crop) bytes in localFile, which would badly
+    // overstate the upload size for a crop specifically done to shrink it.
+    // Estimate the post-crop size by pixel-area ratio instead of a full
+    // bake+re-encode (measureDims is a cheap decode-only probe, unlike
+    // bakeRotatedCropToBlob's canvas draw + JPEG encode) -- rotation alone
+    // doesn't change pixel count, so it's left out of the ratio.
+    const bytesOf = async (imgs, scopeIdxs) => {
+      let sum = 0;
+      for (const i of scopeIdxs) {
+        const im = imgs[i];
+        if (!im.added && !im.chged) continue;
+        const original = im.localFile?.size || 0;
+        if (im.crop && im.localFile && original) {
+          const url = URL.createObjectURL(im.localFile);
+          const dims = await measureDims(url);
+          URL.revokeObjectURL(url);
+          if (dims && dims.w > 0 && dims.h > 0) {
+            const ratio = (im.crop.width * im.crop.height) / (dims.w * dims.h);
+            sum += Math.round(original * Math.min(1, Math.max(0, ratio)));
+            continue;
+          }
+        }
+        sum += original;
+      }
+      return sum;
+    };
     for (const item of staged) {
       if (item.flag === 'deleted') {
         // FIX670.20 <process-staged-items-publication>: matches a real item
@@ -659,7 +680,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         plan.push({
           kind: 'new', ref: item.ref, dir: item.dir, images: imgs, scopeIdxs,
           addCount: scopeIdxs.length, removeCount: 0, moveCount: 0, changeCount: 0,
-          bytes: bytesOf(imgs, scopeIdxs),
+          bytes: await bytesOf(imgs, scopeIdxs),
         });
         continue;
       }
@@ -673,7 +694,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         plan.push({
           kind: 'renamed', ref: item.ref, oldRef: item.oldRef, dir: item.dir, folderId: folder.id, scopeIdxs,
           ...countsOf(imgs, scopeIdxs),
-          bytes: bytesOf(imgs, scopeIdxs),
+          bytes: await bytesOf(imgs, scopeIdxs),
         });
         continue;
       }
@@ -686,7 +707,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       if (scopeIdxs.length === 0) continue; // nothing actually pending
       plan.push({
         kind: 'plain', ref: item.ref, dir: item.dir, folderId: folder.id, scopeIdxs,
-        ...countsOf(imgs, scopeIdxs), bytes: bytesOf(imgs, scopeIdxs),
+        ...countsOf(imgs, scopeIdxs), bytes: await bytesOf(imgs, scopeIdxs),
       });
     }
     // Show the recap regardless — an empty plan just shows an all-zero line

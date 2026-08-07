@@ -31,7 +31,9 @@ function blobToBase64(blob) {
 
 // Natural pixel dimensions of an image, probed fresh (not reliant on any
 // component's own dims cache, so this module has no React dependency).
-function measureDims(url) {
+// Exported for ShowcaseView's pre-publish size estimate (a cheap decode-only
+// probe, unlike bakeRotatedCropToBlob's full canvas draw + re-encode).
+export function measureDims(url) {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';

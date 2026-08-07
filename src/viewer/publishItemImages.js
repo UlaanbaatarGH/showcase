@@ -4,8 +4,9 @@
 // over a different scope of items, so this is the one implementation both
 // call into. FIX610.3.5(removed): originally also backed a per-item Publish
 // button in ShowcaseImgListEditor, since removed.
-import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, updateImage, replaceImageBytes } from '../data/backend.js';
+import { deleteFolderImage, updateFolderImage, signUpload, confirmImage, getFolderImages, replaceImageBytes } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
+import { bakeRotatedCropToBlob } from './ShowcaseImageCanvas.jsx';
 
 // FIX610.3.1: rows staged locally (not yet uploaded) carry a synthetic
 // string id in this form.
@@ -70,14 +71,24 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
   for (let idx = 0; idx < remaining.length; idx++) {
     const { im, origIdx } = remaining[idx];
     if (isLocalRow(im)) {
+      // FIX670.20.3.1: any pending non-destructive rotation/crop metadata
+      // must become a destructive pixel change no later than publish —
+      // bake it now, before upload, instead of carrying it through as
+      // still-live metadata (the server has no notion of it either way).
+      let uploadBlob = im.localFile;
+      let bakedUrl = null;
+      if (im.rotation || im.crop) {
+        uploadBlob = await bakeRotatedCropToBlob(im.url, im.rotation ?? 0, im.crop ?? null);
+        bakedUrl = URL.createObjectURL(uploadBlob);
+      }
       const sign = await signUpload({ project_id: projectId, item_name: itemName, filename: im.filename });
       const putRes = await fetch(sign.signed_url, {
         method: 'PUT',
-        headers: { 'Content-Type': im.localFile.type || 'application/octet-stream' },
-        body: im.localFile,
+        headers: { 'Content-Type': uploadBlob.type || 'application/octet-stream' },
+        body: uploadBlob,
       });
       if (!putRes.ok) throw new Error(`Upload failed (${putRes.status}) for ${im.filename}`);
-      const dims = await measureDims(im.url);
+      const dims = await measureDims(bakedUrl || im.url);
       await confirmImage({
         project_id: projectId,
         item_name: itemName,
@@ -86,17 +97,12 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
         replaces_image_id: null,
         zoom_factor: dims ? zoomFactor(dims.w, dims.h) : null,
       });
-      // confirmImage doesn't accept rotation/crop either — carried through
-      // the same follow-up-PATCH mechanism as caption/section/is_main
-      // below, otherwise a crop/rotation staged on a not-yet-published row
-      // (ShowcaseImgListEditor.jsx's saveImageEdit) would silently vanish
-      // the moment Publish actually uploads it.
-      if (im.caption || im.section || im.is_main || im.rotation || im.crop) {
-        staged.push({
-          filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main,
-          rotation: im.rotation, crop: im.crop,
-        });
+      // confirmImage doesn't accept caption/section/is_main either —
+      // carried through a follow-up PATCH below, once the row has an id.
+      if (im.caption || im.section || im.is_main) {
+        staged.push({ filename: im.filename, caption: im.caption, section: im.section, is_main: im.is_main });
       }
+      if (bakedUrl) URL.revokeObjectURL(bakedUrl);
       URL.revokeObjectURL(im.url);
       // FIX670.30: the server now has its own durable copy (uploaded above);
       // the on-disk staging folder is resynced by the caller right after
@@ -106,22 +112,27 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       bump();
     } else if (scope.has(origIdx)) {
       // Bug fix (FIX610.3.6 / FIX611.1): a chged public row may carry
-      // freshly-baked crop/rotate pixels (localFile set — the local-app
-      // save flow bakes the transform into new bytes and resets
-      // rotation/crop to 0/null right there, since the transform now lives
-      // in the pixels, not the metadata) that were never actually uploaded
-      // — the caption/section/is_main-only patch below silently dropped
-      // them. Replace the stored bytes first, same shape saveImageEdit's
-      // own non-local-app (on-line site) branch already uses.
-      if (im.localFile && im.image_id) {
-        const dims = await measureDims(im.url);
-        const data_base64 = await blobToBase64(im.localFile);
+      // freshly-baked crop/rotate pixels (localFile set — Flatten/Shrink
+      // bake the transform into new bytes and reset rotation/crop to
+      // 0/null right there) that were never actually uploaded — the
+      // caption/section/is_main-only patch below silently dropped them.
+      // FIX670.20.3.1: a row can also still carry *un-baked* rotation/crop
+      // metadata (FIX611.1's non-destructive edit, never flattened by the
+      // user) — flatten it now, before publishing, same as the local-row
+      // branch above. localFile and rotation/crop are mutually exclusive
+      // in practice (Flatten/Shrink always clear rotation/crop when they
+      // set localFile), so at most one of the two branches below runs.
+      if ((im.localFile || im.rotation || im.crop) && im.image_id) {
+        const blob = im.localFile || await bakeRotatedCropToBlob(im.url, im.rotation ?? 0, im.crop ?? null);
+        const bakedUrl = im.localFile ? im.url : URL.createObjectURL(blob);
+        const dims = await measureDims(bakedUrl);
+        const data_base64 = await blobToBase64(blob);
         await replaceImageBytes(im.image_id, {
           data_base64,
-          content_type: im.localFile.type || 'image/jpeg',
+          content_type: blob.type || 'image/jpeg',
           zoom_factor: dims ? zoomFactor(dims.w, dims.h) : null,
         });
-        URL.revokeObjectURL(im.url);
+        URL.revokeObjectURL(bakedUrl);
       }
       const patch = { caption: im.caption || null, section: im.section || null, is_main: im.is_main };
       if (im.moved) patch.sort_order = im.sort_order;
@@ -143,9 +154,6 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
         section: s.section || null,
         is_main: s.is_main,
       });
-      if ((s.rotation || s.crop) && row.image_id) {
-        await updateImage(row.image_id, { rotation: s.rotation ?? 0, crop: s.crop ?? null });
-      }
     }
     fresh = await getFolderImages(folderId);
   }

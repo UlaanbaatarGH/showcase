@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import ShowcaseImageCanvas, { bakeRotatedCrop } from './ShowcaseImageCanvas.jsx';
+import ShowcaseImageCanvas, { bakeRotatedCrop, bakeRotatedCropToBlob } from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
   setEditLockPendingChanges, getFolderImages,
@@ -307,7 +307,31 @@ export default function ShowcaseImgListEditor({
     return fresh;
   };
 
+  // FIX611.1: local-app rotate/crop/reset edits are non-destructive and
+  // auto-save straight to the row + <folder-staged-item> on every action —
+  // no draft, no explicit Save (removed per FIX611.1's "No Save and no
+  // Cancel button"). Only the online panel below still goes through the
+  // imageDraft/Save/Cancel flow (FIX524, unchanged).
+  const persistLocalImageMeta = (patch) => {
+    if (!currentImage) return;
+    const nextRow = { ...(isLocalRow(currentImage) ? currentImage : stageChanged(currentImage)), ...patch };
+    const nextImages = images.map((im) => (im.id === currentImage.id ? nextRow : im));
+    setImages(nextImages);
+    syncAfterEdit(nextImages);
+  };
+
   const rotateBy = (delta) => {
+    if (isLocalApp) {
+      if (!currentImage || currentImage.isPlaceholder) return;
+      const next = ((((currentImage.rotation ?? 0) + delta) % 360) + 360) % 360;
+      // FIX611.1.1: rotating enables <cmd-reset-img>/<cmd-flatten-img> —
+      // via their shared rotation/crop-presence enabling condition below.
+      // Rotating invalidates the previous crop (coord space changes), same
+      // as the online draft flow.
+      persistLocalImageMeta({ rotation: next, crop: null });
+      setCropMode(false);
+      return;
+    }
     const base = ensureDraft();
     const next = ((((base.rotation ?? 0) + delta) % 360) + 360) % 360;
     // Rotating invalidates the previous crop (coord space changes).
@@ -315,13 +339,27 @@ export default function ShowcaseImgListEditor({
     setCropMode(false);
   };
 
+  // FIX611.2 <cmd-reset-img> (local app): resets the persisted rotation/crop
+  // metadata directly and re-saves — the original image is displayed. The
+  // online panel's Reset (unrelated FTag) still just discards the draft.
   const resetImage = () => {
+    if (isLocalApp) {
+      persistLocalImageMeta({ rotation: 0, crop: null }); // FIX611.2.2.1; FIX611.2.2.2 disables Flatten via the shared enabling condition
+      setCropMode(false);
+      return;
+    }
     setImageDraft({ rotation: 0, crop: null });
     setDraftForId(currentImage?.id ?? null);
     setCropMode(false);
   };
 
   const onCropComplete = (rect) => {
+    if (isLocalApp) {
+      if (!currentImage || currentImage.isPlaceholder) return;
+      persistLocalImageMeta({ crop: rect }); // FIX611.1
+      setCropMode(false);
+      return;
+    }
     const base = ensureDraft();
     setImageDraft({ ...base, crop: rect });
     setCropMode(false);
@@ -331,6 +369,34 @@ export default function ShowcaseImgListEditor({
     setImageDraft(null);
     setDraftForId(null);
     setCropMode(false);
+  };
+
+  // FIX611.3 <cmd-flatten-img> (local app): converts the pending
+  // rotation/crop metadata into a destructive save — reuses the same bake
+  // primitive FIX670.20.3.1's publish-time flatten uses, so a manual
+  // Flatten and one forced at publish stay in sync.
+  const flattenImage = async () => {
+    if (!currentImage || (!currentImage.rotation && !currentImage.crop)) return;
+    setSavingImage(true);
+    try {
+      const blob = await bakeRotatedCropToBlob(currentImage.url, currentImage.rotation ?? 0, currentImage.crop ?? null);
+      if (isLocalRow(currentImage)) URL.revokeObjectURL(currentImage.url);
+      const nextRow = {
+        ...(isLocalRow(currentImage) ? currentImage : stageChanged(currentImage)),
+        rotation: 0,
+        crop: null, // FIX611.3.2.2: disables both commands via the shared enabling condition
+        url: URL.createObjectURL(blob),
+        localFile: blob,
+        stagedPath: null,
+      };
+      const nextImages = images.map((im) => (im.id === currentImage.id ? nextRow : im));
+      setImages(nextImages);
+      syncAfterEdit(nextImages); // FIX611.3.2.1
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setSavingImage(false);
+    }
   };
 
   // FIX524.4.10 <action-save-img>: load the source pixels and bake the
@@ -355,54 +421,12 @@ export default function ShowcaseImgListEditor({
         fr.readAsDataURL(blob);
       }, 'image/jpeg', 0.9);
     });
-  const canvasToBlob = (canvas) =>
-    new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not encode image'))), 'image/jpeg', 0.9);
-    });
-
-  // FIX611.1 <action-save-img> (local app adaptation of FIX524.4.10): Save
-  // always stages the baked result to the item's <folder-staged-item>
-  // instead of a live PATCH/upload -- whether currentImage is a
-  // not-yet-published Added row (overwrite its already-staged file) or an
-  // existing public row (its first-ever staged file, tagged '(chged)' via
-  // stageChanged below). `stagedPath: null` is what tells syncStagingFolder
-  // (via syncAfterEdit) to (re)write the bytes; isLocalRow can only occur
-  // inside the local app, so this branch fully replaces the old always-live
-  // isLocalRow short-circuit that used to sit here.
+  // FIX524.4.10 <action-save-img> (on-line panel only — FIX611.1 removed
+  // the local app's equivalent Save button; local-app edits now auto-save
+  // non-destructively via persistLocalImageMeta/flattenImage above): no
+  // server-side staging to defer to -- bake and store the result directly.
   const saveImageEdit = async () => {
     if (!draftForCurrent || !currentImage) return;
-    if (isLocalApp) {
-      setSavingImage(true);
-      try {
-        const hasEdit = draftForCurrent.rotation !== 0 || draftForCurrent.crop != null;
-        let nextRow = { ...currentImage, rotation: 0, crop: null };
-        if (hasEdit) {
-          const img = await loadImageEl(currentImage.url);
-          const canvas = bakeRotatedCrop(img, draftForCurrent.rotation, draftForCurrent.crop);
-          const blob = await canvasToBlob(canvas);
-          if (isLocalRow(currentImage)) URL.revokeObjectURL(currentImage.url);
-          nextRow = {
-            ...(isLocalRow(currentImage) ? nextRow : stageChanged(nextRow)),
-            url: URL.createObjectURL(blob),
-            localFile: blob,
-            stagedPath: null,
-          };
-        }
-        const nextImages = images.map((im) => (im.id === currentImage.id ? nextRow : im));
-        setImages(nextImages);
-        if (hasEdit) syncAfterEdit(nextImages); // FIX611.1 steps 1-2: bytes + manifest tag
-        setImageDraft(null);
-        setDraftForId(null);
-        setCropMode(false);
-      } catch (e) {
-        setError(e.message || String(e));
-      } finally {
-        setSavingImage(false);
-      }
-      return;
-    }
-    // FIX524.4.10 <action-save-img> (on-line site): no server-side staging
-    // to defer to -- bake and store the result directly.
     if (!currentImage.image_id) return;
     setSavingImage(true);
     try {
@@ -923,7 +947,10 @@ export default function ShowcaseImgListEditor({
         const u = updates[im.id];
         if (!u) return im;
         return isLocalApp
-          ? { ...(isLocalRow(im) ? im : stageChanged(im)), url: u.url, localFile: u.blob, stagedPath: null }
+          // FIX611.1.2: Shrink re-encodes pixels at the original (untransformed)
+          // scale, invalidating any pending crop rect's coordinate space —
+          // disables Reset/Flatten by clearing the metadata they gate on.
+          ? { ...(isLocalRow(im) ? im : stageChanged(im)), url: u.url, localFile: u.blob, stagedPath: null, rotation: 0, crop: null }
           : { ...im, url: u.url };
       });
       setImages(nextImages);
@@ -1600,12 +1627,29 @@ export default function ShowcaseImgListEditor({
               </button>
               <button
                 type="button"
-                disabled={!currentImage || !draftForCurrent}
+                data-yagu-id="cmd-reset-img"
+                // FIX611.2.1 (local app): enabled only when the image has
+                // pending rotation/crop metadata; the online panel below
+                // keeps its own draft-based enabling condition.
+                disabled={!currentImage || (isLocalApp ? !(currentImage.rotation || currentImage.crop) : !draftForCurrent)}
                 onClick={resetImage}
                 title="Reset rotation & crop"
               >
                 Reset
               </button>
+              {isLocalApp && (
+                <button
+                  type="button"
+                  data-yagu-id="cmd-flatten-img"
+                  // FIX611.3.1: enabled only when the image has pending
+                  // rotation/crop metadata.
+                  disabled={!currentImage || savingImage || !(currentImage.rotation || currentImage.crop)}
+                  onClick={flattenImage}
+                  title="Bake rotation/crop into the image permanently"
+                >
+                  {savingImage ? 'Flattening…' : 'Flatten'}
+                </button>
+              )}
             </div>
             <div className="sc-viewer-img-wrap">
               {/* FIX680.1.1.2: a public image referenced by list.txt but
@@ -1628,30 +1672,35 @@ export default function ShowcaseImgListEditor({
                 <div className="sc-viewer-caption">{currentImage.caption}</div>
               )}
             </div>
-            <footer className="sc-viewer-edit-footer">
-              <button
-                type="button"
-                onClick={cancelImageEdit}
-                disabled={savingImage || !draftForCurrent}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                // Bug fix: forgetting to click Save (the edit sits as an
-                // in-memory draft until then) silently loses the change —
-                // reported live when a Publish ran before Save was ever
-                // clicked. A flashing highlight while a draft is pending is
-                // a cheap way to flag it without changing the save/reset
-                // flow itself.
-                className={`primary${draftForCurrent && !savingImage ? ' sc-save-pending' : ''}`}
-                onClick={saveImageEdit}
-                disabled={savingImage || !draftForCurrent}
-                title={draftForCurrent ? 'Save changes' : 'No changes to save'}
-              >
-                {savingImage ? 'Saving…' : 'Save'}
-              </button>
-            </footer>
+            {/* FIX611.1: no Save/no Cancel button for the local app — image
+                edition is non-destructive and auto-saves. The footer/strip
+                stays for the online panel (FIX524, unchanged). */}
+            {!isLocalApp && (
+              <footer className="sc-viewer-edit-footer">
+                <button
+                  type="button"
+                  onClick={cancelImageEdit}
+                  disabled={savingImage || !draftForCurrent}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  // Bug fix: forgetting to click Save (the edit sits as an
+                  // in-memory draft until then) silently loses the change —
+                  // reported live when a Publish ran before Save was ever
+                  // clicked. A flashing highlight while a draft is pending is
+                  // a cheap way to flag it without changing the save/reset
+                  // flow itself.
+                  className={`primary${draftForCurrent && !savingImage ? ' sc-save-pending' : ''}`}
+                  onClick={saveImageEdit}
+                  disabled={savingImage || !draftForCurrent}
+                  title={draftForCurrent ? 'Save changes' : 'No changes to save'}
+                >
+                  {savingImage ? 'Saving…' : 'Save'}
+                </button>
+              </footer>
+            )}
           </>
         ) : (
           <div className="sc-viewer-empty">No image selected.</div>

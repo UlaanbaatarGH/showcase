@@ -272,3 +272,26 @@ export function bakeRotatedCrop(img, rotation, crop) {
   ctx.restore();
   return canvas;
 }
+
+// FIX611.3.2.1 / FIX670.20.3.1: url-in/blob-out flatten — loads the source
+// image and bakes the given rotation/crop into new pixels, the shared
+// primitive behind both the local-app Flatten command and the at-publish
+// flatten (any pending non-destructive metadata must become a destructive
+// pixel change no later than publish).
+function loadImageEl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not load image'));
+    img.src = url;
+  });
+}
+
+export async function bakeRotatedCropToBlob(url, rotation, crop) {
+  const img = await loadImageEl(url);
+  const canvas = bakeRotatedCrop(img, rotation, crop);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not encode image'))), 'image/jpeg', 0.9);
+  });
+}

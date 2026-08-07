@@ -191,10 +191,8 @@ async function buildLocalImageRows(itemDir) {
         image_id: null,
         url: URL.createObjectURL(blob),
         filename,
-        ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4
+        ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4: incl. rotation/crop (FIX611.1)
         sort_order: i,
-        rotation: 0,
-        crop: null,
         added: true, chged: false, moved: false, deleted: false,
         localFile: blob,
         stagedPath: `${itemDir}/${filename}`,

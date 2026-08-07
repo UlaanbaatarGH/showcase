@@ -265,17 +265,25 @@ function parseAttrLine(trimmedLine, entry) {
   entry.attrs[trimmedLine.slice(0, sep)] = trimmedLine.slice(sep + 3);
 }
 
-// FIX670.1.2.2.4: today's image attrs — caption/section/is_main are the only
-// per-image fields staged outside the bytes themselves (FIX610.3.6's
-// crop/rotate bake straight into the file). All manifest attr values are
-// raw strings; `main` is stored as the literal 'true' (never written at all
-// when false, matching formatAttrLines' skip-if-blank rule) rather than a
-// real boolean, same convention as every other manifest flag.
+// FIX670.1.2.2.4: today's image attrs — caption/section/is_main, plus
+// rotation/crop since FIX611.1: the local app's non-destructive edit no
+// longer bakes crop/rotate straight into the file (that's now FIX611.3
+// Flatten's job) — until flattened, the pending transform is just another
+// per-image field staged outside the bytes, so it rides the same
+// attr-name : attr-value lines as everything else. All manifest attr
+// values are raw strings; `main` is stored as the literal 'true' (never
+// written at all when false, matching formatAttrLines' skip-if-blank rule)
+// rather than a real boolean, same convention as every other manifest flag.
+// crop is JSON-encoded ({x,y,width,height}) — compact JSON.stringify never
+// emits the ' : ' three-char separator parseAttrLine splits on, so it's
+// safe as a single attr-value.
 export function imageAttrsToManifest(im) {
   const attrs = {};
   if (im.caption) attrs.caption = im.caption;
   if (im.section) attrs.section = im.section;
   if (im.is_main) attrs.main = 'true';
+  if (im.rotation) attrs.rotation = String(im.rotation);
+  if (im.crop) attrs.crop = JSON.stringify(im.crop);
   return attrs;
 }
 
@@ -284,6 +292,8 @@ export function imageAttrsFromManifest(attrs) {
     caption: attrs?.caption || '',
     section: attrs?.section || '',
     is_main: attrs?.main === 'true',
+    rotation: attrs?.rotation ? Number(attrs.rotation) : 0,
+    crop: attrs?.crop ? JSON.parse(attrs.crop) : null,
   };
 }
 
@@ -339,8 +349,8 @@ export async function createItemStagingFolder(root, projectName, itemName) {
   return dir;
 }
 
-// FIX670.20.3.1: removes a whole item staging folder (or a single file —
-// same route handles both). Idempotent (no-op on ENOENT).
+// FIX670.20.3.2[ex-670.20.3.1]: removes a whole item staging folder (or a
+// single file — same route handles both). Idempotent (no-op on ENOENT).
 export async function rmPath(targetPath) {
   await fetch(`${AGENT_URL}/agent/dir/rmdir`, {
     method: 'POST',
@@ -413,10 +423,8 @@ export async function readStagedItemImages(itemDir) {
       image_id: null,
       url: URL.createObjectURL(blob),
       filename,
-      ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4: caption/section/is_main
+      ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4: caption/section/is_main/rotation/crop
       sort_order: rows.length,
-      rotation: 0,
-      crop: null,
       added: true,
       chged: false,
       moved: false,
@@ -462,8 +470,8 @@ function writeLocalImageBytes(path, blob) {
 // branch anywhere, so cite the mechanism once here.
 //
 // - Nothing pending (every row is a plain public image, no local rows):
-//   the whole folder is removed (FIX670.20.3.1) rather than left behind
-//   empty.
+//   the whole folder is removed (FIX670.20.3.2[ex-670.20.3.1]) rather than
+//   left behind empty.
 // - Otherwise: the folder is (re)created — tagged ' (chged)' if this is the
 //   first-ever staged change on a published item (FIX670.1.1.2.1) — any
 //   local row missing its bytes on disk gets copied in, any file on disk

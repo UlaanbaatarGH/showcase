@@ -221,8 +221,6 @@ export default {
     call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock`),
   acquireEditLock: (projectId, body) =>
     call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/acquire`, { method: 'POST', body }),
-  heartbeatEditLock: (projectId, body) =>
-    call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/heartbeat`, { method: 'POST', body }),
   releaseEditLock: (projectId, body) =>
     call(`/api/projects/${encodeURIComponent(projectId)}/edit-lock/release`, { method: 'POST', body }),
   // FIX610.4.5.2[ex-610.3.20.2]: independent of the open/close lock — true whenever the

@@ -69,6 +69,5 @@ export const deleteFolder = impl.deleteFolder;
 export const setFolderProperty = impl.setFolderProperty;
 export const getEditLock = impl.getEditLock;
 export const acquireEditLock = impl.acquireEditLock;
-export const heartbeatEditLock = impl.heartbeatEditLock;
 export const releaseEditLock = impl.releaseEditLock;
 export const setEditLockPendingChanges = impl.setEditLockPendingChanges;

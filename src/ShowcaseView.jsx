@@ -22,7 +22,7 @@ import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
-  acquireEditLock, heartbeatEditLock, releaseEditLock, listProjects,
+  acquireEditLock, releaseEditLock, listProjects,
   createFolder, renameFolder, deleteFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
 import { navigate, projectSlug } from './router.js';
@@ -246,9 +246,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX610.4.5[ex-610.3.20]: per-project edit lock over <panel-showcase-img-list-editor>
   // (the Images tab in edition mode), coordinating the website and the
   // local app so only one side can have it open at a time. One session
-  // token per browser tab; a heartbeat keeps the lease alive while the
-  // editor is open, so a crashed/closed tab is treated as released once
-  // heartbeats stop (server-side TTL) without needing an explicit release.
+  // token per browser tab. The periodic heartbeat re-ping was removed per
+  // direct instruction (2026-08-07) -- it was firing every 15s in the
+  // background, including during Publish, competing for the same limited
+  // network/backend capacity as the actual upload. The lock is still
+  // acquired/released around the edit session; only the keep-alive ping is
+  // gone, so a long edit session may now be subject to whatever server-side
+  // TTL the lock has (was previously masked by the heartbeat).
   const editLockSessionRef = useRef(
     (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
   );
@@ -272,12 +276,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         setEditLockError(e.message || 'This project is being edited elsewhere.');
         setEditionMode(false);
       });
-    const heartbeat = setInterval(() => {
-      heartbeatEditLock(projectId, { session_token: token }).catch(() => {});
-    }, 15000);
     return () => {
       cancelled = true;
-      clearInterval(heartbeat);
       if (editLockHeldRef.current) {
         releaseEditLock(projectId, { session_token: token }).catch(() => {});
         editLockHeldRef.current = false;
@@ -678,7 +678,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     imagesByFolderRef.current[folderId] = finalImages;
     if (folderId === selectedFolderId) setImages(finalImages);
     try {
+      let t = performance.now();
       const root = await getStagingRoot();
+      console.log(`[publish] getStagingRoot: ${(performance.now() - t).toFixed(0)}ms`);
+      t = performance.now();
       await syncStagingFolder({
         root,
         projectName: data.project?.name,
@@ -691,6 +694,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           if (folderId === selectedFolderId) setImages(next);
         },
       });
+      console.log(`[publish] syncStagingFolder (post-publish cleanup): ${(performance.now() - t).toFixed(0)}ms`);
     } catch {
       // Best-effort — matches FIX670's posture everywhere else.
     }

@@ -119,12 +119,15 @@ export async function publishItemImages({ projectId, itemName, folderId, images,
       // FIX670.20.3.1: a row can also still carry *un-baked* rotation/crop
       // metadata (FIX611.1's non-destructive edit, never flattened by the
       // user) — flatten it now, before publishing, same as the local-row
-      // branch above. localFile and rotation/crop are mutually exclusive
-      // in practice (Flatten/Shrink always clear rotation/crop when they
-      // set localFile), so at most one of the two branches below runs.
+      // branch above. Rotation/crop always takes priority over a present
+      // localFile: since the FIX611.1 byte-copy fix, a row's first-ever
+      // local edit stages the *original* (unbaked) bytes as localFile
+      // alongside the still-pending rotation/crop, so localFile alone no
+      // longer implies "already baked" the way it does for Flatten/Shrink.
       if ((im.localFile || im.rotation || im.crop) && im.image_id) {
-        const blob = im.localFile || await bakeRotatedCropToBlob(im.url, im.rotation ?? 0, im.crop ?? null);
-        const bakedUrl = im.localFile ? im.url : URL.createObjectURL(blob);
+        const needsBake = im.rotation || im.crop;
+        const blob = needsBake ? await bakeRotatedCropToBlob(im.url, im.rotation ?? 0, im.crop ?? null) : im.localFile;
+        const bakedUrl = needsBake ? URL.createObjectURL(blob) : im.url;
         const dims = await measureDims(bakedUrl);
         const data_base64 = await blobToBase64(blob);
         await replaceImageBytes(im.image_id, {

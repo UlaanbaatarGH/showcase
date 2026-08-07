@@ -318,9 +318,29 @@ export default function ShowcaseImgListEditor({
   // no draft, no explicit Save (removed per FIX611.1's "No Save and no
   // Cancel button"). Only the online panel below still goes through the
   // imageDraft/Save/Cancel flow (FIX524, unchanged).
-  const persistLocalImageMeta = (patch) => {
+  const persistLocalImageMeta = async (patch) => {
     if (!currentImage) return;
-    const nextRow = { ...(isLocalRow(currentImage) ? currentImage : stageChanged(currentImage)), ...patch };
+    let nextRow = { ...(isLocalRow(currentImage) ? currentImage : stageChanged(currentImage)), ...patch };
+    // Bug fix (FIX611.1): a plain public row's first-ever local edit only
+    // ever wrote the rotation/crop manifest attrs -- no bytes ever landed
+    // in <folder-staged-item> for it, since the only thing that used to
+    // copy bytes was the old bake-on-save flow (localFile set post-bake).
+    // A metadata-only edit never sets localFile, so syncStagingFolder's
+    // toCopy (localFile && !stagedPath) silently skipped it: list.txt
+    // recorded the change but no file backed it, so a reload/restart found
+    // nothing on disk and fell back to the offline placeholder. Copy the
+    // untouched original bytes across now, same as any other first-ever
+    // staged change, so the metadata has a file to ride alongside.
+    if (!isLocalRow(currentImage) && !currentImage.stagedPath) {
+      try {
+        const res = await fetch(currentImage.url);
+        const blob = await res.blob();
+        nextRow = { ...nextRow, localFile: blob, stagedPath: null };
+      } catch (e) {
+        setError(e.message || String(e));
+        return;
+      }
+    }
     const nextImages = images.map((im) => (im.id === currentImage.id ? nextRow : im));
     setImages(nextImages);
     syncAfterEdit(nextImages);
@@ -342,6 +362,28 @@ export default function ShowcaseImgListEditor({
     const next = ((((base.rotation ?? 0) + delta) % 360) + 360) % 360;
     // Rotating invalidates the previous crop (coord space changes).
     setImageDraft({ rotation: next, crop: null });
+    setCropMode(false);
+  };
+
+  // FIX524.2.1.3 <slider-rotate>: the buttons above store rotation
+  // normalized to 0..359; the slider's own range is -45..45, so converts
+  // to/from the signed equivalent (e.g. 350 <-> -10) for display/input.
+  const toSignedAngle = (deg) => {
+    const norm = ((deg % 360) + 360) % 360;
+    return norm > 180 ? norm - 360 : norm;
+  };
+
+  // FIX524.4.3 <action-img-rotate> via the slider: sets an absolute angle
+  // (unlike rotateBy's +/-90 delta) — same invalidate-crop rule applies.
+  const setRotationSlider = (deg) => {
+    if (isLocalApp) {
+      if (!currentImage || currentImage.isPlaceholder) return;
+      persistLocalImageMeta({ rotation: deg, crop: null });
+      setCropMode(false);
+      return;
+    }
+    ensureDraft();
+    setImageDraft({ rotation: deg, crop: null });
     setCropMode(false);
   };
 
@@ -1587,22 +1629,21 @@ export default function ShowcaseImgListEditor({
               >
                 {cropMode ? 'Cropping…' : 'Crop'}
               </button>
-              <button
-                type="button"
-                data-yagu-id="button-adjust-crop"
-                disabled
-                title="Adjust-crop drag handles not yet implemented"
-              >
-                Adjust crop
-              </button>
               <input
                 type="range"
                 min="-45"
                 max="45"
-                defaultValue="0"
-                disabled
+                step="1"
+                // FIX524.2.1.3: fine rotation angle -- absolute, not a delta
+                // like the +/-90 buttons, so it reads/writes the signed
+                // equivalent of the stored (always-normalized 0..359)
+                // rotation value.
+                value={toSignedAngle(effectiveRotation)}
+                // FIX524.2.1.3.2: enabled only when crop mode is off.
+                disabled={!currentImage || currentImage.isPlaceholder || cropMode}
                 data-yagu-id="slider-rotate"
-                title="Slider rotation not yet implemented"
+                title="Fine rotation (-45° to +45°)"
+                onChange={(e) => setRotationSlider(Number(e.target.value))}
               />
               <button
                 type="button"

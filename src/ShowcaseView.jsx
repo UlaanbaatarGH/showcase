@@ -580,10 +580,38 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // imagesByFolderRef — a plain (unflagged) item still just publishes its
   // staged image changes (FIX652.2.4), but <file-flag-removed-item>/
   // <file-flag-chged-item-ref>/<file-flag-new-item> items now get their own
-  // real action too (FIX652.2.1/.2/.3). null | 'recap' | 'running'.
+  // real action too (FIX652.2.1/.2/.3). null | 'recap' | 'running' | 'done'.
   const [crossPublishStage, setCrossPublishStage] = useState(null);
   const [crossPublishPlan, setCrossPublishPlan] = useState(null);
   const [crossPublishProgress, setCrossPublishProgress] = useState(null);
+  // FIX670.20.3.2: elapsed-time display for the progress modal, ticking
+  // every second while 'running' and frozen once 'done'.
+  const [crossPublishElapsedMs, setCrossPublishElapsedMs] = useState(0);
+  const crossPublishStartRef = useRef(0);
+  useEffect(() => {
+    if (crossPublishStage !== 'running') return undefined;
+    const iv = setInterval(() => {
+      setCrossPublishElapsedMs(performance.now() - crossPublishStartRef.current);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [crossPublishStage]);
+  // FIX652.3.1.1.2: cumulated size in Mb, 1 float digit, e.g. '4.2Mb'.
+  const formatMb = (bytes) => `${(bytes / (1024 * 1024)).toFixed(1)}Mb`;
+  // FIX652.3.1.1.1 {item-changes}: only the non-zero change types, in
+  // 'new img'/'chged img'/'moved img'/'deleted img' order.
+  const formatChanges = (p) => [
+    p.addCount ? `${p.addCount} new img` : null,
+    p.changeCount ? `${p.changeCount} chged img` : null,
+    p.moveCount ? `${p.moveCount} moved img` : null,
+    p.removeCount ? `${p.removeCount} deleted img` : null,
+  ].filter(Boolean).join(', ');
+  // FIX670.20.3.2: 'm\'ss' elapsed-time format.
+  const formatElapsed = (ms) => {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}'${String(s).padStart(2, '0')}`;
+  };
   // `scopeRefs`: null publishes every staged item project-wide (FIX652);
   // a Set of item refs restricts the plan to those items only (FIX660.3).
   const handleOpenCrossPublish = async (scopeRefs = null) => {
@@ -602,6 +630,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       moveCount: scopeIdxs.filter((i) => imgs[i].moved).length,
       changeCount: scopeIdxs.filter((i) => imgs[i].chged).length,
     });
+    // FIX652.3.1.1.2 / FIX670.20.3.2: cumulated new+chged image sizes --
+    // localFile is the only place actual pixel bytes live pre-publish (a
+    // not-yet-uploaded Added row, or a chged row carrying either baked
+    // pixels or the FIX611.1 original-bytes staging copy); a chged row with
+    // no image edit at all (caption/section/is_main only) has no localFile
+    // and correctly contributes 0.
+    const bytesOf = (imgs, scopeIdxs) => scopeIdxs.reduce(
+      (sum, i) => sum + ((imgs[i].added || imgs[i].chged) ? (imgs[i].localFile?.size || 0) : 0),
+      0,
+    );
     for (const item of staged) {
       if (item.flag === 'deleted') {
         // FIX670.20 <process-staged-items-publication>: matches a real item
@@ -621,6 +659,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         plan.push({
           kind: 'new', ref: item.ref, dir: item.dir, images: imgs, scopeIdxs,
           addCount: scopeIdxs.length, removeCount: 0, moveCount: 0, changeCount: 0,
+          bytes: bytesOf(imgs, scopeIdxs),
         });
         continue;
       }
@@ -634,6 +673,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         plan.push({
           kind: 'renamed', ref: item.ref, oldRef: item.oldRef, dir: item.dir, folderId: folder.id, scopeIdxs,
           ...countsOf(imgs, scopeIdxs),
+          bytes: bytesOf(imgs, scopeIdxs),
         });
         continue;
       }
@@ -644,7 +684,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       const imgs = imagesByFolderRef.current[folder.id] || [];
       const scopeIdxs = scopeIdxsOf(imgs);
       if (scopeIdxs.length === 0) continue; // nothing actually pending
-      plan.push({ kind: 'plain', ref: item.ref, dir: item.dir, folderId: folder.id, scopeIdxs, ...countsOf(imgs, scopeIdxs) });
+      plan.push({
+        kind: 'plain', ref: item.ref, dir: item.dir, folderId: folder.id, scopeIdxs,
+        ...countsOf(imgs, scopeIdxs), bytes: bytesOf(imgs, scopeIdxs),
+      });
     }
     // Show the recap regardless — an empty plan just shows an all-zero line
     // with Confirm disabled, rather than a blocking error.
@@ -703,11 +746,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const confirmCrossPublish = async () => {
     if (!crossPublishPlan?.length) return;
     setCrossPublishStage('running');
+    crossPublishStartRef.current = performance.now();
+    setCrossPublishElapsedMs(0);
     // Every plan entry counts for at least 1 progress unit, even a pure
     // delete/rename with no image changes of its own.
     const totalUnits = crossPublishPlan.reduce((s, p) => s + Math.max(p.scopeIdxs?.length || 0, 1), 0);
+    const totalBytes = crossPublishPlan.reduce((s, p) => s + (p.bytes || 0), 0);
     let doneUnits = 0;
-    setCrossPublishProgress({ done: 0, total: totalUnits });
+    let doneBytesBase = 0; // bytes from plan entries fully finished before the current one
+    setCrossPublishProgress({ done: 0, total: totalUnits, bytesDone: 0, totalBytes });
     setError(null);
     try {
       for (const p of crossPublishPlan) {
@@ -719,7 +766,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           delete imagesByFolderRef.current[p.folderId];
           setSelectedFolderIds((prev) => prev.filter((id) => id !== p.folderId));
           doneUnits += 1;
-          setCrossPublishProgress({ done: doneUnits, total: totalUnits });
+          setCrossPublishProgress({ done: doneUnits, total: totalUnits, bytesDone: doneBytesBase, totalBytes });
           continue;
         }
         if (p.kind === 'new') {
@@ -729,9 +776,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           const { id: newFolderId } = await createFolder({ project_id: data.project.id, name: p.ref });
           await publishAndSync(
             newFolderId, p.ref, p.images, p.scopeIdxs,
-            (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+            (d, _t, b) => setCrossPublishProgress({
+              done: doneUnits + d, total: totalUnits, bytesDone: doneBytesBase + (b || 0), totalBytes,
+            }),
           );
           doneUnits += Math.max(p.scopeIdxs.length, 1);
+          doneBytesBase += p.bytes || 0;
           // A local-item-{ref} entry only exists in data.folders when this
           // session is the one that created it (createLocalItem) — after a
           // reload there is none, so add a fresh row instead of swapping one.
@@ -756,7 +806,9 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           if (p.scopeIdxs.length > 0) {
             await publishAndSync(
               p.folderId, p.ref, imagesByFolderRef.current[p.folderId] || [], p.scopeIdxs,
-              (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+              (d, _t, b) => setCrossPublishProgress({
+                done: doneUnits + d, total: totalUnits, bytesDone: doneBytesBase + (b || 0), totalBytes,
+              }),
             );
           } else {
             await rmPath(p.dir).catch(() => {});
@@ -768,22 +820,28 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             folders: prev.folders.map((f) => (f.id === p.folderId ? { ...f, originalRef: null } : f)),
           } : prev));
           doneUnits += Math.max(p.scopeIdxs.length, 1);
-          setCrossPublishProgress({ done: doneUnits, total: totalUnits });
+          doneBytesBase += p.bytes || 0;
+          setCrossPublishProgress({ done: doneUnits, total: totalUnits, bytesDone: doneBytesBase, totalBytes });
           continue;
         }
         // FIX670.20: 'chged'/plain — publish the staged image changes.
         await publishAndSync(
           p.folderId, p.ref, imagesByFolderRef.current[p.folderId], p.scopeIdxs,
-          (d) => setCrossPublishProgress({ done: doneUnits + d, total: totalUnits }),
+          (d, _t, b) => setCrossPublishProgress({
+            done: doneUnits + d, total: totalUnits, bytesDone: doneBytesBase + (b || 0), totalBytes,
+          }),
         );
         doneUnits += Math.max(p.scopeIdxs.length, 1);
+        doneBytesBase += p.bytes || 0;
       }
-      setCrossPublishStage(null);
-      setCrossPublishPlan(null);
+      // FIX670.20.3.2: stay open on 'done' (final Items/Size/Elapsed
+      // reading) until the user clicks Ok, instead of auto-dismissing.
+      setCrossPublishElapsedMs(performance.now() - crossPublishStartRef.current);
+      setCrossPublishStage('done');
     } catch (e) {
       setError(e.message || String(e));
       setCrossPublishStage(null);
-    } finally {
+      setCrossPublishPlan(null);
       setCrossPublishProgress(null);
     }
   };
@@ -3872,22 +3930,24 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       {crossPublishStage === 'recap' && crossPublishPlan && (
         <div className="setup-overlay" onMouseDown={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <h3>Item publication:</h3>
             {crossPublishPlan.length === 0 ? (
-              <p>0 new, 0 remove, 0 move, 0 change</p>
+              <p>0 new img, 0 chged img, 0 moved img, 0 deleted img</p>
             ) : (
-              crossPublishPlan.map((p) => (
-                <p key={p.ref}>
-                  {p.kind === 'deleted' && `Ref ${p.ref}: item deleted`}
-                  {p.kind === 'new' && `Ref ${p.ref}: new item, ${p.addCount} new`}
-                  {p.kind === 'renamed' && (
-                    `Ref ${p.ref}: renamed from ${p.oldRef}, ${p.addCount} new, ${p.removeCount} remove, `
-                    + `${p.moveCount} move, ${p.changeCount} change`
-                  )}
-                  {p.kind === 'plain' && (
-                    `Ref ${p.ref}: ${p.addCount} new, ${p.removeCount} remove, ${p.moveCount} move, ${p.changeCount} change`
-                  )}
-                </p>
-              ))
+              crossPublishPlan.map((p) => {
+                const changes = formatChanges(p);
+                const size = changes ? ` ${formatMb(p.bytes || 0)}` : '';
+                return (
+                  <p key={p.ref}>
+                    {p.kind === 'deleted' && `Ref ${p.ref}: item deleted`}
+                    {p.kind === 'new' && `Ref ${p.ref}: new item, ${changes}${size}`}
+                    {p.kind === 'renamed' && (
+                      `Ref ${p.ref}: renamed from ${p.oldRef}` + (changes ? `, ${changes}${size}` : '')
+                    )}
+                    {p.kind === 'plain' && `Ref ${p.ref}: ${changes}${size}`}
+                  </p>
+                );
+              })
             )}
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => { setCrossPublishStage(null); setCrossPublishPlan(null); }}>Cancel</button>
@@ -3903,15 +3963,30 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {crossPublishStage === 'running' && (
+      {/* FIX670.20.3.2 <process-staged-items-publication>: progress modal --
+          stays open through 'running' and 'done' so the final reading is
+          visible; Ok only enables once the publication is over. */}
+      {(crossPublishStage === 'running' || crossPublishStage === 'done') && (
         <div className="setup-overlay">
           <div className="sc-shrink-box">
-            <p>
-              Publishing…{' '}
-              {crossPublishProgress
-                ? `${Math.round((crossPublishProgress.done / crossPublishProgress.total) * 100)}% (${crossPublishProgress.done}/${crossPublishProgress.total})`
-                : ''}
-            </p>
+            <h3>Publication</h3>
+            <p>Items: {crossPublishProgress?.done ?? 0} / {crossPublishProgress?.total ?? 0}</p>
+            <p>Size: {formatMb(crossPublishProgress?.bytesDone ?? 0)} / {formatMb(crossPublishProgress?.totalBytes ?? 0)}</p>
+            <p>Elapsed time: {formatElapsed(crossPublishElapsedMs)}</p>
+            <div className="sc-shrink-actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={crossPublishStage !== 'done'}
+                onClick={() => {
+                  setCrossPublishStage(null);
+                  setCrossPublishPlan(null);
+                  setCrossPublishProgress(null);
+                }}
+              >
+                Ok
+              </button>
+            </div>
           </div>
         </div>
       )}

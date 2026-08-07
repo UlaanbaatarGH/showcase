@@ -349,7 +349,7 @@ export async function createItemStagingFolder(root, projectName, itemName) {
   return dir;
 }
 
-// FIX670.20.3.2[ex-670.20.3.1]: removes a whole item staging folder (or a
+// FIX670.20.3.3[ex-670.20.3.2]: removes a whole item staging folder (or a
 // single file — same route handles both). Idempotent (no-op on ENOENT).
 export async function rmPath(targetPath) {
   await fetch(`${AGENT_URL}/agent/dir/rmdir`, {
@@ -470,7 +470,7 @@ function writeLocalImageBytes(path, blob) {
 // branch anywhere, so cite the mechanism once here.
 //
 // - Nothing pending (every row is a plain public image, no local rows):
-//   the whole folder is removed (FIX670.20.3.2[ex-670.20.3.1]) rather than
+//   the whole folder is removed (FIX670.20.3.3[ex-670.20.3.2]) rather than
 //   left behind empty.
 // - Otherwise: the folder is (re)created — tagged ' (chged)' if this is the
 //   first-ever staged change on a published item (FIX670.1.1.2.1) — any

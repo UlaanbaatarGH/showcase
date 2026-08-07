@@ -1454,6 +1454,16 @@ export default function ShowcaseImgListEditor({
               const isSelected = selIdxs.has(idx);
               const dimsZ = dimsByUrl[im.url];
               const zf = dimsZ ? zoomFactor(dimsZ.w, dimsZ.h) : null; // FIX521.2.1.1.7
+              // FIX521.2.1.6: a pending, un-baked crop leaves im.url pointing at
+              // the pre-crop bytes (crop is metadata-only until Flatten/publish
+              // bakes it -- same staging model FIX652.3.1.1.2 accounts for on the
+              // publish recap). Estimate the post-crop size by pixel-area ratio
+              // instead of showing the stale full-image byte count; rotation
+              // alone doesn't change pixel count so it's left out of the ratio.
+              const rawSize = sizesByUrl[im.url];
+              const displaySize = im.crop && dimsZ && rawSize != null
+                ? Math.round(rawSize * Math.min(1, Math.max(0, (im.crop.width * im.crop.height) / (dimsZ.w * dimsZ.h))))
+                : rawSize;
               // FIX521.2.1.1.13: zebra striping now keys off the image
               // index (one card per image) rather than tbody's nth-child
               // (which would misalign once some cards render 2 <tr>s and
@@ -1568,7 +1578,7 @@ export default function ShowcaseImgListEditor({
                           {im.filename ?? ''}
                         </span>
                         {/* FIX521.2.1.1.2: File Size (read-only). */}
-                        <span className="filesize">{formatBytes(sizesByUrl[im.url])}</span>
+                        <span className="filesize">{formatBytes(displaySize)}</span>
                         {/* FIX521.2.1.1.6: Resolution (read-only). */}
                         <span className="filesize">
                           {dimsByUrl[im.url]

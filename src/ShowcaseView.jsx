@@ -196,10 +196,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // FIX515.4.1: tab persists when the selected item changes (state lives
   // here, not reset by selection). FIX515.4.2: 'Images' is the default.
   const [viewerTab, setViewerTab] = useState('images');
-  // FIX515.2.2 / FIX515.3.2 <button-edit>: toggle edition mode for the
-  // currently open tab. Reset when the user switches tabs or items so
+  // FIX515.2.2 / FIX515.3.2 <cmd-edit-item-page>: toggle edition mode for
+  // the currently open tab. Reset when the user switches tabs or items so
   // unsaved edits don't silently follow the selection.
   const [editionMode, setEditionMode] = useState(false);
+  // FIX515.2.3/515.4.4 <cmd-quit-edit-item-page>: mirrors the online Images
+  // panel's own pending-rotate/crop-draft state up, so Quit can stay
+  // disabled rather than silently discarding an unsaved online-panel draft
+  // — the same protection the removed local 'Done' button's
+  // disabled={interactionLocked} used to give.
+  const [imagesEditPending, setImagesEditPending] = useState(false);
   // FIX654 <local-setup-menu>: local-app Setup menu On/Off options,
   // persisted as browser prefs (like sc-list-width below).
   const [stayInEdition, setStayInEdition] = useState(
@@ -3043,8 +3049,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         <section className="sc-viewer" data-yagu-id="panel-showcase-img-viewer">
           {/* FIX515.2.1: tab strip switches between Images and Details.
               FIX515.2.2 + FIX515.2.2.0 + FIX515.3.2 + FIX515.4.3
-              <button-edit>: right-aligned on the tab row, signed-in only,
-              toggles edition of the current tab. */}
+              <cmd-edit-item-page>: right-aligned on the tab row, signed-in
+              only, toggles edition of the current tab. FIX515.2.3 +
+              FIX515.2.3.0 + FIX515.4.4 <cmd-quit-edit-item-page>: same
+              spot, shown instead of Edit while editionMode is on --
+              mutually exclusive per FIX515.4.3/FIX515.4.4. */}
           <div className="sc-viewer-tabs" role="tablist">
             <button
               type="button"
@@ -3070,22 +3079,36 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             >
               Details
             </button>
-            {/* FIX515.4.3 keeps the Images-tab Edit visible to any
-                logged-in user; FIX518.4.7 narrows the Details-tab
-                Edit to admin-only. The local app has no login process,
-                so <button-edit> stays visible there regardless of profile. */}
-            {!editionMode && (viewerTab === 'details'
-              ? profile?.profile === 'admin'
-              : (isLocalApp || !!profile)) && (
-              <button
-                type="button"
-                className="sc-viewer-edit-btn"
-                data-yagu-id="button-edit"
-                onClick={() => setEditionMode(true)}
-                title="Edit"
-              >
-                Edit
-              </button>
+            {/* FIX515.4.3/515.4.4 keep Edit/Quit visible to any logged-in
+                user on Images; FIX518.4.7 narrows Details to admin-only.
+                The local app has no login process, so this stays visible
+                there regardless of profile. */}
+            {(viewerTab === 'details' ? profile?.profile === 'admin' : (isLocalApp || !!profile)) && (
+              editionMode ? (
+                <button
+                  type="button"
+                  className="sc-viewer-edit-btn"
+                  data-yagu-id="cmd-quit-edit-item-page"
+                  onClick={() => {
+                    if (viewerTab === 'details') setDetailDraft({});
+                    setEditionMode(false);
+                  }}
+                  disabled={viewerTab === 'images' && imagesEditPending}
+                  title="Quit"
+                >
+                  Quit
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="sc-viewer-edit-btn"
+                  data-yagu-id="cmd-edit-item-page"
+                  onClick={() => setEditionMode(true)}
+                  title="Edit"
+                >
+                  Edit
+                </button>
+              )
             )}
           </div>
           {viewerTab === 'images' ? (
@@ -3097,7 +3120,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 selectedIdx={currentImageIdx}
                 setSelectedIdx={setCurrentImageIdx}
                 setImages={setImagesForCurrentFolder}
-                onExitEdit={() => setEditionMode(false)}
+                onPendingImageEditChange={setImagesEditPending}
                 folderId={selectedFolderId}
                 projectId={data.project?.id}
                 projectName={data.project?.name}

@@ -52,7 +52,11 @@ export default function ShowcaseImgListEditor({
   selectedIdx,
   setSelectedIdx,
   setImages,
-  onExitEdit,
+  // FIX515.2.3/515.4.4: reports hasPendingImageEdit up so ShowcaseView's
+  // <cmd-quit-edit-item-page> can stay disabled while the online panel has
+  // an unsaved rotate/crop draft -- same protection the removed local Done
+  // button's disabled={interactionLocked} used to give.
+  onPendingImageEditChange,
   onItemBytesChange, // FIX521.3.5.4: report the item's new total image bytes
   onItemZoomChange,  // FIX521.5.8.1: report the item's Zoom Factor (max ZF)
   folderId,   // FIX610.3.7: which item to re-fetch from on Reset changes
@@ -140,8 +144,7 @@ export default function ShowcaseImgListEditor({
   // Every toolbar command except the arrow-up/arrow-down reorder buttons
   // now lives in this dropdown — the flat button row used to overflow and
   // overlap the image editor pane on the right once enough of them (Add,
-  // Capture, Remove, Unremove, Shrink, File details, Done) were visible at
-  // once.
+  // Capture, Remove, Unremove, Shrink, File details) were visible at once.
   const [commandsMenuOpen, setCommandsMenuOpen] = useState(false);
   const commandsMenuRef = useRef(null);
   useEffect(() => {
@@ -277,6 +280,9 @@ export default function ShowcaseImgListEditor({
     imageDraft && draftForId === currentImage?.id ? imageDraft : null;
   const hasPendingImageEdit = !!draftForCurrent;
   const interactionLocked = hasPendingImageEdit;
+  useEffect(() => {
+    onPendingImageEditChange?.(hasPendingImageEdit);
+  }, [hasPendingImageEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const effectiveRotation = draftForCurrent
     ? draftForCurrent.rotation
     : currentImage?.rotation ?? 0;
@@ -1347,18 +1353,9 @@ export default function ShowcaseImgListEditor({
                 {/* FIX610.3.5(removed): the per-item Publish command is gone
                     — replaced project-wide by FIX652 'Publish all' and
                     FIX660 'Publish selection' in ShowcaseView's Commands
-                    menu. */}
-                <li>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    data-yagu-id="button-done-editing"
-                    onClick={() => { setCommandsMenuOpen(false); onExitEdit(); }}
-                    disabled={interactionLocked}
-                  >
-                    Done
-                  </button>
-                </li>
+                    menu. FIX515.2.3: the 'Done' command that used to live
+                    here is gone too — replaced by <cmd-quit-edit-item-page>
+                    on ShowcaseView's tab row, alongside <cmd-edit-item-page>. */}
               </ul>
             )}
           </div>

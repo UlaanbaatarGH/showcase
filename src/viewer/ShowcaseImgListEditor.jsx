@@ -132,11 +132,11 @@ export default function ShowcaseImgListEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folderId]);
 
-  // FIX521.2.1.4: Remove flow — overlay popup confirmation for removing all
+  // FIX521.2.1.4: Delete flow — overlay popup confirmation for deleting all
   // selected images. Boolean: the confirmation overlay is shown or not.
   const [removeConfirm, setRemoveConfirm] = useState(false);
 
-  // FIX521.2.1.6 <button-file-details>: toggle, off by default. Reveals
+  // FIX521.2.1.6 <cmd-show-file-details>: toggle, off by default. Reveals
   // the file-name/size/resolution/zoom-factor detail line per row
   // (FIX521.2.1.1.13) — off by default keeps rows to a single line.
   const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
@@ -144,7 +144,7 @@ export default function ShowcaseImgListEditor({
   // Every toolbar command except the arrow-up/arrow-down reorder buttons
   // now lives in this dropdown — the flat button row used to overflow and
   // overlap the image editor pane on the right once enough of them (Add,
-  // Capture, Remove, Unremove, Shrink, File details) were visible at once.
+  // Capture, Delete, Undelete, Shrink, Show file details) were visible at once.
   const [commandsMenuOpen, setCommandsMenuOpen] = useState(false);
   const commandsMenuRef = useRef(null);
   useEffect(() => {
@@ -889,7 +889,7 @@ export default function ShowcaseImgListEditor({
     }
   };
 
-  // FIX521.2.1.4: Remove all the selected images after an overlay popup
+  // FIX521.2.1.4: Delete all the selected images after an overlay popup
   // confirmation (non-local-app path only — see handleRemoveClick above).
   // Locked while a pending image edit exists (same lock pattern as
   // selection / reorder).
@@ -1309,20 +1309,22 @@ export default function ShowcaseImgListEditor({
                     </button>
                   </li>
                 )}
-                {/* FIX521.2.1.4: Remove — overlay popup confirms removing all
-                    selected images. */}
+                {/* FIX521.2.1.4 <cmd-delete-img> [ex-button-remove-image]:
+                    Delete — overlay popup confirms deleting all selected
+                    images. */}
                 <li>
                   <button
                     type="button"
                     role="menuitem"
-                    data-yagu-id="button-remove-image"
+                    data-yagu-id="cmd-delete-img"
                     onClick={() => { setCommandsMenuOpen(false); handleRemoveClick(); }}
                     disabled={interactionLocked || selIdxs.size === 0}
                   >
-                    Remove
+                    Delete
                   </button>
                 </li>
-                {/* FIX670.10.7 <cmd-local-unremove-img> [ex-<button-local-unremove-img>]:
+                {/* FIX521.2.1.7 / FIX670.10.7 <cmd-undelete-img>
+                    [ex-cmd-local-unremove-img, ex-<button-local-unremove-img>]:
                     local-app only. Enabled only when exactly 1 image is
                     selected AND it's currently marked `deleted` — not just
                     "something is selected". */}
@@ -1331,7 +1333,7 @@ export default function ShowcaseImgListEditor({
                     <button
                       type="button"
                       role="menuitem"
-                      data-yagu-id="cmd-local-unremove-img"
+                      data-yagu-id="cmd-undelete-img"
                       onClick={() => { setCommandsMenuOpen(false); handleUnremoveClick(); }}
                       disabled={
                         interactionLocked
@@ -1339,7 +1341,7 @@ export default function ShowcaseImgListEditor({
                         || !images[[...selIdxs][0]]?.deleted
                       }
                     >
-                      Unremove
+                      Undelete
                     </button>
                   </li>
                 )}
@@ -1380,16 +1382,17 @@ export default function ShowcaseImgListEditor({
                     Shrink
                   </button>
                 </li>
-                {/* FIX521.2.1.6 <button-file-details>: toggle, off by default. */}
+                {/* FIX521.2.1.6 <cmd-show-file-details>
+                    [ex-<button-file-details>]: toggle, off by default. */}
                 <li>
                   <button
                     type="button"
                     role="menuitem"
-                    data-yagu-id="button-file-details"
+                    data-yagu-id="cmd-show-file-details"
                     aria-pressed={fileDetailsOpen}
                     onClick={() => { setCommandsMenuOpen(false); setFileDetailsOpen((v) => !v); }}
                   >
-                    {fileDetailsOpen ? '✓ ' : ''}File details
+                    {fileDetailsOpen ? '✓ ' : ''}Show file details
                   </button>
                 </li>
                 {/* FIX610.3.5(removed): the per-item Publish command is gone
@@ -1431,7 +1434,7 @@ export default function ShowcaseImgListEditor({
               {/* FIX521.2.1.12: column order — Section, Caption, Main. File
                   name/size/Resolution/Zoom factor moved out of the header
                   (FIX521.2.1.1.13): they're now an unlabeled detail line
-                  per row, shown only via <button-file-details>. */}
+                  per row, shown only via <cmd-show-file-details>. */}
               {/* FIX654.2 <cmd-hide-sections>: hide these two columns
                   entirely when the Setup menu option is on. */}
               {!hideSections && <th>Section</th>}
@@ -1545,7 +1548,7 @@ export default function ShowcaseImgListEditor({
                   </tr>
                   {/* FIX521.2.1.1.13: card line 2 — unlabeled File name /
                       File Size / Resolution / Zoom factor, shown only when
-                      <button-file-details> is on. */}
+                      <cmd-show-file-details> is on. */}
                   {fileDetailsOpen && (
                     <tr
                       className={`${rowClass} sc-img-list-detail-row`}
@@ -1746,11 +1749,11 @@ export default function ShowcaseImgListEditor({
         {error && <div className="sc-viewer-err">{error}</div>}
       </div>
 
-      {/* FIX521.2.1.4: overlay popup confirming removal of all selected images */}
+      {/* FIX521.2.1.4: overlay popup confirming deletion of all selected images */}
       {removeConfirm && (
         <div className="setup-overlay" onMouseDown={() => setRemoveConfirm(false)}>
           <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <p>Remove {selIdxs.size} images</p>
+            <p>Delete {selIdxs.size} images</p>
             <div className="sc-shrink-actions">
               <button type="button" onClick={() => setRemoveConfirm(false)}>Cancel</button>
               <button type="button" className="primary" onClick={confirmRemove}>Confirm</button>

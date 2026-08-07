@@ -440,6 +440,13 @@ export default function ShowcaseImgListEditor({
       const nextImages = images.map((im) => (im.id === currentImage.id ? nextRow : im));
       setImages(nextImages);
       syncAfterEdit(nextImages); // FIX611.3.2.1
+      // FIX521.2.1.6 bug fix: the fresh blob: URL above isn't in sizesByUrl
+      // yet, so the generic HEAD-fetch effect would try to probe it -- blob:
+      // URLs don't reliably answer HEAD requests, so that fetch was landing
+      // on null (shown as '—') instead of ever converging on a byte count.
+      // Register the known blob size directly, same as Shrink already does
+      // (FIX521.3.10.2) for the same kind of freshly-created local blob.
+      setSizesByUrl((prev) => ({ ...prev, [nextRow.url]: blob.size }));
     } catch (e) {
       setError(e.message || String(e));
     } finally {

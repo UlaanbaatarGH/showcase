@@ -17,9 +17,6 @@ export function normalizeGroups(rawGroups, properties) {
     property_id: g.property_id,
     segment: g.segment ?? null,
     default: !!g.default,
-    // FIX373.5.1.1: the 'My basket: ...' groups auto-generated from
-    // table-rating-values are readonly -- cannot be edited or deleted.
-    readonly: !!g.readonly,
   }));
 }
 

@@ -94,6 +94,10 @@ function formatYearValue(value, propertyLabel, enabled) {
   return `${value} (${year})`;
 }
 
+// FIX373.5.1: 'My basket' bucket labels are the FIX507.4.5 rating icon,
+// not the rating's text — a plain-text stand-in for the RATING_ICONS glyph.
+const RATING_ICON_SYMBOL = { yes: '✓', unknown: '?', no: '✗' };
+
 function columnKey(col) {
   if (col.type === 'property') return `prop_${col.property_id}`;
   // FIX504.2.1.2.2.6: one column per configured rater.
@@ -1990,19 +1994,18 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     if (activeGroup.property_id === 'img') {
       return folder.has_image ? 'With image' : 'No image';
     }
-    // FIX373.5.1 (Topic 6, User's basket): each auto-generated basket
-    // group is scoped to one specific rating value (or, 'rating:missing',
-    // to items the logged-in user hasn't rated) -- undefined for every
-    // other item, same as a property with no value for that item.
-    if (typeof activeGroup.property_id === 'string' && activeGroup.property_id.startsWith('rating:')) {
-      const key = activeGroup.property_id.slice('rating:'.length);
-      if (key === 'missing') {
-        return folder.my_rating_value_id == null ? 'Missing rating' : undefined;
-      }
-      const rvId = Number(key);
-      if (folder.my_rating_value_id !== rvId) return undefined;
+    // FIX373.5.1 (Topic 6, User's basket): a single 'My basket' grouping
+    // on the logged-in user's own rating. The generic bucketing (FIX374)
+    // fans this one property out into one bucket per distinct value —
+    // undefined (no rating yet) falls into the existing 'No value' bucket,
+    // same as any other property.
+    if (activeGroup.property_id === 'rating') {
+      const rvId = folder.my_rating_value_id;
+      if (rvId == null) return undefined;
       const rv = (data?.rating_setup?.values ?? []).find((v) => v.id === rvId);
-      return rv?.text ?? undefined;
+      // FIX373.5.1: "Values are rating icons" — the bucket label is the
+      // FIX507.4.5 symbol, not the rating's text.
+      return rv ? RATING_ICON_SYMBOL[rv.icon] : undefined;
     }
     const prop = propertiesById.get(activeGroup.property_id);
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);

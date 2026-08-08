@@ -2573,11 +2573,21 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         </td>
       );
     }
-    // FIX504.2.1.2.2.6: no per-item rating value exists yet (rating
-    // usage/storage isn't built) -- renders the same blank placeholder
-    // any other empty cell uses until then.
+    // FIX504.2.1.2.2.6: this rater's rating icon for this item — any
+    // configured rater, not just the logged-in caller (unlike
+    // <icon-rating> / FIX520.4.3).
     if (col.type === 'user_rating') {
-      return <td key={key} style={cellStyle}>—</td>;
+      const rater = (data?.rating_setup?.raters ?? []).find((r) => r.id === col.rater_id);
+      const rvId = rater ? folder.ratings_by_user?.[rater.user_id] : null;
+      const rv = rvId != null
+        ? (data?.rating_setup?.values ?? []).find((v) => v.id === rvId)
+        : null;
+      const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
+      return (
+        <td key={key} style={cellStyle} title={rv?.text}>
+          {RatingIconComp ? <RatingIconComp size={18} /> : '—'}
+        </td>
+      );
     }
     // property
     const prop = propertiesById.get(col.property_id);

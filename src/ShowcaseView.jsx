@@ -2151,23 +2151,35 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // key) the logged-in user's own rating for an item. Optimistic update —
   // FIX520.4.3 means this only ever touches the caller's own value.
   const handleSetMyRating = (folderId, ratingValueId) => {
+    console.log('[rating] handleSetMyRating', { folderId, ratingValueId });
     setData((prev) => ({
       ...prev,
       folders: (prev.folders ?? []).map((f) =>
         f.id === folderId ? { ...f, my_rating_value_id: ratingValueId } : f),
     }));
-    setMyRating(folderId, ratingValueId).catch((e) => setError(String(e.message || e)));
+    setMyRating(folderId, ratingValueId)
+      .then((r) => console.log('[rating] setMyRating ok', r))
+      .catch((e) => {
+        console.log('[rating] setMyRating FAILED', e);
+        setError(String(e.message || e));
+      });
   };
 
   // FIX520.2.7 / FIX520.4.4 <icon-rating>: null whenever rating is off or
   // the caller has no rating entered for the current item.
   const renderRatingIcon = () => {
-    if (!data?.rating_setup?.enabled) return null;
+    if (!data?.rating_setup?.enabled) {
+      console.log('[rating] renderRatingIcon: rating_setup.enabled is falsy', data?.rating_setup);
+      return null;
+    }
     const folder = (data?.folders || []).find((f) => f.id === selectedFolderId);
     const rvId = folder?.my_rating_value_id;
+    console.log('[rating] renderRatingIcon', { selectedFolderId, folder, rvId });
     if (rvId == null) return null;
     const rv = (data?.rating_setup?.values ?? []).find((v) => v.id === rvId);
+    console.log('[rating] renderRatingIcon: matched rv', rv, 'values=', data?.rating_setup?.values);
     const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
+    console.log('[rating] renderRatingIcon: RatingIconComp for icon', rv?.icon, '=>', !!RatingIconComp);
     if (!RatingIconComp) return null;
     return (
       <div className="sc-viewer-rating-icon" data-yagu-id="icon-rating" title={rv.text}>
@@ -2234,6 +2246,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // the current item to the 1st / 2nd <table-rating-values> row, gated
       // on field-enable-rating. Same in and out of fullscreen, so this
       // runs before the fullscreen branch splits off below.
+      if (e.key === '0' || e.key === '1' || e.key === '2' || e.key === '3') {
+        console.log('[rating] digit key pressed', {
+          key: e.key, editable, editionMode, selectedFolderId,
+          ratingEnabled: data?.rating_setup?.enabled,
+          values: data?.rating_setup?.values,
+        });
+      }
       if (!editable && !editionMode && data?.rating_setup?.enabled && selectedFolderId != null
           && (e.key === '0' || e.key === '1' || e.key === '2')) {
         e.preventDefault();
@@ -2241,6 +2260,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           handleSetMyRating(selectedFolderId, null);
         } else {
           const rv = (data?.rating_setup?.values ?? [])[Number(e.key) - 1];
+          console.log('[rating] resolved rv for key', e.key, '=>', rv);
           if (rv) handleSetMyRating(selectedFolderId, rv.id);
         }
         return;

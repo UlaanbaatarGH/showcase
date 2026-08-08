@@ -662,7 +662,6 @@ export default function SetupPanel({
                             type="text"
                             value={v.text ?? ''}
                             onChange={(e) => updateRatingValue(i, { text: e.target.value })}
-                            onClick={(e) => e.stopPropagation()}
                           />
                         </td>
                         <td className="setup-icon-cell" style={{ textAlign: 'center', position: 'relative' }}>
@@ -763,7 +762,6 @@ export default function SetupPanel({
                           data-yagu-id="rating-user"
                           value={r.user_id ?? ''}
                           onChange={(e) => updateRater(i, { user_id: e.target.value || null })}
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <option value="">— pick a user —</option>
                           {(ratingCandidates ?? [])
@@ -780,7 +778,6 @@ export default function SetupPanel({
                           type="text"
                           value={r.acronym ?? ''}
                           onChange={(e) => updateRater(i, { acronym: e.target.value })}
-                          onClick={(e) => e.stopPropagation()}
                         />
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -789,7 +786,6 @@ export default function SetupPanel({
                           type="checkbox"
                           checked={!!r.enabled}
                           onChange={(e) => updateRater(i, { enabled: e.target.checked })}
-                          onClick={(e) => e.stopPropagation()}
                         />
                       </td>
                     </tr>

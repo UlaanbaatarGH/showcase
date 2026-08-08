@@ -122,7 +122,7 @@ function widthCss(width) {
   return `${n}ch`;
 }
 
-function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
+function getColumnValue(folder, col, propertiesById, propertiesByLabel, ratingSetup) {
   if (col.type === 'folder_name') return folder.name ?? '';
   if (col.type === 'img') return folder.has_image ? 'x' : '';
   // FIX504.2.1.2.2.4 <Image size>
@@ -134,10 +134,16 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
     return folder.properties?.[String(col.property_id)] ?? '';
   }
-  // FIX504.2.1.2.2.6: no per-item rating value exists yet (that's the
-  // rating-usage side, not yet built) -- the column renders blank until
-  // then, same as any other column with nothing to show.
-  if (col.type === 'user_rating') return '';
+  // FIX504.2.1.2.2.6: sort/filter on the rating's configured sort_order
+  // (its rank in <table-rating-values>), not its text — a rating scale
+  // has an inherent order the admin already defined.
+  if (col.type === 'user_rating') {
+    const rater = (ratingSetup?.raters ?? []).find((r) => r.id === col.rater_id);
+    const rvId = rater ? folder.ratings_by_user?.[rater.user_id] : null;
+    if (rvId == null) return '';
+    const rv = (ratingSetup?.values ?? []).find((v) => v.id === rvId);
+    return rv ? String(rv.sort_order) : '';
+  }
   return '';
 }
 
@@ -2026,7 +2032,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         activeFilters.every(([key, v]) => {
           const col = colByKey.get(key);
           if (!col) return true;
-          return String(getColumnValue(f, col, propertiesById, propertiesByLabel))
+          return String(getColumnValue(f, col, propertiesById, propertiesByLabel, data?.rating_setup))
             .toLowerCase()
             .includes(v.trim().toLowerCase());
         }),
@@ -2054,8 +2060,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // Returns the final ordering value — caller must NOT flip it.
     const compareOnColumn = (a, b, col, dir) => {
       const prop = col.type === 'property' ? propertiesById.get(col.property_id) : null;
-      const va = getColumnValue(a, col, propertiesById, propertiesByLabel);
-      const vb = getColumnValue(b, col, propertiesById, propertiesByLabel);
+      const va = getColumnValue(a, col, propertiesById, propertiesByLabel, data?.rating_setup);
+      const vb = getColumnValue(b, col, propertiesById, propertiesByLabel, data?.rating_setup);
       if (prop) {
         const trailing = trailingByPropId.get(prop.id);
         if (trailing && trailing.size) {
@@ -2097,7 +2103,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       });
     }
     return rows;
-  }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed, propertiesById, propertiesByLabel]);
+  }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed, propertiesById, propertiesByLabel, data?.rating_setup]);
 
   // FIX508.2.3 / <setup-select-first-item>: when the option is on, keep
   // the first *displayed* item selected. Runs against displayedFolders

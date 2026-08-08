@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { saveSetup } from './data/backend.js';
 import LanguageSetupPanel from './LanguageSetupPanel.jsx';
+import { IconAdd, IconDelete, RATING_ICONS } from './Icons.jsx';
+
+// FIX507.4.5 <rating-icon>: exactly three fixed rating symbols -- green
+// tick (interested), orange question mark (not sure yet), red cross
+// (not interested). <rating-icon> stores the key, not a raw glyph.
+const RATING_ICON_CHOICES = [
+  { key: 'yes', label: 'Interested' },
+  { key: 'unknown', label: 'Not sure yet' },
+  { key: 'no', label: 'Not interested' },
+];
 
 // FIX506.5.3: a property's name field may be either a plain label
 // ("Year") or a definition with a formula ("pageCount = numberOf(pages)").
@@ -24,7 +34,15 @@ function formatPropertyInput(p) {
 // replaces it via <button-columns>. FIX507 was later reused for the new
 // Rating tab (FIX505.2.3) — unrelated to the earlier Sizes tab that once
 // held that number.
-export default function SetupPanel({ projectId, properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
+export default function SetupPanel({
+  projectId,
+  properties: initialProperties,
+  viewSetup: initialViewSetup,
+  ratingSetup: initialRatingSetup,
+  ratingCandidates,
+  onSave,
+  onCancel,
+}) {
   // FIX505.2 (updated): the Setup popup hosts four tabs.
   //   - 'General'    → <panel-general-info-setup>  (FIX508)
   //   - 'Properties' → <tab-properties-setup>      (FIX506)
@@ -71,6 +89,21 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
         }))
       : [],
   );
+  // FIX507 <panel-rating-setup>: enable flag + rating values + raters.
+  // FIX507.4.2: all three save through this same handleSave, not a
+  // separate round trip.
+  const [ratingEnabled, setRatingEnabled] = useState(!!initialRatingSetup?.enabled);
+  const [ratingValues, setRatingValues] = useState(
+    () => (initialRatingSetup?.values ?? []).map((v) => ({ ...v })),
+  );
+  const [selectedRatingValueIdx, setSelectedRatingValueIdx] = useState(null);
+  const [openIconPickerIdx, setOpenIconPickerIdx] = useState(null);
+  const [raters, setRaters] = useState(
+    () => (initialRatingSetup?.raters ?? []).map((r) => ({ ...r })),
+  );
+  const [selectedRaterIdx, setSelectedRaterIdx] = useState(null);
+  const [nextTempRatingId, setNextTempRatingId] = useState(-1);
+  const [nextTempRaterId, setNextTempRaterId] = useState(-1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
@@ -142,6 +175,31 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
               suffix: p.suffix || '',
             })),
         },
+        // FIX507.4.2 <panel-rating-setup>: saved as part of this same
+        // general setup save function.
+        rating: {
+          enabled: ratingEnabled,
+          // FIX507.2.2.1.1 <rating-text> / .2 <rating-icon>: blank-text
+          // rows are dropped, same as a blank property label.
+          values: ratingValues
+            .filter((v) => (v.text ?? '').trim())
+            .map((v, i) => ({
+              id: v.id,
+              text: v.text.trim(),
+              icon: v.icon || null,
+              sort_order: i,
+            })),
+          // FIX507.2.3.1.1 <rating-user>: a row with no picked user
+          // isn't a real rater yet, same treatment.
+          raters: raters
+            .filter((r) => r.user_id)
+            .map((r) => ({
+              id: r.id,
+              user_id: r.user_id,
+              acronym: (r.acronym ?? '').trim(),
+              enabled: !!r.enabled,
+            })),
+        },
       });
       onSave(data);
     } catch (e) {
@@ -193,6 +251,46 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
     const updated = [...properties];
     [updated[i], updated[target]] = [updated[target], updated[i]];
     setProperties(updated);
+  };
+
+  // FIX507.2.2.1.13 <table-rating-values> Add: green + row, selected.
+  const addRatingValue = () => {
+    setRatingValues((prev) => {
+      const next = [...prev, { id: nextTempRatingId, text: '', icon: '' }];
+      setSelectedRatingValueIdx(next.length - 1);
+      return next;
+    });
+    setNextTempRatingId((n) => n - 1);
+  };
+  // FIX507.2.2.1.14: Del enabled only when a row is selected (button
+  // itself is gated on selectedRatingValueIdx in the JSX below).
+  const removeSelectedRatingValue = () => {
+    if (selectedRatingValueIdx == null) return;
+    setRatingValues((prev) => prev.filter((_, i) => i !== selectedRatingValueIdx));
+    setSelectedRatingValueIdx(null);
+    setOpenIconPickerIdx(null);
+  };
+  const updateRatingValue = (i, patch) => {
+    setRatingValues((prev) => prev.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  };
+
+  // FIX507.2.3.1.13 <table-users-allowed-to-rate> Add: same pattern.
+  const addRater = () => {
+    setRaters((prev) => {
+      // FIX507.4.4: a freshly added row is enabled by default.
+      const next = [...prev, { id: nextTempRaterId, user_id: null, acronym: '', enabled: true }];
+      setSelectedRaterIdx(next.length - 1);
+      return next;
+    });
+    setNextTempRaterId((n) => n - 1);
+  };
+  const removeSelectedRater = () => {
+    if (selectedRaterIdx == null) return;
+    setRaters((prev) => prev.filter((_, i) => i !== selectedRaterIdx));
+    setSelectedRaterIdx(null);
+  };
+  const updateRater = (i, patch) => {
+    setRaters((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   };
 
   return (
@@ -496,10 +594,208 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             </section>
           )}
           {activeTab === 'rating' && (
-            /* FIX507.0 <panel-rating-setup>: opened via FIX505.3.4.
-               FIX507's own content is not yet specified beyond the Id. */
+            /* FIX507.0 <panel-rating-setup>: opened via FIX505.3.4. */
             <section className="setup-section" data-yagu-id="panel-rating-setup">
               <h3>Rating</h3>
+              {/* FIX507.2.1 <field-enable-rating>: unchecked by default
+                  (FIX507.2.1.2). FIX507.4.1: gates rating on items and
+                  the rating column picker (FIX504.2.1.2.2.6.1) — doesn't
+                  block anything else on this page. */}
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="field-enable-rating"
+                  type="checkbox"
+                  checked={ratingEnabled}
+                  onChange={(e) => setRatingEnabled(e.target.checked)}
+                />
+                Enable item rating
+              </label>
+
+              {/* FIX507.2.2 Section 'Rating values'. */}
+              <h3>Rating values</h3>
+              <div className="setup-selectable-toolbar">
+                <button
+                  type="button"
+                  className="users-remove"
+                  onClick={removeSelectedRatingValue}
+                  disabled={selectedRatingValueIdx == null}
+                  aria-label="Delete rating value"
+                  title="Delete selected rating value"
+                >
+                  <IconDelete size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="users-add"
+                  onClick={addRatingValue}
+                  aria-label="Add rating value"
+                  title="Add rating value"
+                >
+                  <IconAdd size={20} />
+                </button>
+              </div>
+              <table className="setup-items" data-yagu-id="table-rating-values">
+                <thead>
+                  <tr>
+                    <th>Text</th>
+                    <th style={{ width: '5rem', textAlign: 'center' }}>Icon</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ratingValues.length === 0 && (
+                    <tr>
+                      <td colSpan={2} className="setup-empty">No rating value defined.</td>
+                    </tr>
+                  )}
+                  {ratingValues.map((v, i) => {
+                    const RatingIcon = RATING_ICONS[v.icon];
+                    return (
+                      <tr
+                        key={v.id ?? `new-${i}`}
+                        className={selectedRatingValueIdx === i ? 'selected' : ''}
+                        onClick={() => setSelectedRatingValueIdx(i)}
+                      >
+                        {/* FIX507.2.2.1.12 Row edition: Inline. */}
+                        <td>
+                          <input
+                            data-yagu-id="rating-text"
+                            type="text"
+                            value={v.text ?? ''}
+                            onChange={(e) => updateRatingValue(i, { text: e.target.value })}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
+                        <td className="setup-icon-cell" style={{ textAlign: 'center', position: 'relative' }}>
+                          <button
+                            type="button"
+                            data-yagu-id="rating-icon"
+                            className="setup-icon-picker-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRatingValueIdx(i);
+                              setOpenIconPickerIdx(openIconPickerIdx === i ? null : i);
+                            }}
+                            aria-label="Pick icon"
+                          >
+                            {RatingIcon ? <RatingIcon size={20} /> : '—'}
+                          </button>
+                          {openIconPickerIdx === i && (
+                            <div
+                              className="setup-icon-popover"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {RATING_ICON_CHOICES.map(({ key, label }) => {
+                                const ChoiceIcon = RATING_ICONS[key];
+                                return (
+                                  <button
+                                    type="button"
+                                    key={key}
+                                    onClick={() => {
+                                      updateRatingValue(i, { icon: key });
+                                      setOpenIconPickerIdx(null);
+                                    }}
+                                    title={label}
+                                    aria-label={label}
+                                  >
+                                    <ChoiceIcon size={20} />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* FIX507.2.3 Section 'Users allow to rate'. */}
+              <h3>Users allowed to rate</h3>
+              <div className="setup-selectable-toolbar">
+                <button
+                  type="button"
+                  className="users-remove"
+                  onClick={removeSelectedRater}
+                  disabled={selectedRaterIdx == null}
+                  aria-label="Delete rater"
+                  title="Delete selected rater"
+                >
+                  <IconDelete size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="users-add"
+                  onClick={addRater}
+                  aria-label="Add rater"
+                  title="Add rater"
+                >
+                  <IconAdd size={20} />
+                </button>
+              </div>
+              <table className="setup-items" data-yagu-id="table-users-allowed-to-rate">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th style={{ width: '8rem' }}>Acronym</th>
+                    <th style={{ width: '5rem', textAlign: 'center' }}>Enabled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {raters.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="setup-empty">No user allowed to rate yet.</td>
+                    </tr>
+                  )}
+                  {raters.map((r, i) => (
+                    <tr
+                      key={r.id ?? `new-${i}`}
+                      className={selectedRaterIdx === i ? 'selected' : ''}
+                      onClick={() => setSelectedRaterIdx(i)}
+                    >
+                      <td>
+                        {/* FIX507.2.3.1.12.1: picked from users having
+                            admin or data-manager rights on this project
+                            — already-picked candidates are hidden from
+                            every other row's dropdown to avoid a
+                            duplicate-user row. */}
+                        <select
+                          data-yagu-id="rating-user"
+                          value={r.user_id ?? ''}
+                          onChange={(e) => updateRater(i, { user_id: e.target.value || null })}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value="">— pick a user —</option>
+                          {(ratingCandidates ?? [])
+                            .filter((c) => c.id === r.user_id
+                              || !raters.some((rr, ri) => ri !== i && rr.user_id === c.id))
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          data-yagu-id="rating-user-acronym"
+                          type="text"
+                          value={r.acronym ?? ''}
+                          onChange={(e) => updateRater(i, { acronym: e.target.value })}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          data-yagu-id="rating-user-enabled"
+                          type="checkbox"
+                          checked={!!r.enabled}
+                          onChange={(e) => updateRater(i, { enabled: e.target.checked })}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </section>
           )}
           {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app

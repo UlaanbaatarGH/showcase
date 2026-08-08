@@ -309,6 +309,58 @@ body {
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
 }
+/* FIX504.2.1.2.2.6.2: an already-added rating column while rating is
+   disabled -- kept in the list (not deleted) but visibly inert. */
+.setup-items tr.setup-row-disabled td {
+  opacity: 0.5;
+  font-style: italic;
+}
+/* FIX507.2.2.1.13/.14 + FIX507.2.3.1.13/.14: Add/Del toolbar above a
+   single-selection table, same green + / red X as elsewhere (.users-add
+   / .users-remove) instead of the "+ Add X" text-button pattern used
+   by the Properties/Item-short-label tables above. */
+.setup-selectable-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-bottom: 0.3rem;
+}
+/* FIX507.2.2.1.2 <rating-icon> picker: click the current icon to open a
+   small popover of the three fixed choices. */
+.setup-icon-picker-btn {
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.setup-icon-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  background: #232338;
+  border: 1px solid #444;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.setup-icon-popover button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  padding: 0.2rem;
+  border-radius: 3px;
+}
+.setup-icon-popover button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
 /* FIX373.2.2/.2.3 Add / Remove grouping buttons. */
 .grouping-toolbar {
   display: flex;

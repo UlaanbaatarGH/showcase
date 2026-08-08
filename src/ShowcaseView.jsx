@@ -95,6 +95,8 @@ function formatYearValue(value, propertyLabel, enabled) {
 
 function columnKey(col) {
   if (col.type === 'property') return `prop_${col.property_id}`;
+  // FIX504.2.1.2.2.6: one column per configured rater.
+  if (col.type === 'user_rating') return `rater_${col.rater_id}`;
   return col.type;
 }
 
@@ -131,6 +133,10 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
     return folder.properties?.[String(col.property_id)] ?? '';
   }
+  // FIX504.2.1.2.2.6: no per-item rating value exists yet (that's the
+  // rating-usage side, not yet built) -- the column renders blank until
+  // then, same as any other column with nothing to show.
+  if (col.type === 'user_rating') return '';
   return '';
 }
 
@@ -1863,8 +1869,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // column was removed. Filter any leftover entries from previously
   // saved view_setup so existing projects don't render orphan columns.
   const configuredColumns = (() => {
+    // FIX504.2.1.2.2.6.2: a rating column stays in the saved config but
+    // is hidden from the actual item list while rating is disabled.
+    const ratingOn = !!data?.rating_setup?.enabled;
     const cols = (showcaseCfg.columns ?? []).filter(
-      (c) => c.type !== 'main_image_icon',
+      (c) => c.type !== 'main_image_icon' && (c.type !== 'user_rating' || ratingOn),
     );
     // FIX510.5.4: when no column is defined, fall back to the # column.
     // _hash forces the header to '#' regardless of folder_column_name.
@@ -2128,6 +2137,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       ...prev,
       properties: result.properties ?? prev.properties,
       view_setup: result.view_setup ?? prev.view_setup,
+      // FIX507.4.2: rating is saved as part of this same call.
+      rating_setup: result.rating_setup ?? prev.rating_setup,
     }));
     setSortKeys([]);
     setFilters({});
@@ -2325,6 +2336,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     if (col.type === 'img') return 'Img';
     if (col.type === 'img_size') return 'Img size'; // FIX504.2.1.2.2.4
     if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX504.2.1.2.2.5
+    // FIX504.2.1.2.2.6: identified by the user's name.
+    if (col.type === 'user_rating') {
+      const rater = (data?.rating_setup?.raters ?? []).find((r) => r.id === col.rater_id);
+      return rater?.name || '(missing user)';
+    }
     const prop = properties.find((p) => p.id === col.property_id);
     if (!prop) return '(missing)';
     return (prop.short_label && prop.short_label.trim()) || prop.label;
@@ -2431,6 +2447,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           {folder.zoom_factor == null ? '' : folder.zoom_factor.toFixed(2)}
         </td>
       );
+    }
+    // FIX504.2.1.2.2.6: no per-item rating value exists yet (rating
+    // usage/storage isn't built) -- renders the same blank placeholder
+    // any other empty cell uses until then.
+    if (col.type === 'user_rating') {
+      return <td key={key} style={cellStyle}>—</td>;
     }
     // property
     const prop = propertiesById.get(col.property_id);
@@ -3691,6 +3713,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           projectId={data?.project?.id ?? null}
           properties={properties}
           viewSetup={viewSetup}
+          ratingSetup={data?.rating_setup}
+          ratingCandidates={data?.rating_candidates}
           onCancel={() => setShowSetup(false)}
           onSave={handleSaveSetup}
         />
@@ -3700,6 +3724,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           projectId={data?.project?.id ?? null}
           properties={properties}
           viewSetup={viewSetup}
+          ratingSetup={data?.rating_setup}
           isAnonymous={isAnonymous}
           onCancel={() => setShowColumns(false)}
           onSave={handleSaveSetup}

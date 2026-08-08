@@ -155,3 +155,73 @@ export function IconDelete({ size = 24, color = '#dc2626', ...rest }) {
     </svg>
   );
 }
+
+// FIX507.4.5 <rating-icon>: the three fixed rating symbols (green bold
+// tick / orange bold question mark / red bold cross) -- same
+// thick-stroke / round-cap / hardcoded-colour treatment as IconAdd /
+// IconDelete above, so they read at a glance the same way.
+export function IconRatingYes({ size = 24, color = '#16a34a', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <polyline points="4,13 9,18 20,6" />
+    </svg>
+  );
+}
+
+export function IconRatingUnknown({ size = 24, color = '#f59e0b', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <path d="M8.5 9a3.5 3.5 0 1 1 5.2 3.05C12.3 12.8 12 13.4 12 14.5" />
+      <line x1="12" y1="18" x2="12" y2="18.01" />
+    </svg>
+  );
+}
+
+export function IconRatingNo({ size = 24, color = '#dc2626', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="5"
+      strokeLinecap="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="6" y1="18" x2="18" y2="6" />
+    </svg>
+  );
+}
+
+// FIX507.4.5: lookup for stored <rating-icon> values ('yes' | 'unknown'
+// | 'no'). Unknown/blank values render nothing rather than guessing.
+export const RATING_ICONS = {
+  yes: IconRatingYes,
+  unknown: IconRatingUnknown,
+  no: IconRatingNo,
+};

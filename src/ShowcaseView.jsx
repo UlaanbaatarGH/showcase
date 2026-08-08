@@ -17,6 +17,7 @@ import {
   IconCamera,
   RichText,
   RATING_ICONS,
+  IconRatingConflict,
 } from './Icons.jsx';
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
@@ -2231,6 +2232,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     return (
       <div className="sc-viewer-rating-icon" data-yagu-id="icon-rating" title={rv.text}>
         <RatingIconComp size={22} />
+        {/* FIX520.4.8 <item-with-conflicting-rating>: smaller, right
+            after the rating icon. */}
+        {folder?.has_rating_conflict && (
+          <IconRatingConflict size={14} className="sc-viewer-rating-conflict" />
+        )}
       </div>
     );
   };

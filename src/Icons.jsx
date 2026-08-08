@@ -225,3 +225,24 @@ export const RATING_ICONS = {
   unknown: IconRatingUnknown,
   no: IconRatingNo,
 };
+
+// FIX520.4.8 <item-with-conflicting-rating>: smaller red bold exclamation
+// point shown right after <icon-rating> when the item has a conflict.
+export function IconRatingConflict({ size = 24, color = '#dc2626', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="5"
+      strokeLinecap="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <line x1="12" y1="4" x2="12" y2="14" />
+      <line x1="12" y1="19" x2="12" y2="19.01" />
+    </svg>
+  );
+}

@@ -104,6 +104,11 @@ export default function SetupPanel({
   const [selectedRaterIdx, setSelectedRaterIdx] = useState(null);
   const [nextTempRatingId, setNextTempRatingId] = useState(-1);
   const [nextTempRaterId, setNextTempRaterId] = useState(-1);
+  // FIX507.2.4 / FIX507.2.5: unchecked / defaulted to 2.
+  const [showRatingConflict, setShowRatingConflict] = useState(!!initialRatingSetup?.show_conflict);
+  const [conflictThreshold, setConflictThreshold] = useState(
+    initialRatingSetup?.conflict_threshold ?? 2,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
@@ -199,6 +204,9 @@ export default function SetupPanel({
               acronym: (r.acronym ?? '').trim(),
               enabled: !!r.enabled,
             })),
+          // FIX507.2.4 / FIX507.2.5.
+          show_conflict: showRatingConflict,
+          conflict_threshold: Number(conflictThreshold) || 2,
         },
       });
       onSave(data);
@@ -792,6 +800,35 @@ export default function SetupPanel({
                   ))}
                 </tbody>
               </table>
+
+              {/* FIX507.2.4 <field-show-rating-conflict>: unchecked by
+                  default (FIX507.2.4.2). */}
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="field-show-rating-conflict"
+                  type="checkbox"
+                  checked={showRatingConflict}
+                  onChange={(e) => setShowRatingConflict(e.target.checked)}
+                />
+                Show conflicts
+              </label>
+              {/* FIX507.2.5 <field-rating-conflict-threshold>: mandatory,
+                  defaulted to 2 (FIX507.2.5.1). Blank/invalid falls back
+                  to 2 on blur rather than blocking Save. */}
+              <label className="setup-inline-row">
+                <span>Conflict threshold</span>
+                <input
+                  data-yagu-id="field-rating-conflict-threshold"
+                  type="text"
+                  inputMode="numeric"
+                  value={conflictThreshold}
+                  onChange={(e) => setConflictThreshold(e.target.value)}
+                  onBlur={() => {
+                    const n = Number(conflictThreshold);
+                    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) setConflictThreshold(2);
+                  }}
+                />
+              </label>
             </section>
           )}
           {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app

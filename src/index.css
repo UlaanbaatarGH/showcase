@@ -1037,11 +1037,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
+  gap: 0.2rem;
+  min-width: 2rem;
   height: 2rem;
+  padding: 0 0.35rem;
   background: rgba(0, 0, 0, 0.55);
-  border-radius: 50%;
+  border-radius: 1rem;
   pointer-events: none;
+}
+/* FIX520.4.8 <item-with-conflicting-rating>: smaller than the rating
+   icon it follows. */
+.sc-viewer-rating-conflict {
+  flex-shrink: 0;
 }
 .sc-viewer-img-scroll.zoomed {
   align-items: flex-start;

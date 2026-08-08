@@ -2183,8 +2183,19 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const handleSetMyRating = (folderId, ratingValueId) => {
     setData((prev) => ({
       ...prev,
-      folders: (prev.folders ?? []).map((f) =>
-        f.id === folderId ? { ...f, my_rating_value_id: ratingValueId } : f),
+      folders: (prev.folders ?? []).map((f) => {
+        if (f.id !== folderId) return f;
+        return {
+          ...f,
+          my_rating_value_id: ratingValueId,
+          // FIX520.4.6: also update the per-rater map so a User's rating
+          // list column for the caller's own user reflects the change
+          // immediately, without waiting for a reload.
+          ratings_by_user: profile?.id
+            ? { ...(f.ratings_by_user || {}), [profile.id]: ratingValueId }
+            : f.ratings_by_user,
+        };
+      }),
     }));
     setMyRating(folderId, ratingValueId).catch((e) => setError(String(e.message || e)));
   };

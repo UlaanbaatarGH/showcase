@@ -186,6 +186,10 @@ export default {
   // images), recomputed by the client whenever the item's images change.
   setFolderZoomFactor: (folderId, zoomFactor) =>
     call(`/api/folders/${encodeURIComponent(folderId)}/zoom-factor`, { method: 'POST', body: { zoom_factor: zoomFactor } }),
+  // FIX520.3.4 / FIX520.4.5: set (or, with null, clear) the logged-in
+  // caller's own rating for this item. Returns { folder_id, rating_value_id }.
+  setMyRating: (folderId, ratingValueId) =>
+    call(`/api/folders/${encodeURIComponent(folderId)}/rating`, { method: 'POST', body: { rating_value_id: ratingValueId } }),
   // FIX521: update caption / section / sort_order on the folder_image row.
   // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
   updateFolderImage: (folderImageId, patch) =>

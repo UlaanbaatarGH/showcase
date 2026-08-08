@@ -996,12 +996,27 @@ body {
    reachable scroll range (centering it would push half the extra size
    into unreachable negative overflow) and shows a hand cursor. */
 .sc-viewer-img-scroll {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+/* FIX520.2.7.1 <icon-rating>: top right of the image. */
+.sc-viewer-rating-icon {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 50%;
+  pointer-events: none;
 }
 .sc-viewer-img-scroll.zoomed {
   align-items: flex-start;
@@ -1257,6 +1272,7 @@ body {
      navigate. Fills the available height so a swipe anywhere over
      the image area is captured, regardless of the image's actual
      rendered size. */
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;

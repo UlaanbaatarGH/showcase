@@ -16,12 +16,13 @@ import {
   IconSignOut,
   IconCamera,
   RichText,
+  RATING_ICONS,
 } from './Icons.jsx';
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import {
-  getShowcase, getFolderImages, trackVisit, setFolderZoomFactor,
+  getShowcase, getFolderImages, trackVisit, setFolderZoomFactor, setMyRating,
   acquireEditLock, releaseEditLock, listProjects,
   createFolder, renameFolder, deleteFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
@@ -2146,6 +2147,35 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     setShowColumns(false);
   };
 
+  // FIX520.3.4 / FIX520.4.5: set (ratingValueId) or clear (null, the '0'
+  // key) the logged-in user's own rating for an item. Optimistic update —
+  // FIX520.4.3 means this only ever touches the caller's own value.
+  const handleSetMyRating = (folderId, ratingValueId) => {
+    setData((prev) => ({
+      ...prev,
+      folders: (prev.folders ?? []).map((f) =>
+        f.id === folderId ? { ...f, my_rating_value_id: ratingValueId } : f),
+    }));
+    setMyRating(folderId, ratingValueId).catch((e) => setError(String(e.message || e)));
+  };
+
+  // FIX520.2.7 / FIX520.4.4 <icon-rating>: null whenever rating is off or
+  // the caller has no rating entered for the current item.
+  const renderRatingIcon = () => {
+    if (!data?.rating_setup?.enabled) return null;
+    const folder = (data?.folders || []).find((f) => f.id === selectedFolderId);
+    const rvId = folder?.my_rating_value_id;
+    if (rvId == null) return null;
+    const rv = (data?.rating_setup?.values ?? []).find((v) => v.id === rvId);
+    const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
+    if (!RatingIconComp) return null;
+    return (
+      <div className="sc-viewer-rating-icon" data-yagu-id="icon-rating" title={rv.text}>
+        <RatingIconComp size={22} />
+      </div>
+    );
+  };
+
   const handleSaveGrouping = (result) => {
     setData((prev) => ({
       ...prev,
@@ -2196,6 +2226,25 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   useEffect(() => {
     const onKey = (e) => {
       if (showSetup || showColumns || showGrouping || importOpen || importImagesOpen) return;
+      const ae = document.activeElement;
+      const tag = ae?.tagName;
+      const editable =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
+      // FIX520.3.4: '0'/'1'/'2' clear / set the logged-in user's rating of
+      // the current item to the 1st / 2nd <table-rating-values> row, gated
+      // on field-enable-rating. Same in and out of fullscreen, so this
+      // runs before the fullscreen branch splits off below.
+      if (!editable && !editionMode && data?.rating_setup?.enabled && selectedFolderId != null
+          && (e.key === '0' || e.key === '1' || e.key === '2')) {
+        e.preventDefault();
+        if (e.key === '0') {
+          handleSetMyRating(selectedFolderId, null);
+        } else {
+          const rv = (data?.rating_setup?.values ?? [])[Number(e.key) - 1];
+          if (rv) handleSetMyRating(selectedFolderId, rv.id);
+        }
+        return;
+      }
       // FIX520.3.2.2: in fullscreen, ←/→ still navigate images (Prev/Next),
       // but ↑/↓ are ignored (no item table to walk through).
       if (fullScreen) {
@@ -2213,10 +2262,6 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       // FIX521: the Image List editor owns its own arrow-key handling while
       // in edition mode (table row selection, not global item/image nav).
       if (editionMode) return;
-      const ae = document.activeElement;
-      const tag = ae?.tagName;
-      const editable =
-        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
       if (editable) return;
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         if (!displayedFolders.length) return;
@@ -2244,6 +2289,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   }, [
     showSetup, showColumns, showGrouping, importOpen, importImagesOpen,
     editionMode, displayedFolders, selectedFolderId, images.length,
+    data?.rating_setup,
   ]);
 
   // Keep the selected row in view when ↑/↓ walks past the panel edge.
@@ -3266,7 +3312,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             ) : (() => {
               // FIX520.2: Showcase Image viewer (read-only). New layout:
               //   Sections panel (left, optional) | Image + nav (right).
-              // FIX520.5.2: the sections panel is rendered only when the
+              // FIX520.4.2: the sections panel is rendered only when the
               // item has at least one image with a section defined.
               // FIX522.5.1 (ex-520.5.3): a section name appears once per
               // *run* — if S1 reappears after a different S2, it's
@@ -3376,7 +3422,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               return (
                 <div className="sc-viewer-body">
                   {/* FIX522 / FIX522.0 <panel-img-sections>.
-                      FIX520.5.2: only visible when at least one image
+                      FIX520.4.2: only visible when at least one image
                       has a section. FIX522.5.3: a single '/' in a
                       section name renders as a nested child under a
                       shared root header. */}
@@ -3499,6 +3545,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                               className="sc-viewer-img"
                               zoom={zoomLevel}
                             />
+                            {renderRatingIcon()}
                           </div>
                         </div>
                         <div
@@ -4149,6 +4196,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               className="sc-fullscreen-img"
               zoom={fsZoomLevel}
             />
+            {renderRatingIcon()}
           </div>
           {/* FIX523.2: bottom strip mirrors the in-page no-sections
               layout via the shared .sc-viewer-bottom. Click here is

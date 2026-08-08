@@ -98,7 +98,7 @@ function columnKey(col) {
   return col.type;
 }
 
-// FIX500.2.3.2.1.2.2.4 <Image size>: human-readable total bytes of an item's
+// FIX504.2.1.2.2.4 <Image size>: human-readable total bytes of an item's
 // images. Empty string when the item has no images (or zero bytes).
 function formatImageSize(bytes) {
   const n = Number(bytes) || 0;
@@ -108,8 +108,8 @@ function formatImageSize(bytes) {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-// FIX500.2.3.2.1.2.1.1 / .1.1: width sample is free text; column width = the
-// text's character count, expressed in `ch` units. FIX500.2.3.2.1.2.1.1.1:
+// FIX504.2.1.2.1.1 / .1.1: width sample is free text; column width = the
+// text's character count, expressed in `ch` units. FIX504.2.1.2.1.1.1:
 // when the text is *just* a number n, treat it as n characters (i.e. 'n zeros').
 function widthCss(width) {
   if (width == null) return undefined;
@@ -122,9 +122,9 @@ function widthCss(width) {
 function getColumnValue(folder, col, propertiesById, propertiesByLabel) {
   if (col.type === 'folder_name') return folder.name ?? '';
   if (col.type === 'img') return folder.has_image ? 'x' : '';
-  // FIX500.2.3.2.1.2.2.4 <Image size>
+  // FIX504.2.1.2.2.4 <Image size>
   if (col.type === 'img_size') return formatImageSize(folder.image_bytes);
-  // FIX500.2.3.2.1.2.2.5 <Img zoom factor>: stored item Zoom Factor.
+  // FIX504.2.1.2.2.5 <Img zoom factor>: stored item Zoom Factor.
   if (col.type === 'img_zoom') return folder.zoom_factor == null ? '' : folder.zoom_factor.toFixed(2);
   if (col.type === 'property') {
     const prop = propertiesById?.get(col.property_id);
@@ -1827,11 +1827,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     () => new Map(properties.map((p) => [p.label, p])),
     [properties],
   );
-  // FIX500.2.3.5.2 / FIX500.2.3.2.1.3.5: anonymous users persist their
+  // FIX504.5.2 / FIX504.2.1.3.5: anonymous users persist their
   // Showcase Columns tweaks in localStorage; logged-in users hit the DB.
   // The override (when present) wins over the DB config for rendering,
   // but the DB config is preserved as the source of truth — the Reset
-  // button clears the override (FIX500.2.3.2.1.3.4).
+  // button clears the override (FIX504.2.1.3.4).
   const isAnonymous = !profile;
   const projectId = data?.project?.id ?? null;
   const localStorageKey = projectId != null ? `sc-columns-${projectId}` : null;
@@ -1859,7 +1859,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     return { ...base, showcase: effectiveShowcaseCfg };
   }, [data, effectiveShowcaseCfg, localShowcaseOverride]);
   const showcaseCfg = effectiveShowcaseCfg;
-  // FIX506.2.2 / FIX500.2.3.2.1.2.2 (updated): the 'Main image icon'
+  // FIX506.2.2 / FIX504.2.1.2.2 (updated): the 'Main image icon'
   // column was removed. Filter any leftover entries from previously
   // saved view_setup so existing projects don't render orphan columns.
   const configuredColumns = (() => {
@@ -1992,7 +1992,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         }),
       );
     }
-    // FIX500.2.3.5.1 / <input-row-order>: columns with a positive
+    // FIX504.5.1 / <input-row-order>: columns with a positive
     // row_order define a default sort chain — lowest number sorts first.
     // Gaps don't matter; blank means "skip this column for sorting".
     // User-clicked sortKeys take priority and the row_order chain acts as
@@ -2323,8 +2323,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     // FIX510.5.4: _hash marks the fallback # column — always '#', never the renamed label.
     if (col.type === 'folder_name') return col._hash ? '#' : folderColumnName;
     if (col.type === 'img') return 'Img';
-    if (col.type === 'img_size') return 'Img size'; // FIX500.2.3.2.1.2.2.4
-    if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX500.2.3.2.1.2.2.5
+    if (col.type === 'img_size') return 'Img size'; // FIX504.2.1.2.2.4
+    if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX504.2.1.2.2.5
     const prop = properties.find((p) => p.id === col.property_id);
     if (!prop) return '(missing)';
     return (prop.short_label && prop.short_label.trim()) || prop.label;
@@ -2416,7 +2416,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         </td>
       );
     }
-    // FIX500.2.3.2.1.2.2.4 <Image size>
+    // FIX504.2.1.2.2.4 <Image size>
     if (col.type === 'img_size') {
       return (
         <td key={key} className="sc-td-img-size" style={cellStyle}>
@@ -2424,7 +2424,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         </td>
       );
     }
-    // FIX500.2.3.2.1.2.2.5 <Img zoom factor>: stored item Zoom Factor.
+    // FIX504.2.1.2.2.5 <Img zoom factor>: stored item Zoom Factor.
     if (col.type === 'img_zoom') {
       return (
         <td key={key} className="sc-td-img-size" style={cellStyle}>
@@ -3704,7 +3704,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           onCancel={() => setShowColumns(false)}
           onSave={handleSaveSetup}
           onLocalSave={(showcaseCfgLocal) => {
-            // FIX500.2.3.2.1.3.5 — anonymous Save persists locally.
+            // FIX504.2.1.3.5 — anonymous Save persists locally.
             if (localStorageKey) {
               try {
                 localStorage.setItem(localStorageKey, JSON.stringify(showcaseCfgLocal));
@@ -3714,7 +3714,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             setShowColumns(false);
           }}
           onLocalReset={() => {
-            // FIX500.2.3.2.1.3.4 — anonymous Reset drops the local
+            // FIX504.2.1.3.4 — anonymous Reset drops the local
             // override and reverts to the DB config.
             if (localStorageKey) {
               try { localStorage.removeItem(localStorageKey); } catch { /* */ }

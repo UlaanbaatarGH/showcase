@@ -509,7 +509,7 @@ body {
   outline: none;
   border-color: #667;
 }
-/* FIX500.2.3.2.1.2.3.2 (updated): label and input on the same line. */
+/* FIX504.2.1.2.3.2 (updated): label and input on the same line. */
 .setup-inline-row {
   display: flex;
   gap: 0.5rem;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { saveSetup } from './data/backend.js';
 
-// FIX503.3.2 + FIX500.2.3 <panel-showcase-view-setup>: standalone popup that
+// FIX503.3.2 + FIX504[ex-500.2.3] <panel-showcase-view-setup>: standalone popup that
 // displays only the Showcase view setup (columns, folder column new name,
 // Roman year converter). Reached from <button-columns>. The tabbed general
 // Setup panel still exposes the same content via its 'Showcase' tab.
@@ -16,7 +16,7 @@ export default function ShowcaseViewSetupPanel({
   onLocalReset,
 }) {
   const [showcase, setShowcase] = useState(() => {
-    // FIX500.2.3.2.1.2.1.3: no default items in the list — start from
+    // FIX504.2.1.2.1.3: no default items in the list — start from
     // whatever was saved, even if empty.
     const columns = (viewSetup?.showcase?.columns ?? []).map((c) => ({ ...c }));
     return {
@@ -25,7 +25,7 @@ export default function ShowcaseViewSetupPanel({
       columns,
     };
   });
-  // FIX500.2.3.2.1.3.3 (updated): move up/down by selecting a row first,
+  // FIX504.2.1.3.3 (updated): move up/down by selecting a row first,
   // then pressing the toolbar Move buttons. The selected row stays selected
   // after a move. Track by stable column key (each key is unique per row —
   // availableToAdd dedups by key).
@@ -40,8 +40,8 @@ export default function ShowcaseViewSetupPanel({
   const displayedColumnName = (col) => {
     if (col.type === 'folder_name') return '#';
     if (col.type === 'img') return 'Img';
-    if (col.type === 'img_size') return 'Img size'; // FIX500.2.3.2.1.2.2.4
-    if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX500.2.3.2.1.2.2.5
+    if (col.type === 'img_size') return 'Img size'; // FIX504.2.1.2.2.4
+    if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX504.2.1.2.2.5
     if (col.type === 'property') {
       const p = (properties ?? []).find((pp) => pp.id === col.property_id);
       return p?.label || '(missing property)';
@@ -51,7 +51,7 @@ export default function ShowcaseViewSetupPanel({
   const availableToAdd = () => {
     const used = new Set(showcase.columns.map(columnKey));
     const options = [];
-    // FIX500.2.3.2.1.2.2 (updated): picker aggregates the predefined
+    // FIX504.2.1.2.2 (updated): picker aggregates the predefined
     // '#' (item id), the project's properties (<list-properties>) and
     // the 'With image' derived property (rendered as 'Img' once added
     // — <derived-property-img>).
@@ -59,11 +59,11 @@ export default function ShowcaseViewSetupPanel({
       options.push({ key: 'folder_name', label: '#', create: () => ({ type: 'folder_name' }) });
     if (!used.has('img'))
       options.push({ key: 'img', label: 'With image', create: () => ({ type: 'img' }) });
-    // FIX500.2.3.2.1.2.2.4 <Image size>: predefined column = total size of all
+    // FIX504.2.1.2.2.4 <Image size>: predefined column = total size of all
     // the item's images.
     if (!used.has('img_size'))
       options.push({ key: 'img_size', label: 'Img size', create: () => ({ type: 'img_size' }) });
-    // FIX500.2.3.2.1.2.2.5: predefined column = the item's max image zoom factor.
+    // FIX504.2.1.2.2.5: predefined column = the item's max image zoom factor.
     if (!used.has('img_zoom'))
       options.push({ key: 'img_zoom', label: 'Img zoom factor', create: () => ({ type: 'img_zoom' }) });
     for (const p of properties ?? []) {
@@ -101,9 +101,9 @@ export default function ShowcaseViewSetupPanel({
     updated[i] = { ...updated[i], ...patch };
     setShowcase({ ...showcase, columns: updated });
   };
-  // FIX500.2.3.2.1.2.1.3 + .3.1 / <input-row-order>: only positive
+  // FIX504.2.1.2.1.3 + .3.1 / <input-row-order>: only positive
   // integers are accepted; blank clears the value (= "don't consider for
-  // sorting", per FIX500.2.3.5.1). Reject anything else by ignoring the
+  // sorting", per FIX504.5.1). Reject anything else by ignoring the
   // keystroke.
   const updateRowOrder = (i, raw) => {
     const s = String(raw ?? '').trim();
@@ -115,7 +115,7 @@ export default function ShowcaseViewSetupPanel({
   };
 
   const handleSave = async () => {
-    // FIX500.2.3.2.1.3.5: anonymous users persist locally (no DB call);
+    // FIX504.2.1.3.5: anonymous users persist locally (no DB call);
     // logged-in users hit /api/setup as before.
     if (isAnonymous) {
       onLocalSave?.({
@@ -158,7 +158,7 @@ export default function ShowcaseViewSetupPanel({
     }
   };
 
-  // FIX500.2.3.2.1.3.4 + FIX500.2.3.2.1.2.10: drop the local override
+  // FIX504.2.1.3.4 + FIX504.2.1.2.10: drop the local override
   // and revert to the DB column setup. Anonymous-only.
   const handleReset = () => {
     if (!isAnonymous) return;
@@ -184,7 +184,7 @@ export default function ShowcaseViewSetupPanel({
         </header>
         <div className="setup-body">
           <section className="setup-section">
-            {/* FIX500.2.3.2.1.3.3 (updated): Move buttons act on the
+            {/* FIX504.2.1.3.3 (updated): Move buttons act on the
                 currently selected row. Disabled when no row is selected
                 or the selected row is already at the edge. */}
             <div className="grouping-toolbar">
@@ -211,8 +211,8 @@ export default function ShowcaseViewSetupPanel({
                   <th>Column</th>
                   <th style={{ width: '8rem' }}>Width hint</th>
                   <th style={{ width: '4rem' }}>Wrap</th>
-                  {/* FIX500.2.3.2.1.2.1.3 / <input-row-order>: per-column
-                      sort priority used by FIX500.2.3.5.1. */}
+                  {/* FIX504.2.1.2.1.3 / <input-row-order>: per-column
+                      sort priority used by FIX504.5.1. */}
                   <th style={{ width: '5rem' }}>Sort order</th>
                   <th style={{ width: '4rem' }} />
                 </tr>
@@ -302,10 +302,10 @@ export default function ShowcaseViewSetupPanel({
               </div>
             )}
 
-            {/* FIX500.2.3.2.1.2.3 / <item-id-new-name>: optional
+            {/* FIX504.2.1.2.3 / <item-id-new-name>: optional
                 replacement label for the '#' column (item id). Stored at
                 view_setup.showcase.folder_column_name.
-                FIX500.2.3.2.1.2.3.2 (updated): label and input on the same
+                FIX504.2.1.2.3.2 (updated): label and input on the same
                 line. */}
             <label className="setup-inline-row">
               <span>New name for column &apos;#&apos;</span>
@@ -337,10 +337,10 @@ export default function ShowcaseViewSetupPanel({
         </div>
         {error && <div className="setup-error">{error}</div>}
         <footer className="setup-footer">
-          {/* FIX500.2.3.2.1.2.10 / .2.10.1: Reset button — only visible
+          {/* FIX504.2.1.2.10 / .2.10.1: Reset button — only visible
               to anonymous users. Drops the local override so the panel
               and the Showcase fall back to the DB column setup
-              (FIX500.2.3.2.1.3.4). */}
+              (FIX504.2.1.3.4). */}
           {isAnonymous && (
             <button
               type="button"

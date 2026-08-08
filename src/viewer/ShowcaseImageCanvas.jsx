@@ -100,6 +100,48 @@ export default function ShowcaseImageCanvas({
     bctx.drawImage(img, -iw / 2, -ih / 2, iw, ih);
     bctx.restore();
 
+    // Experimental spike (uncommitted, no spec item): a decorative red
+    // double-headed arrow, 2/3 of the image width, horizontally centered,
+    // 1/16 of the height up from the bottom, with a '13cm' label just below
+    // it. Head length and line weight are tied to buffer.width (not arrowW)
+    // so widening the arrow doesn't also inflate the ends -- only headHalfW
+    // shrank, for a more subtle head. Everything's relative to the source
+    // resolution, not absolute px, so it stays proportional at any photo
+    // size instead of looking pixelated or thread-thin once the canvas is
+    // scaled down for display.
+    const arrowW = buffer.width * (2 / 3);
+    const arrowX = (buffer.width - arrowW) / 2;
+    const arrowY = buffer.height - buffer.height / 16;
+    const headLen = buffer.width * 0.04;
+    const headHalfW = headLen * 0.28;
+    bctx.save();
+    bctx.strokeStyle = 'red';
+    bctx.fillStyle = 'red';
+    bctx.lineWidth = buffer.width * 0.0033;
+    bctx.lineCap = 'round';
+    bctx.beginPath();
+    bctx.moveTo(arrowX, arrowY);
+    bctx.lineTo(arrowX + arrowW, arrowY);
+    bctx.stroke();
+    bctx.beginPath();
+    bctx.moveTo(arrowX, arrowY);
+    bctx.lineTo(arrowX + headLen, arrowY - headHalfW);
+    bctx.lineTo(arrowX + headLen, arrowY + headHalfW);
+    bctx.closePath();
+    bctx.fill();
+    bctx.beginPath();
+    bctx.moveTo(arrowX + arrowW, arrowY);
+    bctx.lineTo(arrowX + arrowW - headLen, arrowY - headHalfW);
+    bctx.lineTo(arrowX + arrowW - headLen, arrowY + headHalfW);
+    bctx.closePath();
+    bctx.fill();
+    const fontSize = headHalfW * 2 * 1.5;
+    bctx.font = `bold ${fontSize}px sans-serif`;
+    bctx.textAlign = 'center';
+    bctx.textBaseline = 'top';
+    bctx.fillText('13cm', arrowX + arrowW / 2, arrowY + fontSize * 0.3);
+    bctx.restore();
+
     // Blit the freshly-rendered buffer now so the base image shows up even
     // before the cheap overlay effect below has a mousePos to draw with.
     const ctx = canvas.getContext('2d');

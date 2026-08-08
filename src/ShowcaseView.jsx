@@ -447,10 +447,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               image_id: null,
               url: URL.createObjectURL(blob),
               filename,
+              // Bug fix: imageAttrsFromManifest's rotation/crop used to be
+              // clobbered right back to 0/null by the two lines that used to
+              // sit below this spread -- so a brand-new (never-published)
+              // image's pending crop, correctly written to list.txt, never
+              // made it into the row on reload/restart. Its rotation/crop
+              // (0/null when the manifest has none) is already exactly what
+              // the two removed lines were re-asserting.
               ...imageAttrsFromManifest(attrs), // FIX670.1.2.2.4
               sort_order: 0,
-              rotation: 0,
-              crop: null,
               added: true, chged: false, moved: false, deleted: false,
               localFile: blob,
               stagedPath: filePath,
@@ -962,6 +967,12 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // the in-page one (separate panel, own state), same fit/scroll/pan
   // mechanics.
   const [fsZoomLevel, setFsZoomLevel] = useState(1);
+  // Experimental spike (uncommitted, no spec item): toggles a size-info
+  // line below the viewed image. A single flag, not reset per
+  // currentImageIdx, so it stays on/off across Prev/Next as requested.
+  // Toggled by the button left of Edit/Quit and by Space bar (below,
+  // near currentImage's declaration).
+  const [showImgSizeInfo, setShowImgSizeInfo] = useState(false);
   const [fsIsPanning, setFsIsPanning] = useState(false);
   const menuRef = useRef(null);
   const projectsMenuRef = useRef(null);
@@ -1795,8 +1806,27 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         // loads) — read the cache fresh here, at resolution time, rather than
         // blindly overwriting it, so whichever of the two finishes second
         // doesn't erase what the other already staged.
-        const stagedLocal = (imagesByFolderRef.current[selectedFolderId] || []).filter(isLocalRow);
-        const merged = [...withBaseline, ...stagedLocal];
+        const cachedNow = imagesByFolderRef.current[selectedFolderId] || [];
+        const stagedLocal = cachedNow.filter(isLocalRow);
+        // Bug fix: this used to keep only isLocalRow (Added) entries from the
+        // fresh cache, so a chged/moved/deleted row the reconciliation effect
+        // had already restored -- e.g. a pending crop's rotation/crop
+        // metadata (FIX611.1), not baked into pixels yet -- got silently
+        // dropped whenever this plain server fetch resolved after
+        // reconciliation had already staged it: getFolderImages knows
+        // nothing about local-only edits, so its row for that filename comes
+        // back with rotation/crop reset to the stale public values, undoing
+        // the crop the user had just made. Prefer the cache's own staged
+        // version of a filename over the freshly fetched plain one.
+        const stagedByFilename = new Map(
+          cachedNow
+            .filter((im) => !isLocalRow(im) && (im.chged || im.moved || im.deleted))
+            .map((im) => [im.filename, im]),
+        );
+        const merged = [
+          ...withBaseline.map((im) => stagedByFilename.get(im.filename) ?? im),
+          ...stagedLocal,
+        ];
         imagesByFolderRef.current[selectedFolderId] = merged;
         setImages(merged);
         // FIX510.3.4: on item selection, show the Main image first;
@@ -2302,6 +2332,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         if (!images.length) return;
         e.preventDefault();
         setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1));
+      } else if (e.key === ' ') {
+        // Experimental spike (uncommitted, no spec item): Space toggles the
+        // size-info line, same flag the layers button drives — only once an
+        // item is actually selected, mirroring the arrow-key guards above.
+        if (selectedFolderId == null) return;
+        e.preventDefault();
+        setShowImgSizeInfo((v) => !v);
       }
     };
     document.addEventListener('keydown', onKey);
@@ -2316,6 +2353,47 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   useEffect(() => {
     selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [selectedFolderId]);
+
+  // Experimental spike (uncommitted, no spec item): size info for the
+  // currently-displayed image, refreshed whenever it changes -- a plain
+  // decode-only dims probe (measureDims, already used by the publish
+  // pipeline) plus a HEAD request for byte size, same technique
+  // ShowcaseImgListEditor's own file-details line already uses. Must sit
+  // above the `if (!data) return` guard below (Rules of Hooks) -- reads
+  // images[currentImageIdx] directly rather than the `currentImage` const,
+  // which is only declared after that guard.
+  const [curImgSizeInfo, setCurImgSizeInfo] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    setCurImgSizeInfo(null);
+    const url = images[currentImageIdx]?.url;
+    if (!url) return undefined;
+    (async () => {
+      const [dims, bytes] = await Promise.all([
+        measureDims(url),
+        fetch(url, { method: 'HEAD' })
+          .then((r) => {
+            const len = r.headers.get('content-length');
+            return len != null ? Number(len) : null;
+          })
+          .catch(() => null),
+      ]);
+      if (!cancelled) setCurImgSizeInfo({ dims, bytes });
+    })();
+    return () => { cancelled = true; };
+  }, [images, currentImageIdx]);
+  const formatImgSizeInfo = (info) => {
+    if (!info) return '…';
+    const { dims, bytes } = info;
+    const res = dims ? `${dims.w} × ${dims.h}` : '?';
+    let size = '?';
+    if (bytes != null) {
+      size = bytes < 1024 * 1024
+        ? `${(bytes / 1024).toFixed(1)} KB`
+        : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+    return `${res} · ${size}`;
+  };
 
   // Bug fix: this used to be a bare `<div>Error: {error}</div>` with no way
   // to dismiss it -- any of this file's several setError() calls (a failed
@@ -3250,37 +3328,63 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             >
               Details
             </button>
-            {/* FIX515.4.3/515.4.4 keep Edit/Quit visible to any logged-in
-                user on Images; FIX518.4.7 narrows Details to admin-only.
-                The local app has no login process, so this stays visible
-                there regardless of profile. */}
-            {(viewerTab === 'details' ? profile?.profile === 'admin' : (isLocalApp || !!profile)) && (
-              editionMode ? (
+            {/* Experimental spike (uncommitted, no spec item): a Google
+                Maps-style square "layers" icon button, immediately left of
+                Edit/Quit. Wrapped together with Edit/Quit under one
+                margin-left: auto group instead of giving the layers button
+                its own auto margin -- two independent auto margins on the
+                same flex line split the free space between them and open
+                an unwanted gap, rather than moving as one block. Toggles
+                the size-info line below the image; Space bar does the
+                same (see the keydown effect above). */}
+            <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+              {viewerTab === 'images' && !editionMode && (
                 <button
                   type="button"
-                  className="sc-viewer-edit-btn"
-                  data-yagu-id="cmd-quit-edit-item-page"
-                  onClick={() => {
-                    if (viewerTab === 'details') setDetailDraft({});
-                    setEditionMode(false);
-                  }}
-                  disabled={viewerTab === 'images' && imagesEditPending}
-                  title="Quit"
+                  className={`sc-viewer-layers-btn${showImgSizeInfo ? ' active' : ''}`}
+                  onClick={() => setShowImgSizeInfo((v) => !v)}
+                  aria-pressed={showImgSizeInfo}
+                  title={showImgSizeInfo ? 'Hide image size info' : 'Show image size info'}
                 >
-                  Quit
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
+                    <polygon points="12,3 21,9 12,15 3,9" />
+                    <polyline points="6,12 12,16 18,12" />
+                    <polyline points="6,15.5 12,19.5 18,15.5" />
+                  </svg>
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className="sc-viewer-edit-btn"
-                  data-yagu-id="cmd-edit-item-page"
-                  onClick={() => setEditionMode(true)}
-                  title="Edit"
-                >
-                  Edit
-                </button>
-              )
-            )}
+              )}
+              {/* FIX515.4.3/515.4.4 keep Edit/Quit visible to any logged-in
+                  user on Images; FIX518.4.7 narrows Details to admin-only.
+                  The local app has no login process, so this stays visible
+                  there regardless of profile. */}
+              {(viewerTab === 'details' ? profile?.profile === 'admin' : (isLocalApp || !!profile)) && (
+                editionMode ? (
+                  <button
+                    type="button"
+                    className="sc-viewer-edit-btn"
+                    data-yagu-id="cmd-quit-edit-item-page"
+                    onClick={() => {
+                      if (viewerTab === 'details') setDetailDraft({});
+                      setEditionMode(false);
+                    }}
+                    disabled={viewerTab === 'images' && imagesEditPending}
+                    title="Quit"
+                  >
+                    Quit
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="sc-viewer-edit-btn"
+                    data-yagu-id="cmd-edit-item-page"
+                    onClick={() => setEditionMode(true)}
+                    title="Edit"
+                  >
+                    Edit
+                  </button>
+                )
+              )}
+            </div>
           </div>
           {viewerTab === 'images' ? (
             // FIX515.3.2.1: when the user clicks <button-edit> on the Images
@@ -3577,6 +3681,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                               data-yagu-id="label-img-caption"
                             >
                               {currentImage.caption}
+                            </div>
+                          )}
+                          {/* Experimental spike (uncommitted, no spec item):
+                              size-info line, toggled by the layers button /
+                              Space bar. */}
+                          {showImgSizeInfo && (
+                            <div className="sc-viewer-caption">
+                              {formatImgSizeInfo(curImgSizeInfo)}
                             </div>
                           )}
                           {/* FIX520.2.2: when there's no sections panel,
@@ -4232,6 +4344,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 data-yagu-id="label-img-caption"
               >
                 {currentImage.caption}
+              </div>
+            )}
+            {/* Experimental spike (uncommitted, no spec item): same
+                size-info line as the in-page viewer. */}
+            {showImgSizeInfo && (
+              <div className="sc-viewer-caption">
+                {formatImgSizeInfo(curImgSizeInfo)}
               </div>
             )}
             {/* FIX523.3.3 / FIX520.3.2.2: prev / i-n / next pill,

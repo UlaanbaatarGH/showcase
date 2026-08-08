@@ -21,15 +21,15 @@ function formatPropertyInput(p) {
 
 // FIX505 <panel-general-setup>: Setup general panel. The Showcase tab was
 // removed (FIX505.2.2(removed)) — the standalone ShowcaseViewSetupPanel
-// replaces it via <button-columns>.
+// replaces it via <button-columns>. FIX507 was later reused for the new
+// Rating tab (FIX505.2.3) — unrelated to the earlier Sizes tab that once
+// held that number.
 export default function SetupPanel({ projectId, properties: initialProperties, viewSetup: initialViewSetup, onSave, onCancel }) {
-  // FIX505.2 (updated): the Setup popup hosts three tabs.
+  // FIX505.2 (updated): the Setup popup hosts four tabs.
   //   - 'General'    → <panel-general-info-setup>  (FIX508)
   //   - 'Properties' → <tab-properties-setup>      (FIX506)
+  //   - 'Rating'     → <panel-rating-setup>         (FIX507 — content still being defined)
   //   - 'Language'   → <panel-language-setup>      (FIX509)
-  // FIX507 was removed — the standalone Sizes tab is gone; the
-  // per-project image volume now lives only on the project list
-  // (<project-img-volume>, FIX351.2.1.6).
   const [activeTab, setActiveTab] = useState('general');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
@@ -207,8 +207,8 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
           <h2>Setup</h2>
         </header>
         {/* FIX505.2 (updated): tab strip — General / Properties /
-            Sizes / Language. Tab buttons themselves carry no
-            data-yagu-id (FIX505.2.1.0[removed] dropped the one on
+            Rating / Language (FIX505.2.0 diagram). Tab buttons themselves
+            carry no data-yagu-id (FIX505.2.1.0[removed] dropped the one on
             Properties); the *content* sections do, per FIX506.0,
             FIX507.0, FIX509.0. FIX505.3.{1..5} are the click
             handlers below. */}
@@ -226,6 +226,16 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
             onClick={() => setActiveTab('properties')}
           >
             Properties
+          </button>
+          {/* FIX505.2.3 <tab-rating-setup>: opens <panel-rating-setup>
+              per FIX505.3.4. */}
+          <button
+            type="button"
+            className={activeTab === 'rating' ? 'active' : ''}
+            data-yagu-id="tab-rating-setup"
+            onClick={() => setActiveTab('rating')}
+          >
+            Rating
           </button>
           <button
             type="button"
@@ -483,6 +493,13 @@ export default function SetupPanel({ projectId, properties: initialProperties, v
                   placeholder="https://docs.google.com/spreadsheets/d/…"
                 />
               </label>
+            </section>
+          )}
+          {activeTab === 'rating' && (
+            /* FIX507.0 <panel-rating-setup>: opened via FIX505.3.4.
+               FIX507's own content is not yet specified beyond the Id. */
+            <section className="setup-section" data-yagu-id="panel-rating-setup">
+              <h3>Rating</h3>
             </section>
           )}
           {/* FIX505.3.5 + FIX509 <panel-language-setup>: provides app

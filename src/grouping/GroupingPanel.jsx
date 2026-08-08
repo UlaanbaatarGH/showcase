@@ -58,7 +58,8 @@ export default function GroupingPanel({ projectId, properties, viewSetup, onCanc
   };
 
   const removeRow = () => {
-    if (!selectedId) return;
+    // FIX373.5.1.1: auto-generated 'My basket: ...' groups can't be removed.
+    if (!selectedId || rows.find((r) => r.id === selectedId)?.readonly) return;
     setRows((rs) => {
       const idx = rs.findIndex((r) => r.id === selectedId);
       const next = rs.filter((r) => r.id !== selectedId);
@@ -86,6 +87,7 @@ export default function GroupingPanel({ projectId, properties, viewSetup, onCanc
         property_id: r.property_id,
         segment: (r.segment ?? '').trim() || null,
         default: !!r.default,
+        readonly: !!r.readonly,
       }));
       const nextViewSetup = {
         ...(viewSetup || {}),
@@ -141,7 +143,7 @@ export default function GroupingPanel({ projectId, properties, viewSetup, onCanc
                 className="users-remove"
                 data-yagu-id="button-remove-grouping"
                 onClick={removeRow}
-                disabled={!selectedId || rows.length === 0}
+                disabled={!selectedId || rows.length === 0 || rows.find((r) => r.id === selectedId)?.readonly}
                 aria-label="Remove grouping"
                 title="Remove grouping"
               >
@@ -177,35 +179,43 @@ export default function GroupingPanel({ projectId, properties, viewSetup, onCanc
                         value={r.name}
                         onChange={(e) => updateRow(r.id, { name: e.target.value })}
                         onFocus={() => setSelectedId(r.id)}
+                        disabled={r.readonly}
+                        title={r.readonly ? 'Auto-generated from Setup > Rating — read only' : undefined}
                       />
                     </td>
                     <td>
-                      <select
-                        value={String(r.property_id)}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          const next = v === 'img' ? 'img' : Number(v);
-                          // Switching to the 'Img' derived property wipes
-                          // the segment — segments only apply to value
-                          // ranges, not to has/hasn't.
-                          updateRow(r.id, {
-                            property_id: next,
-                            ...(next === 'img' ? { segment: '' } : {}),
-                          });
-                        }}
-                      >
-                        {propOptions.map((o) => (
-                          <option key={String(o.value)} value={String(o.value)}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                      {/* FIX373.5.1.1: readonly rows show their derived
+                          property as plain text — no picker to swap it. */}
+                      {r.readonly ? (
+                        <span>My rating</span>
+                      ) : (
+                        <select
+                          value={String(r.property_id)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const next = v === 'img' ? 'img' : Number(v);
+                            // Switching to the 'Img' derived property wipes
+                            // the segment — segments only apply to value
+                            // ranges, not to has/hasn't.
+                            updateRow(r.id, {
+                              property_id: next,
+                              ...(next === 'img' ? { segment: '' } : {}),
+                            });
+                          }}
+                        >
+                          {propOptions.map((o) => (
+                            <option key={String(o.value)} value={String(o.value)}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td>
                       <input
                         type="text"
                         value={r.segment ?? ''}
-                        disabled={r.property_id === 'img'}
+                        disabled={r.property_id === 'img' || r.readonly}
                         onChange={(e) => updateRow(r.id, { segment: e.target.value })}
                       />
                     </td>
@@ -213,6 +223,7 @@ export default function GroupingPanel({ projectId, properties, viewSetup, onCanc
                       <input
                         type="checkbox"
                         checked={r.default}
+                        disabled={r.readonly}
                         onChange={(e) => setDefault(r.id, e.target.checked)}
                       />
                     </td>

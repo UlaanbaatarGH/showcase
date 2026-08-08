@@ -1990,6 +1990,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     if (activeGroup.property_id === 'img') {
       return folder.has_image ? 'With image' : 'No image';
     }
+    // FIX373.5.1 (Topic 6, User's basket): each auto-generated basket
+    // group is scoped to one specific rating value (or, 'rating:missing',
+    // to items the logged-in user hasn't rated) -- undefined for every
+    // other item, same as a property with no value for that item.
+    if (typeof activeGroup.property_id === 'string' && activeGroup.property_id.startsWith('rating:')) {
+      const key = activeGroup.property_id.slice('rating:'.length);
+      if (key === 'missing') {
+        return folder.my_rating_value_id == null ? 'Missing rating' : undefined;
+      }
+      const rvId = Number(key);
+      if (folder.my_rating_value_id !== rvId) return undefined;
+      const rv = (data?.rating_setup?.values ?? []).find((v) => v.id === rvId);
+      return rv?.text ?? undefined;
+    }
     const prop = propertiesById.get(activeGroup.property_id);
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
     return folder.properties?.[String(activeGroup.property_id)];

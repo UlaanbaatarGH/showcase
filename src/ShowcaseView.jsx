@@ -24,7 +24,7 @@ import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor, setMyRating,
-  acquireEditLock, releaseEditLock, listProjects,
+  listProjects,
   createFolder, renameFolder, deleteFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
 import { navigate, projectSlug } from './router.js';
@@ -256,64 +256,6 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [error, setError] = useState(null);
   const isLocalApp = import.meta.env.DEV;
-
-  // FIX610.4.5[ex-610.3.20]: per-project edit lock over <panel-showcase-img-list-editor>
-  // (the Images tab in edition mode), coordinating the website and the
-  // local app so only one side can have it open at a time. One session
-  // token per browser tab. The periodic heartbeat re-ping was removed per
-  // direct instruction (2026-08-07) -- it was firing every 15s in the
-  // background, including during Publish, competing for the same limited
-  // network/backend capacity as the actual upload. The lock is still
-  // acquired/released around the edit session; only the keep-alive ping is
-  // gone, so a long edit session may now be subject to whatever server-side
-  // TTL the lock has (was previously masked by the heartbeat).
-  const editLockSessionRef = useRef(
-    (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-  );
-  const editLockHolder = isLocalApp ? 'local' : 'website';
-  const editLockHeldRef = useRef(false);
-  // FIX610.4.5.1[ex-610.3.20.1] and FIX610.4.5.2[ex-610.3.20.2]: a failed acquire (locked by the other side, or the
-  // local app has unpublished changes) is a normal, expected outcome, not
-  // an app-breaking error — show it as a dismissable popup and drop back
-  // out of edition mode, instead of replacing the whole view (setError).
-  const [editLockError, setEditLockError] = useState(null);
-  useEffect(() => {
-    const projectId = data?.project?.id;
-    const editingImages = editionMode && viewerTab === 'images';
-    if (!editingImages || projectId == null) return undefined;
-    let cancelled = false;
-    const token = editLockSessionRef.current;
-    acquireEditLock(projectId, { holder: editLockHolder, session_token: token })
-      .then(() => { if (!cancelled) editLockHeldRef.current = true; })
-      .catch((e) => {
-        if (cancelled) return;
-        setEditLockError(e.message || 'This project is being edited elsewhere.');
-        setEditionMode(false);
-      });
-    return () => {
-      cancelled = true;
-      if (editLockHeldRef.current) {
-        releaseEditLock(projectId, { session_token: token }).catch(() => {});
-        editLockHeldRef.current = false;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editionMode, viewerTab, data?.project?.id]);
-  // Best-effort release if the tab closes outright (no React unmount fires).
-  useEffect(() => {
-    const onUnload = () => {
-      const projectId = data?.project?.id;
-      if (!editLockHeldRef.current || projectId == null || !navigator.sendBeacon) return;
-      try {
-        navigator.sendBeacon(
-          `/api/projects/${projectId}/edit-lock/release`,
-          new Blob([JSON.stringify({ session_token: editLockSessionRef.current })], { type: 'application/json' }),
-        );
-      } catch { /* best effort */ }
-    };
-    window.addEventListener('beforeunload', onUnload);
-    return () => window.removeEventListener('beforeunload', onUnload);
-  }, [data?.project?.id]);
 
   // FIX652 [ex-FIX375]: staged (non-blank status) image changes need to survive
   // switching items within the local app so <cmd-publish-all-changes>/
@@ -4417,21 +4359,6 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 aria-label="Next image"
               >
                 ›
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* FIX610.4.5.1[ex-610.3.20.1] and FIX610.4.5.2[ex-610.3.20.2] <button-edit>:
-          acquiring the cross-side edit lock failed (held by the other side, or
-          local has unpublished changes) — a dismissable popup, not a page-replacing error. */}
-      {editLockError && (
-        <div className="setup-overlay" onMouseDown={() => setEditLockError(null)}>
-          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="sc-viewer-err">{editLockError}</div>
-            <div className="sc-shrink-actions">
-              <button type="button" className="primary" onClick={() => setEditLockError(null)}>
-                OK
               </button>
             </div>
           </div>

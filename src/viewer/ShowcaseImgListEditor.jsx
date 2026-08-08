@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas, { bakeRotatedCrop, bakeRotatedCropToBlob } from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
-  setEditLockPendingChanges, getFolderImages,
+  getFolderImages,
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 import { isLocalRow } from './publishItemImages.js';
@@ -74,21 +74,6 @@ export default function ShowcaseImgListEditor({
   // FIX610.3.1: isLocalRow (imported from publishItemImages.js) tells a row
   // staged locally (not yet uploaded, synthetic string id) apart from a
   // real folder_image row (numeric id).
-
-  // FIX610.4.5.2[ex-610.3.20.2]: report to the server whenever this item's staged status
-  // set transitions between "something pending" and "nothing pending", so
-  // the website can be blocked while the local app has unpublished changes
-  // — independent of whether this editor is currently open. Known scope
-  // limit: this only tracks the *currently open* item, since switching
-  // items today discards the previous item's staged state entirely (it was
-  // never persisted anywhere); it does not track pending changes across
-  // multiple items at once.
-  useEffect(() => {
-    if (!isLocalApp || projectId == null) return;
-    const pending = images.some((im) => im.added || im.chged || im.moved || im.deleted);
-    setEditLockPendingChanges(projectId, { pending }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [images, isLocalApp, projectId]);
 
   // FIX670.1 / FIX670.10-FIX670.14 / FIX670.20: mirrors the given post-edit
   // `images` snapshot onto the item's on-disk staging folder — best-effort,

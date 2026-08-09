@@ -164,19 +164,51 @@ body {
    the top bar. */
 .sc-topbar-spacer { flex: 1; }
 
-/* FIX702.2 <panel-my-ratings-content>: 'UI Layout: blank screen' —
-   just fills the space below <panel-my-ratings-header>, same flex:1
-   role .sc-main plays for the Catalogue view. */
-.sc-my-ratings-content { flex: 1; }
+/* FIX702.2.0 <panel-my-ratings-content> layout diagram: ratings list on
+   the left, checked image pattern on the right — fills the space below
+   <panel-my-ratings-header>, same flex:1 role .sc-main plays for the
+   Catalogue view. */
+.sc-my-ratings-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
 /* CatalogueView's brief re-fetch loading state (header already shown,
-   stable — see the `if (!data)` branch): centers the text within the
-   flex:1 area above, no forced viewport height (unlike .sc-loading,
-   which assumes it's the only thing on the page). */
+   stable — see the `if (!data)` branch) and MyRatingsView's initial
+   fetch both use this: centers the text within the flex:1 area above,
+   no forced viewport height (unlike .sc-loading, which assumes it's
+   the only thing on the page). */
 .sc-catalogue-loading {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
+}
+/* FIX702.2.1.0 <panel-ratings-list>: reuses .sc-groups-panel/.sc-buckets
+   (the Catalogue grouping side panel's exact pill styling) — same
+   visual language since FIX702.2.1 says this literally is the 'My
+   basket' grouping, just without its group-name header. */
+.sc-ratings-list { flex: 0 0 auto; }
+/* FIX702.2.2.0 <panel-rated-images>: 'checked pattern... squares or
+   rectangles... 1 or several image per row... vertical scrollbar' — a
+   responsive image grid, cropped to squares. */
+.sc-rated-images {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  align-content: start;
+}
+.sc-rated-images img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--color-bg-lighter);
 }
 
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left

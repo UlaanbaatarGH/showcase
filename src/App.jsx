@@ -117,6 +117,7 @@ function AppBody() {
   if (projectView === 'my-ratings') {
     return (
       <MyRatingsView
+        slug={route.slug}
         projectName={projectName}
         onNavigateHome={() => navigate('/')}
         currentView={projectView}

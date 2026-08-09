@@ -214,22 +214,29 @@ body {
   border-radius: 4px;
   background: var(--color-bg-lighter);
 }
-/* FIX702.4.3 <item-with-conflicting-rating>: top right corner of the
-   image, same icon as <icon-rating>'s inline use (FIX520.4.8) — a
-   small drop shadow keeps the red glyph legible over any image. */
-.sc-rated-image-conflict {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85));
+/* FIX702.4.4 + FIX702.4.3 (updated): caption row below the image — ref
+   centred, conflict icon (when present) pinned to the right via the
+   ref taking the row's full width and the icon absolutely positioned
+   within it, so the ref stays visually centred regardless. */
+.sc-rated-image-caption {
+  position: relative;
+  margin-top: 0.2rem;
 }
-/* FIX702.4.4: item ref, white, centred, below the image. Literal white
-   (not a theme token) per spec wording. */
+/* FIX702.4.4: item ref, white, centred. Literal white (not a theme
+   token) per spec wording. */
 .sc-rated-image-ref {
   color: #fff;
   text-align: center;
   font-size: 0.85rem;
-  margin-top: 0.2rem;
+}
+/* FIX702.4.3 (updated) <item-with-conflicting-rating>: same icon as
+   <icon-rating>'s inline use (FIX520.4.8), now at the right of the
+   caption row instead of overlaying the image. */
+.sc-rated-image-conflict {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
 }
 
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left

@@ -139,18 +139,19 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
               {selectedFolders.map((f) => (
                 <div key={f.id} className="sc-rated-image-cell">
                   <img src={f.main_image_url} alt={f.name} loading="lazy" />
-                  {/* FIX702.4.3 <item-with-conflicting-rating>: red bold
-                      exclamation point, top right corner of the image —
-                      same has_rating_conflict flag + icon the Catalogue
-                      viewer's <icon-rating> already uses (FIX520.4.8),
-                      just positioned as an image overlay here instead
-                      of inline next to a rating icon. */}
-                  {f.has_rating_conflict && (
-                    <IconRatingConflict size={18} className="sc-rated-image-conflict" />
-                  )}
-                  {/* FIX702.4.4: item ref (folder.name), white, centred,
-                      below the image. */}
-                  <div className="sc-rated-image-ref">{f.name}</div>
+                  {/* FIX702.4.4 + FIX702.4.3 (updated): caption row below
+                      the image — item ref (folder.name), white, centred
+                      (FIX702.4.4); when the item has a conflicting rating,
+                      the same has_rating_conflict flag + icon the
+                      Catalogue viewer's <icon-rating> already uses
+                      (FIX520.4.8) now sits at the right of that row
+                      instead of overlaying the image (FIX702.4.3(old)). */}
+                  <div className="sc-rated-image-caption">
+                    <div className="sc-rated-image-ref">{f.name}</div>
+                    {f.has_rating_conflict && (
+                      <IconRatingConflict size={16} className="sc-rated-image-conflict" />
+                    )}
+                  </div>
                 </div>
               ))}
             </section>

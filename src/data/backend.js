@@ -32,6 +32,7 @@ export const listUsers = impl.listUsers;
 export const createUser = impl.createUser;
 export const updateUser = impl.updateUser;
 export const deleteUser = impl.deleteUser;
+export const resetUserPassword = impl.resetUserPassword;
 export const grantUserProject = impl.grantUserProject;
 export const revokeUserProject = impl.revokeUserProject;
 export const redeemAccount = impl.redeemAccount;

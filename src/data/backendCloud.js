@@ -107,6 +107,9 @@ export default {
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deleteUser: (id) =>
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // FIX312.3.1 <btn-reset-pswd> -> FIX318 <process-reset-pswd>.
+  resetUserPassword: (id) =>
+    call(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST' }),
   // FIX311.3.3 / FIX311.5.6 / FIX311.5.7 <user-projects>: add or
   // remove a project from a user's project_access set.
   grantUserProject: (userId, projectId) =>

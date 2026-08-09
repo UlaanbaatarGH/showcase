@@ -4,6 +4,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  resetUserPassword,
   listAdminProjects,
   grantUserProject,
   revokeUserProject,
@@ -144,6 +145,26 @@ export default function UsersPanel({ onClose }) {
       });
       setError(null);
       setUserEditOpen(false);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // FIX312.3.1: <btn-reset-pswd> triggers <process-reset-pswd> (FIX318).
+  // Admin-only, same gate as the other <panel-user> credential fields
+  // (FIX311.5.4 / .5.5). FIX318.2.3: refresh <list-users> afterwards so
+  // the cleared password / new access code show up in the table.
+  const onResetPassword = async (userId) => {
+    if (!userId || !isAdmin) return;
+    setBusy(true);
+    try {
+      await resetUserPassword(userId);
+      await new Promise((r) => {
+        listUsers().then((d) => { setUsers(d); r(); }).catch(() => r());
+      });
+      setError(null);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -329,6 +350,7 @@ export default function UsersPanel({ onClose }) {
             )}
             onCancel={() => setUserEditOpen(false)}
             onSubmit={(payload) => applyUserEdits(selectedId, payload)}
+            onResetPassword={() => onResetPassword(selectedId)}
           />
         )}
       </div>
@@ -412,7 +434,8 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
 // admin-only fields per FIX311.5.4 / .5.5 — for non-admin callers
 // (Project Managers) those inputs render disabled. The project list
 // follows FIX312.4.1: admins see every project, others only the ones
-// they themselves manage.
+// they themselves manage. <btn-reset-pswd> (FIX312.2.12), admin-only,
+// triggers <process-reset-pswd> (FIX312.3.1 -> FIX318).
 function UserPanel({
   busy,
   user,
@@ -422,6 +445,7 @@ function UserPanel({
   canSeeEmail,
   onCancel,
   onSubmit,
+  onResetPassword,
 }) {
   const initialPicked = useMemo(
     () => new Set((user?.projects || []).map((p) => p.id)),
@@ -450,7 +474,7 @@ function UserPanel({
         data-yagu-id="panel-user"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* FIX312.2 layout — line-by-line:
+        {/* FIX312.2.0 layout diagram — line-by-line:
             User {user-name}
             Name  [______]
             Email [______]
@@ -458,7 +482,7 @@ function UserPanel({
               [x] project1
               [x] project2
               ...
-            [Cancel][Save] */}
+            [Reset pswd]       [Cancel][Save] */}
         <div className="panel-user-title">User {user.name}</div>
         {/* FIX312.2.1 Field 'Name'. */}
         <div className="panel-user-row">
@@ -512,6 +536,20 @@ function UserPanel({
           )}
         </div>
         <div className="panel-user-actions">
+          {/* FIX312.2.12 + FIX312.2.12.0 <btn-reset-pswd>: admin-only,
+              same gate as Name/Email (FIX311.5.4 / .5.5). Triggers
+              <process-reset-pswd> (FIX312.3.1 -> FIX318). */}
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn-reset-pswd"
+              data-yagu-id="btn-reset-pswd"
+              onClick={onResetPassword}
+              disabled={busy}
+            >
+              Reset pswd
+            </button>
+          )}
           {/* FIX312.2.10 Button Cancel. */}
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel

@@ -61,14 +61,19 @@ export default function CreateGsheetPanel({ projectName, onCancel, onFinished })
     // FIX378.3.4.2: document title, fetched server-side (see backend
     // /api/gsheet-title -- the /edit page isn't CORS-fetchable client-side).
     let title = null;
+    let titleDebug = null;
     try {
       const res = await fetchGsheetTitle(url.trim());
       title = res?.title || null;
-    } catch {
-      // best-effort — folds into the name-mismatch failure below
+      titleDebug = res?.debug || null;
+    } catch (e) {
+      titleDebug = e.message || String(e);
     }
     if (!title || title.trim().toLowerCase() !== expectedTitle.toLowerCase()) {
-      found.push(`The sheet should be named "${expectedTitle}" (found ${title ? `"${title}"` : 'nothing readable'}).`);
+      // TODO(temporary): the debug suffix is a diagnostic aid while this
+      // check is new (title-fetch is failing in production for reasons
+      // not yet confirmed) -- drop it once that's root-caused.
+      found.push(`The sheet should be named "${expectedTitle}" (found ${title ? `"${title}"` : 'nothing readable'})${titleDebug ? ` [${titleDebug}]` : ''}.`);
     }
     setChecking(false);
     if (found.length > 0) {

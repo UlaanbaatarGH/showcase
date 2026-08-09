@@ -256,7 +256,7 @@ export default function UsersPanel({ onClose }) {
                 >
                   {/* FIX311.2.1.1 <user-name>: read-only display.
                       Editing happens through <panel-user>
-                      (FIX311.3.5 / FIX312.1.1). */}
+                      (FIX311.3.5 / FIX312.2.1). */}
                   <td data-yagu-id="user-name">{u.name}</td>
                   {/* FIX311.2.1.2 + FIX311.5.9 <user-email>: read-only
                       display, only visible to callers allowed to see
@@ -406,9 +406,9 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
 }
 
 // FIX312 <panel-user>: full-user editor. Reached via <button-edit-user>
-// (FIX311.3.5). Edits the user's Name (FIX312.1.1), Email (FIX312.1.2)
-// and Projects (FIX312.1.3) — Save commits them in one batch
-// (FIX312.1.11), Cancel discards (FIX312.1.10). Name and Email are
+// (FIX311.3.5). Edits the user's Name (FIX312.2.1), Email (FIX312.2.2)
+// and Projects (FIX312.2.3) — Save commits them in one batch
+// (FIX312.2.11), Cancel discards (FIX312.2.10). Name and Email are
 // admin-only fields per FIX311.5.4 / .5.5 — for non-admin callers
 // (Project Managers) those inputs render disabled. The project list
 // follows FIX312.5.1: admins see every project, others only the ones
@@ -450,7 +450,7 @@ function UserPanel({
         data-yagu-id="panel-user"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* FIX312.1 layout — line-by-line:
+        {/* FIX312.2 layout — line-by-line:
             User {user-name}
             Name  [______]
             Email [______]
@@ -460,7 +460,7 @@ function UserPanel({
               ...
             [Cancel][Save] */}
         <div className="panel-user-title">User {user.name}</div>
-        {/* FIX312.1.1 Field 'Name'. */}
+        {/* FIX312.2.1 Field 'Name'. */}
         <div className="panel-user-row">
           <span className="panel-user-row-label">Name</span>
           <input
@@ -470,7 +470,7 @@ function UserPanel({
             disabled={!isAdmin}
           />
         </div>
-        {/* FIX312.1.2 + FIX311.5.9 Field 'Email': hidden entirely
+        {/* FIX312.2.2 + FIX311.5.9 Field 'Email': hidden entirely
             when the caller is not allowed to see the email (a PM
             opening a user with no shared project). */}
         {canSeeEmail && (
@@ -484,7 +484,7 @@ function UserPanel({
             />
           </div>
         )}
-        {/* FIX312.1.3 + FIX312.5.1 Field 'Projects': checkbox per
+        {/* FIX312.2.3 + FIX312.5.1 Field 'Projects': checkbox per
             project. Admins see all; others only their own managed
             projects. */}
         <div className="panel-user-projects">
@@ -512,11 +512,11 @@ function UserPanel({
           )}
         </div>
         <div className="panel-user-actions">
-          {/* FIX312.1.10 Button Cancel. */}
+          {/* FIX312.2.10 Button Cancel. */}
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          {/* FIX312.1.11 Button Save: name + email + projects. */}
+          {/* FIX312.2.11 Button Save: name + email + projects. */}
           <button
             type="button"
             className="btn-primary"

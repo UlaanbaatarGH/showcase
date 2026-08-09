@@ -2298,7 +2298,7 @@ body {
   cursor: not-allowed;
 }
 
-/* FIX312.1 <panel-user> layout — line-by-line as per the spec:
+/* FIX312.2 <panel-user> layout — line-by-line as per the spec:
    User {name}
    Name  [______]
    Email [______]

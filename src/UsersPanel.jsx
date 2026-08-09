@@ -72,7 +72,7 @@ export default function UsersPanel({ onClose }) {
     }
   };
 
-  // FIX312.5.2: only Admin or User-Manager-of-the-project can
+  // FIX312.4.2: only Admin or User-Manager-of-the-project can
   // grant / revoke that project to a user. The Edit button visibility
   // also follows this rule (a plain Data Manager has no business in
   // <panel-user>).
@@ -411,7 +411,7 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
 // (FIX312.2.11), Cancel discards (FIX312.2.10). Name and Email are
 // admin-only fields per FIX311.5.4 / .5.5 — for non-admin callers
 // (Project Managers) those inputs render disabled. The project list
-// follows FIX312.5.1: admins see every project, others only the ones
+// follows FIX312.4.1: admins see every project, others only the ones
 // they themselves manage.
 function UserPanel({
   busy,
@@ -484,7 +484,7 @@ function UserPanel({
             />
           </div>
         )}
-        {/* FIX312.2.3 + FIX312.5.1 Field 'Projects': checkbox per
+        {/* FIX312.2.3 + FIX312.4.1 Field 'Projects': checkbox per
             project. Admins see all; others only their own managed
             projects. */}
         <div className="panel-user-projects">

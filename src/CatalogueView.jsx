@@ -4,6 +4,7 @@ import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
 import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
+import ItemDetailsPanel from './ItemDetailsPanel.jsx';
 import { publishItemImages, isLocalRow, measureDims } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import SetGsheetPanel from './gsheet/SetGsheetPanel.jsx';
@@ -3821,180 +3822,40 @@ export default function CatalogueView({
               );
             })()
           ) : (
-            // FIX518: Item Details panel — FIX518.2.1 view-mode is a
-            // read-only property list; FIX518.2.2 edition-mode swaps values
-            // to inputs (except derived properties — FIX518.4.6) and adds a
-            // Cancel/Save footer.
-            <div className={`sc-details${editionMode ? ' editing' : ''}`}>
-              {(() => {
-                const selectedFolder = (data?.folders || []).find(
-                  (f) => f.id === selectedFolderId,
-                );
-                if (!selectedFolder) {
-                  return <div className="sc-viewer-empty">No item selected.</div>;
-                }
-                // FIX518.4.4: hide the property used as the deleted-marker.
-                // FIX518.4.2: order follows the sort order set in
-                // <tab-properties-setup>.
-                const ordered = [...properties]
-                  .filter((p) => p.id !== deletedPropertyId)
-                  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-                // FIX518.4.5: a property is rendered as a checkbox when every
-                // non-blank value across all items is 'x' (case-insensitive,
-                // trimmed). Only applies to stored properties — derived ones
-                // (FIX506.5.3.2) always render as their computed value.
-                const isBooleanProperty = (p) => {
-                  if (p.formula) return false;
-                  const key = String(p.id);
-                  let sawAny = false;
-                  for (const f of data.folders) {
-                    const v = (f.properties || {})[key];
-                    if (v == null) continue;
-                    const s = String(v).trim();
-                    if (s === '') continue;
-                    sawAny = true;
-                    if (s.toLowerCase() !== 'x') return false;
-                  }
-                  return sawAny;
-                };
-                const storedValue = (p) => {
-                  const key = String(p.id);
-                  if (Object.prototype.hasOwnProperty.call(detailDraft, key)) {
-                    return detailDraft[key];
-                  }
-                  const raw = (selectedFolder.properties || {})[key];
-                  return raw == null ? '' : String(raw);
-                };
-                const setDraft = (p, v) => {
-                  setDetailDraft((d) => ({ ...d, [String(p.id)]: v }));
-                };
-                const renderValue = (p) => {
-                  // FIX518.4.6: derived properties are always auto-recalculated
-                  // and never editable.
-                  if (editionMode && !p.formula) {
-                    if (isBooleanProperty(p)) {
-                      const checked = String(storedValue(p)).trim().toLowerCase() === 'x';
-                      return (
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => setDraft(p, e.target.checked ? 'x' : '')}
-                        />
-                      );
-                    }
-                    const draft = storedValue(p);
-                    // FIX518.4.8: a multi-line value stays multi-line
-                    // when edited too, otherwise the single-line input
-                    // would silently lose its newlines on save.
-                    if (typeof draft === 'string' && draft.includes('\n')) {
-                      const rows = Math.min(8, draft.split('\n').length + 1);
-                      return (
-                        <textarea
-                          value={draft}
-                          rows={rows}
-                          onChange={(e) => setDraft(p, e.target.value)}
-                        />
-                      );
-                    }
-                    return (
-                      <input
-                        type="text"
-                        value={draft}
-                        onChange={(e) => setDraft(p, e.target.value)}
-                      />
-                    );
-                  }
-                  const raw = computePropertyValue(selectedFolder, p, propertiesByLabel);
-                  if (isBooleanProperty(p)) {
-                    const checked = String(raw).trim().toLowerCase() === 'x';
-                    return (
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        readOnly
-                        tabIndex={-1}
-                      />
-                    );
-                  }
-                  // FIX518.4.8: preserve newlines on display so values
-                  // imported as multi-line text render across multiple
-                  // lines (CSS white-space: pre-line on the wrapper).
-                  if (typeof raw === 'string' && raw.includes('\n')) {
-                    return <span className="sc-details-multiline">{raw}</span>;
-                  }
-                  return raw;
-                };
-                // FIX518.4.3 / <item-id-new-name>: the '#' row uses the custom
-                // label from view_setup.showcase.folder_column_name if set.
-                const idLabel = folderColumnName;
-                const saveLocal = () => {
-                  // No cloud backend for per-folder writes yet. Merge the
-                  // draft into the in-memory folder so the UI reflects the
-                  // change until a reload — wire to a real endpoint once
-                  // backendCloud.setFolderProperty lands.
-                  setData((prev) => ({
-                    ...prev,
-                    folders: prev.folders.map((f) =>
-                      f.id === selectedFolderId
-                        ? { ...f, properties: { ...(f.properties || {}), ...detailDraft } }
-                        : f,
-                    ),
-                  }));
-                  setDetailDraft({});
-                  setEditionMode(false);
-                };
-                return (
-                  <>
-                    <table className="sc-details-list">
-                      <tbody>
-                        <tr>
-                          <th>{idLabel}</th>
-                          <td>{selectedFolder.name ?? ''}</td>
-                        </tr>
-                        {ordered.map((p) => (
-                          <tr key={`prop_${p.id}`}>
-                            <th>{p.label}</th>
-                            <td>{renderValue(p)}</td>
-                          </tr>
-                        ))}
-                        {/* FIX518.4.1: derived properties listed after the
-                            regular ones. <derived-property-img> doesn't relate
-                            to a specific property, so it goes at the end. */}
-                        <tr>
-                          <th>Img</th>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={!!selectedFolder.has_image}
-                              readOnly
-                              tabIndex={-1}
-                            />
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    {editionMode && (
-                      <footer className="sc-viewer-edit-footer">
-                        <button
-                          type="button"
-                          onClick={() => { setDetailDraft({}); setEditionMode(false); }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={saveLocal}
-                          title="Saved locally only — backend write endpoint pending"
-                        >
-                          Save
-                        </button>
-                      </footer>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
+            // FIX518 <panel-item-details>: extracted into
+            // ItemDetailsPanel.jsx so FIX702.2.3's My-ratings panel can
+            // genuinely reuse it instead of duplicating this rendering.
+            // View-mode fields/behavior are unchanged; this call just
+            // wires the shared component to CatalogueView's own
+            // edit-mode state.
+            <ItemDetailsPanel
+              folder={(data?.folders || []).find((f) => f.id === selectedFolderId)}
+              folders={data?.folders || []}
+              properties={properties}
+              propertiesByLabel={propertiesByLabel}
+              deletedPropertyId={deletedPropertyId}
+              folderColumnName={folderColumnName}
+              editionMode={editionMode}
+              detailDraft={detailDraft}
+              onDraftChange={(p, v) => setDetailDraft((d) => ({ ...d, [String(p.id)]: v }))}
+              onCancelEdit={() => { setDetailDraft({}); setEditionMode(false); }}
+              onSave={() => {
+                // No cloud backend for per-folder writes yet. Merge the
+                // draft into the in-memory folder so the UI reflects the
+                // change until a reload — wire to a real endpoint once
+                // backendCloud.setFolderProperty lands.
+                setData((prev) => ({
+                  ...prev,
+                  folders: prev.folders.map((f) =>
+                    f.id === selectedFolderId
+                      ? { ...f, properties: { ...(f.properties || {}), ...detailDraft } }
+                      : f,
+                  ),
+                }));
+                setDetailDraft({});
+                setEditionMode(false);
+              }}
+            />
           )}
         </section>
       </div>

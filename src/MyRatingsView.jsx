@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getShowcase, setMyRating } from './data/backend.js';
 import { ProjectHeaderLeft, ProjectHeaderRight } from './ProjectHeader.jsx';
 import { RATING_ICONS, IconRatingConflict } from './Icons.jsx';
+import ItemDetailsPanel from './ItemDetailsPanel.jsx';
 
 // FIX700 <view-my-ratings>: give a visual view of the items the user has
 // rated. Deliberately its own file/component rather than a mode flag
@@ -29,6 +30,41 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
   // FIX702.3.1 and FIX702.3.3), but the keyboard shortcuts need a
   // target, same as <panel-showcase-img-viewer>'s own selectedFolderId.
   const [selectedItemId, setSelectedItemId] = useState(null);
+  // FIX702.2.10: slidable vertical splitter between <panel-rated-images>
+  // and <panel-item-details> — same drag-resize mechanics as
+  // CatalogueView.jsx's list/viewer splitter (own localStorage key,
+  // own state), mirrored since the resizable panel sits on the right
+  // here instead of the left.
+  const [detailsWidth, setDetailsWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('sc-my-ratings-details-width'));
+    return Number.isFinite(saved) && saved > 200 ? saved : 360;
+  });
+  const mainRef = useRef(null);
+  const onSplitterDown = (e) => {
+    e.preventDefault();
+    const mainRect = mainRef.current?.getBoundingClientRect();
+    const startX = e.clientX;
+    const startW = detailsWidth;
+    const minImages = 240;
+    const minDetails = 240;
+    const move = (ev) => {
+      const dx = ev.clientX - startX;
+      const maxDetails = (mainRect?.width ?? 1200) - minImages - 6;
+      // Dragging right shrinks the details panel — it's anchored to the
+      // right edge here, the opposite relationship from CatalogueView's
+      // list (left-anchored, grows when dragged right).
+      const next = Math.max(minDetails, Math.min(maxDetails, startW - dx));
+      setDetailsWidth(next);
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      try { localStorage.setItem('sc-my-ratings-details-width', String(detailsWidth)); }
+      catch { /* ignore */ }
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -139,6 +175,16 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
       : String(f.my_rating_value_id) === selectedRatingKey
   ) && f.main_image_url);
 
+  // FIX702.2.3 <panel-item-details>: same ItemDetailsPanel.jsx
+  // CatalogueView.jsx's Details tab uses (FIX518, extracted out so
+  // this is a real reuse, not a duplicate) — view-mode only, no
+  // edit-mode props passed since My ratings has no edit affordance.
+  const properties = data?.properties ?? [];
+  const propertiesByLabel = new Map(properties.map((p) => [p.label, p]));
+  const deletedPropertyId = data?.view_setup?.item_filters?.deleted_property_id ?? null;
+  const folderColumnName = data?.view_setup?.showcase?.folder_column_name || '#';
+  const selectedItemFolder = folders.find((f) => f.id === selectedItemId) ?? null;
+
   return (
     // FIX700.0 <view-my-ratings>: reuses <panel-project-home> (FIX401.0)
     // rather than defining a separate Id — same shared-container-Id
@@ -160,8 +206,11 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
         <span className="sc-topbar-spacer" />
         <ProjectHeaderRight />
       </div>
-      {/* FIX702 / FIX702.0 <panel-my-ratings-content> / FIX702.2.0. */}
-      <div className="sc-my-ratings-content" data-yagu-id="panel-my-ratings-content">
+      {/* FIX702 / FIX702.0 <panel-my-ratings-content> / FIX702.2.0
+          (updated): three columns — ratings list, checked image
+          pattern, item details — the last two split by a slidable
+          splitter (FIX702.2.10). */}
+      <div className="sc-my-ratings-content" data-yagu-id="panel-my-ratings-content" ref={mainRef}>
         {error && <div className="sc-viewer-err">{error}</div>}
         {!data && !error && <div className="sc-catalogue-loading">Loading…</div>}
         {data && (
@@ -199,8 +248,12 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
                 in a checked (grid) pattern with a vertical scrollbar. */}
             <section className="sc-rated-images" data-yagu-id="panel-rated-images">
               {selectedFolders.map((f) => (
-                // FIX702.3.3: click selects the image, enabling the 0-9
-                // keyboard rating shortcuts below.
+                // FIX702.3.2 (updated): click selects the image and
+                // opens/refreshes <panel-item-details> below — the
+                // latter is automatic, ItemDetailsPanel re-renders off
+                // selectedItemFolder whenever selectedItemId changes.
+                // FIX702.3.3: selecting also enables the 0-9 keyboard
+                // rating shortcuts.
                 <div
                   key={f.id}
                   className={`sc-rated-image-cell${f.id === selectedItemId ? ' selected' : ''}`}
@@ -225,6 +278,29 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
                   </div>
                 </div>
               ))}
+            </section>
+            {/* FIX702.2.10: slidable vertical splitter between
+                <panel-rated-images> and <panel-item-details>, same
+                drag mechanics as CatalogueView.jsx's list/viewer one. */}
+            <div
+              className="sc-splitter"
+              onMouseDown={onSplitterDown}
+              role="separator"
+              aria-orientation="vertical"
+              title="Drag to resize"
+            />
+            {/* FIX702.2.3 + .2.3.0 <panel-item-details>: existing panel
+                (FIX518), reused via ItemDetailsPanel.jsx. View-mode
+                only — no edition affordance defined for My ratings. */}
+            <section className="sc-viewer sc-my-ratings-details" style={{ width: detailsWidth, flex: '0 0 auto' }}>
+              <ItemDetailsPanel
+                folder={selectedItemFolder}
+                folders={folders}
+                properties={properties}
+                propertiesByLabel={propertiesByLabel}
+                deletedPropertyId={deletedPropertyId}
+                folderColumnName={folderColumnName}
+              />
             </section>
           </>
         )}

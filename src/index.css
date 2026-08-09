@@ -204,7 +204,15 @@ body {
   align-content: start;
 }
 .sc-rated-image-cell {
-  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 2px;
+}
+/* FIX702.3.3: selected image (keyboard-rating target), same accent
+   used for a selected row/pill elsewhere. */
+.sc-rated-image-cell.selected {
+  border-color: var(--color-selected-border, var(--color-accent));
 }
 .sc-rated-image-cell img {
   display: block;
@@ -215,28 +223,20 @@ body {
   background: var(--color-bg-lighter);
 }
 /* FIX702.4.4 + FIX702.4.3 (updated): caption row below the image — ref
-   centred, conflict icon (when present) pinned to the right via the
-   ref taking the row's full width and the icon absolutely positioned
-   within it, so the ref stays visually centred regardless. */
+   and (when present) the conflict icon flow inline together, centred
+   as one unit, separated by a plain space character. Literal white
+   (not a theme token) per FIX702.4.4's own wording. */
 .sc-rated-image-caption {
-  position: relative;
-  margin-top: 0.2rem;
-}
-/* FIX702.4.4: item ref, white, centred. Literal white (not a theme
-   token) per spec wording. */
-.sc-rated-image-ref {
   color: #fff;
   text-align: center;
   font-size: 0.85rem;
+  margin-top: 0.2rem;
 }
 /* FIX702.4.3 (updated) <item-with-conflicting-rating>: same icon as
-   <icon-rating>'s inline use (FIX520.4.8), now at the right of the
-   caption row instead of overlaying the image. */
+   <icon-rating>'s inline use (FIX520.4.8), inline after the ref now
+   instead of overlaying the image. */
 .sc-rated-image-conflict {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
+  vertical-align: middle;
 }
 
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left

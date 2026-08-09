@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getShowcase } from './data/backend.js';
+import { getShowcase, setMyRating } from './data/backend.js';
 import { ProjectHeaderLeft, ProjectHeaderRight } from './ProjectHeader.jsx';
 import { RATING_ICONS, IconRatingConflict } from './Icons.jsx';
 
@@ -24,17 +24,79 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
   // default — the spec only defines what happens on click, not an
   // initial auto-selection.
   const [selectedRatingKey, setSelectedRatingKey] = useState(null);
+  // FIX702.3.3: which image in <panel-rated-images> is selected — no
+  // FTag defines the click-to-select itself (none numbered between
+  // FIX702.3.1 and FIX702.3.3), but the keyboard shortcuts need a
+  // target, same as <panel-showcase-img-viewer>'s own selectedFolderId.
+  const [selectedItemId, setSelectedItemId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     setData(null);
     setError(null);
     setSelectedRatingKey(null);
+    setSelectedItemId(null);
     getShowcase(slug)
       .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => { if (!cancelled) setError(e.message || String(e)); });
     return () => { cancelled = true; };
   }, [slug]);
+
+  // FIX702.3.3 / FIX702.3.3.1: set (ratingValueId) or clear (null, the
+  // '0' key) the selected image's rating — same digit-key convention
+  // (0 clears, N picks the Nth <table-rating-values> row) and the same
+  // optimistic-update-with-silent-revert-on-failure as CatalogueView's
+  // handleSetMyRating (no error message is spec'd for a rejected
+  // rating here either). FIX702.3.3.1's three consequences are handled
+  // as follows once my_rating_value_id changes locally:
+  //   - "removes the image from the current list": automatic —
+  //     selectedFolders re-filters by my_rating_value_id.
+  //   - "reassess the number of items for each rating": automatic —
+  //     ratingBuckets re-derives its counts from folders.
+  //   - "reassess the conflicts for this image": has_rating_conflict is
+  //     computed server-side against every rater's score, not just the
+  //     caller's — a silent background re-fetch (no loading flash,
+  //     data only swapped once it lands) picks up the recomputed flag
+  //     for every item, not just this one.
+  const handleSetRating = (folderId, ratingValueId) => {
+    const prevFolder = (data?.folders ?? []).find((f) => f.id === folderId);
+    const prevRatingValueId = prevFolder?.my_rating_value_id ?? null;
+    setData((prev) => ({
+      ...prev,
+      folders: (prev.folders ?? []).map((f) => (
+        f.id === folderId ? { ...f, my_rating_value_id: ratingValueId } : f
+      )),
+    }));
+    setMyRating(folderId, ratingValueId)
+      .then(() => getShowcase(slug).then((d) => setData(d)).catch(() => {}))
+      .catch(() => {
+        setData((prev) => ({
+          ...prev,
+          folders: (prev.folders ?? []).map((f) => (
+            f.id === folderId ? { ...f, my_rating_value_id: prevRatingValueId } : f
+          )),
+        }));
+      });
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const ae = document.activeElement;
+      const tag = ae?.tagName;
+      const editable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
+      if (editable || !ratingEnabled || selectedItemId == null || !/^[0-9]$/.test(e.key)) return;
+      e.preventDefault();
+      if (e.key === '0') {
+        handleSetRating(selectedItemId, null);
+      } else {
+        const rv = (data?.rating_setup?.values ?? [])[Number(e.key) - 1];
+        if (rv) handleSetRating(selectedItemId, rv.id);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItemId, ratingEnabled, data]);
 
   // FIX702.2.1: "It is the Grouping for My Ratings without the Grouping
   // name" — the same auto-managed 'My basket' grouping (FIX373.5.1,
@@ -137,19 +199,28 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
                 in a checked (grid) pattern with a vertical scrollbar. */}
             <section className="sc-rated-images" data-yagu-id="panel-rated-images">
               {selectedFolders.map((f) => (
-                <div key={f.id} className="sc-rated-image-cell">
+                // FIX702.3.3: click selects the image, enabling the 0-9
+                // keyboard rating shortcuts below.
+                <div
+                  key={f.id}
+                  className={`sc-rated-image-cell${f.id === selectedItemId ? ' selected' : ''}`}
+                  onClick={() => setSelectedItemId(f.id)}
+                >
                   <img src={f.main_image_url} alt={f.name} loading="lazy" />
                   {/* FIX702.4.4 + FIX702.4.3 (updated): caption row below
                       the image — item ref (folder.name), white, centred
-                      (FIX702.4.4); when the item has a conflicting rating,
-                      the same has_rating_conflict flag + icon the
-                      Catalogue viewer's <icon-rating> already uses
-                      (FIX520.4.8) now sits at the right of that row
-                      instead of overlaying the image (FIX702.4.3(old)). */}
+                      (FIX702.4.4), with a conflicting rating's red bold
+                      exclamation point (same has_rating_conflict flag +
+                      icon as the Catalogue viewer's <icon-rating>,
+                      FIX520.4.8) at the right of the ref, separated by a
+                      space. */}
                   <div className="sc-rated-image-caption">
-                    <div className="sc-rated-image-ref">{f.name}</div>
+                    {f.name}
                     {f.has_rating_conflict && (
-                      <IconRatingConflict size={16} className="sc-rated-image-conflict" />
+                      <>
+                        {' '}
+                        <IconRatingConflict size={14} className="sc-rated-image-conflict" />
+                      </>
                     )}
                   </div>
                 </div>

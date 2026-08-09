@@ -2306,7 +2306,7 @@ body {
      [x] p1
      [x] p2
      ...
-   [Reset pswd]       [Cancel][Save]                                 */
+   [Cancel][Save]                                                    */
 .panel-user-modal {
   width: min(420px, 100%);
   display: flex;
@@ -2365,9 +2365,6 @@ body {
   justify-content: flex-end;
   gap: 0.4rem;
   margin-top: 0.4rem;
-}
-.panel-user-actions .btn-reset-pswd {
-  margin-right: auto;
 }
 .panel-user-actions button {
   padding: 0.35rem 0.9rem;

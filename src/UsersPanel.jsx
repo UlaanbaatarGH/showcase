@@ -152,10 +152,11 @@ export default function UsersPanel({ onClose }) {
     }
   };
 
-  // FIX312.3.1: <btn-reset-pswd> triggers <process-reset-pswd> (FIX318).
-  // Admin-only, same gate as the other <panel-user> credential fields
-  // (FIX311.5.4 / .5.5). FIX318.2.3: refresh <list-users> afterwards so
-  // the cleared password / new access code show up in the table.
+  // FIX311.2.5[ex-312.2.12] <btn-reset-pswd> (users-list toolbar) triggers
+  // <process-reset-pswd> (FIX312.3.1 -> FIX318). Admin-only, same gate as
+  // the <panel-user> credential fields (FIX311.5.4 / .5.5). FIX318.2.3:
+  // refresh <list-users> afterwards so the cleared password / new access
+  // code show up in the table.
   const onResetPassword = async (userId) => {
     if (!userId || !isAdmin) return;
     setBusy(true);
@@ -204,9 +205,11 @@ export default function UsersPanel({ onClose }) {
             Close
           </button>
         </header>
-        {/* Toolbar: FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only;
-            FIX311.5.6 also lets project managers open the Edit panel
-            (only the projects they manage are editable inside it). */}
+        {/* FIX311.2.0 layout diagram — toolbar order:
+            [<admin-add-user>][<admin-remove-user>][<btn-edit-user>][<btn-reset-pswd>]
+            FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only; FIX311.5.6
+            also lets project managers open the Edit panel (only the
+            projects they manage are editable inside it). */}
         {(isAdmin || canEditAnyProject) && (
           <div className="users-toolbar">
             {isAdmin && (
@@ -249,6 +252,23 @@ export default function UsersPanel({ onClose }) {
             >
               Edit
             </button>
+            {/* FIX311.2.5[ex-312.2.12] + FIX311.2.5.0[ex-312.2.12.0]
+                <btn-reset-pswd>: moved here from <panel-user> (was
+                FIX312.2.12, now FIX312.2.12(removed)). Admin-only, same
+                gate as Add/Remove — triggers <process-reset-pswd>
+                (FIX312.3.1 -> FIX318) for the selected row directly. */}
+            {isAdmin && (
+              <button
+                type="button"
+                className="users-projects-btn"
+                data-yagu-id="btn-reset-pswd"
+                onClick={() => onResetPassword(selectedId)}
+                disabled={busy || !selectedId}
+                title="Reset password"
+              >
+                Reset pswd
+              </button>
+            )}
           </div>
         )}
         {error && <div className="visits-err">{error}</div>}
@@ -350,7 +370,6 @@ export default function UsersPanel({ onClose }) {
             )}
             onCancel={() => setUserEditOpen(false)}
             onSubmit={(payload) => applyUserEdits(selectedId, payload)}
-            onResetPassword={() => onResetPassword(selectedId)}
           />
         )}
       </div>
@@ -434,8 +453,8 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
 // admin-only fields per FIX311.5.4 / .5.5 — for non-admin callers
 // (Project Managers) those inputs render disabled. The project list
 // follows FIX312.4.1: admins see every project, others only the ones
-// they themselves manage. <btn-reset-pswd> (FIX312.2.12), admin-only,
-// triggers <process-reset-pswd> (FIX312.3.1 -> FIX318).
+// they themselves manage. <btn-reset-pswd> moved out to the users-list
+// toolbar (FIX311.2.5[ex-312.2.12]) — FIX312.2.12 is now removed here.
 function UserPanel({
   busy,
   user,
@@ -445,7 +464,6 @@ function UserPanel({
   canSeeEmail,
   onCancel,
   onSubmit,
-  onResetPassword,
 }) {
   const initialPicked = useMemo(
     () => new Set((user?.projects || []).map((p) => p.id)),
@@ -482,7 +500,7 @@ function UserPanel({
               [x] project1
               [x] project2
               ...
-            [Reset pswd]       [Cancel][Save] */}
+            [Cancel][Save] */}
         <div className="panel-user-title">User {user.name}</div>
         {/* FIX312.2.1 Field 'Name'. */}
         <div className="panel-user-row">
@@ -536,20 +554,6 @@ function UserPanel({
           )}
         </div>
         <div className="panel-user-actions">
-          {/* FIX312.2.12 + FIX312.2.12.0 <btn-reset-pswd>: admin-only,
-              same gate as Name/Email (FIX311.5.4 / .5.5). Triggers
-              <process-reset-pswd> (FIX312.3.1 -> FIX318). */}
-          {isAdmin && (
-            <button
-              type="button"
-              className="btn-reset-pswd"
-              data-yagu-id="btn-reset-pswd"
-              onClick={onResetPassword}
-              disabled={busy}
-            >
-              Reset pswd
-            </button>
-          )}
           {/* FIX312.2.10 Button Cancel. */}
           <button type="button" onClick={onCancel} disabled={busy}>
             Cancel

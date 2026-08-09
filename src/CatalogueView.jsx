@@ -176,7 +176,7 @@ function compareValues(a, b) {
 // pixel-stable across a view switch.
 export default function CatalogueView({
   slug, initialItemId, onNavigateHome, currentView, onSwitchView,
-  initialProjectName, onProjectLoaded,
+  initialProjectName, initialRatingEnabled, onProjectLoaded,
 }) {
   // signOut moved into ProjectHeaderRight (own useAuth() call) since the
   // sign-out button lives there now — profile is still needed here for
@@ -1194,7 +1194,7 @@ export default function CatalogueView({
     setData(null);
     selectOnly(null);
     getShowcase(slug)
-      .then((d) => { setData(d); onProjectLoaded?.(d.project?.name); })
+      .then((d) => { setData(d); onProjectLoaded?.(d.project?.name, !!d.rating_setup?.enabled); })
       .catch((e) => setError(e.message || String(e)));
     // FIX503.4.1: re-fetch on sign-in/sign-out too — the response
     // carries the per-user is_admin_or_manager flag that gates the
@@ -2432,6 +2432,7 @@ export default function CatalogueView({
               onNavigateHome={() => onNavigateHome?.()}
               currentView={currentView}
               onSwitchView={onSwitchView}
+              ratingEnabled={initialRatingEnabled}
             />
           )}
           <span className="sc-topbar-spacer" />
@@ -2735,6 +2736,7 @@ export default function CatalogueView({
               onNavigateHome={() => onNavigateHome?.()}
               currentView={currentView}
               onSwitchView={onSwitchView}
+              ratingEnabled={!!data?.rating_setup?.enabled}
             />
             {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.4.4
                 <label-project-title>: decorative label rendered in the

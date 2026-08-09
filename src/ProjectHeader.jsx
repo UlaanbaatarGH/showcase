@@ -11,7 +11,8 @@ import { useAuth } from './AuthContext.jsx';
 // middle content (Columns/Grouping/Import/Admin/Setup for Catalogue;
 // nothing for My ratings) exactly where it already lives in its own
 // JSX, instead of threading it through as children.
-export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, onSwitchView }) {
+export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, onSwitchView, ratingEnabled }) {
+  const { profile } = useAuth();
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const viewMenuRef = useRef(null);
 
@@ -46,44 +47,49 @@ export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, on
       </h1>
       {/* FIX503.2.10 + .2.10.0 + .2.10.2 / FIX701.2.3 + .2.3.0 <menu-view>:
           switch between <view-catalogue> (FIX503.3.6) and
-          <view-my-ratings> (FIX503.3.7). */}
-      <div className="sc-menu" data-yagu-id="menu-view" ref={viewMenuRef}>
-        <button
-          type="button"
-          className="sc-menu-trigger"
-          onClick={() => setViewMenuOpen((v) => !v)}
-          aria-haspopup="menu"
-          aria-expanded={viewMenuOpen}
-        >
-          View ▾
-        </button>
-        {viewMenuOpen && (
-          <ul className="sc-menu-items" role="menu">
-            <li>
-              {/* FIX503.2.10.2.1 + FIX503.3.6 <menu-view-catalogue>. */}
-              <button
-                type="button"
-                role="menuitem"
-                data-yagu-id="menu-view-catalogue"
-                onClick={() => { setViewMenuOpen(false); onSwitchView('catalogue'); }}
-              >
-                {currentView === 'catalogue' ? '✓ ' : ''}Catalogue
-              </button>
-            </li>
-            <li>
-              {/* FIX503.2.10.2.2 + FIX503.3.7 <menu-view-my-ratings>. */}
-              <button
-                type="button"
-                role="menuitem"
-                data-yagu-id="menu-view-my-ratings"
-                onClick={() => { setViewMenuOpen(false); onSwitchView('my-ratings'); }}
-              >
-                {currentView === 'my-ratings' ? '✓ ' : ''}My ratings
-              </button>
-            </li>
-          </ul>
-        )}
-      </div>
+          <view-my-ratings> (FIX503.3.7). FIX503.4.5: only visible to
+          logged-in users, and only in projects with rating enabled
+          (<field-enable-rating> / rating_setup.enabled) — there'd be
+          nothing to show in My ratings otherwise. */}
+      {profile && ratingEnabled && (
+        <div className="sc-menu" data-yagu-id="menu-view" ref={viewMenuRef}>
+          <button
+            type="button"
+            className="sc-menu-trigger"
+            onClick={() => setViewMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={viewMenuOpen}
+          >
+            View ▾
+          </button>
+          {viewMenuOpen && (
+            <ul className="sc-menu-items" role="menu">
+              <li>
+                {/* FIX503.2.10.2.1 + FIX503.3.6 <menu-view-catalogue>. */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-yagu-id="menu-view-catalogue"
+                  onClick={() => { setViewMenuOpen(false); onSwitchView('catalogue'); }}
+                >
+                  {currentView === 'catalogue' ? '✓ ' : ''}Catalogue
+                </button>
+              </li>
+              <li>
+                {/* FIX503.2.10.2.2 + FIX503.3.7 <menu-view-my-ratings>. */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-yagu-id="menu-view-my-ratings"
+                  onClick={() => { setViewMenuOpen(false); onSwitchView('my-ratings'); }}
+                >
+                  {currentView === 'my-ratings' ? '✓ ' : ''}My ratings
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
+      )}
     </>
   );
 }

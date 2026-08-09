@@ -67,12 +67,14 @@ function AppBody() {
   // never touches history/pushState.
   const [projectView, setProjectView] = useState('catalogue');
   // Cached from CatalogueView's own fetch (CatalogueView.jsx's
-  // onProjectLoaded) so the header's project name — and everything
-  // right of it in the same row, <menu-view> included — doesn't bump
-  // when switching views. Catalogue is the default view and always
-  // fetches first, so by the time My ratings can even be reached this
-  // is already populated; My ratings never fetches its own copy.
+  // onProjectLoaded) so the header's project name and <menu-view>'s
+  // visibility (FIX503.4.5: logged-in + rating-enabled projects only)
+  // — and everything right of them in the same row — don't bump when
+  // switching views. Catalogue is the default view and always fetches
+  // first, so by the time My ratings can even be reached these are
+  // already populated; My ratings never fetches its own copy.
   const [projectName, setProjectName] = useState(null);
+  const [ratingEnabled, setRatingEnabled] = useState(false);
 
   useEffect(() => {
     const onPop = () => setRoute(parseLocation());
@@ -82,7 +84,11 @@ function AppBody() {
 
   // Reset to Catalogue whenever the project itself changes — a view
   // choice made on one project shouldn't leak into the next one opened.
-  useEffect(() => { setProjectView('catalogue'); setProjectName(null); }, [route.slug]);
+  useEffect(() => {
+    setProjectView('catalogue');
+    setProjectName(null);
+    setRatingEnabled(false);
+  }, [route.slug]);
 
   if (isLocalApp && !startModeChosen) {
     return (
@@ -119,6 +125,7 @@ function AppBody() {
       <MyRatingsView
         slug={route.slug}
         projectName={projectName}
+        ratingEnabled={ratingEnabled}
         onNavigateHome={() => navigate('/')}
         currentView={projectView}
         onSwitchView={setProjectView}
@@ -133,7 +140,8 @@ function AppBody() {
       currentView={projectView}
       onSwitchView={setProjectView}
       initialProjectName={projectName}
-      onProjectLoaded={setProjectName}
+      initialRatingEnabled={ratingEnabled}
+      onProjectLoaded={(name, enabled) => { setProjectName(name); setRatingEnabled(enabled); }}
     />
   );
 }

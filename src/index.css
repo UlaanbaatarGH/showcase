@@ -1873,6 +1873,27 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
+/* FIX311.3.2.1 / FIX311.3.6.1 <confirm-dialog>: Title/Message popup
+   shared by delete-user and reset-password. Title is bold + larger
+   than the message so it reads as a heading. */
+.confirm-dialog {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+.confirm-dialog-title {
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin-bottom: 0.6rem;
+}
+.confirm-dialog-message {
+  color: var(--color-text);
+  margin-bottom: 1rem;
+}
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 /* Sign-in panel (FIX310) */
 .signin-panel {
   display: flex;

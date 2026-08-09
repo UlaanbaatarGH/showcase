@@ -37,6 +37,10 @@ export default function UsersPanel({ onClose }) {
   const [selectedId, setSelectedId] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // FIX311.3.2.1 / FIX311.3.6.1: shared Title/Message confirmation popup
+  // state — { title, message, run } — set by whichever action needs
+  // confirming, cleared on Cancel or after Ok runs it.
+  const [confirm, setConfirm] = useState(null);
 
   const reload = useCallback(() => {
     Promise.all([listUsers(), listAdminProjects().catch(() => [])])
@@ -157,46 +161,55 @@ export default function UsersPanel({ onClose }) {
   // the <panel-user> credential fields (FIX311.5.4 / .5.5). FIX318.2.3:
   // refresh <list-users> afterwards so the cleared password / new access
   // code show up in the table.
-  const onResetPassword = async (userId) => {
+  const onResetPassword = (userId) => {
     if (!userId || !isAdmin) return;
     const target = users?.find((u) => u.id === userId);
     if (!target) return;
     // FIX311.3.6.1: confirmation popup before triggering the process.
-    const ok = window.confirm(
-      `Reset user's password\n\nConfirm password reset for user "${target.name}"?`,
-    );
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await resetUserPassword(userId);
-      await new Promise((r) => {
-        listUsers().then((d) => { setUsers(d); r(); }).catch(() => r());
-      });
-      setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setBusy(false);
-    }
+    setConfirm({
+      title: "Reset user's password",
+      message: `Confirm password reset for user "${target.name}"?`,
+      run: async () => {
+        // FIX311.3.6.2: on Ok, trigger <process-reset-pswd>.
+        setBusy(true);
+        try {
+          await resetUserPassword(userId);
+          await new Promise((r) => {
+            listUsers().then((d) => { setUsers(d); r(); }).catch(() => r());
+          });
+          setError(null);
+        } catch (e) {
+          setError(e.message || String(e));
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   };
 
-  const onRemove = async () => {
+  const onRemove = () => {
     if (!selectedId) return;
     const target = users?.find((u) => u.id === selectedId);
     if (!target) return;
-    // FIX311.3.2: confirm before removing.
-    const ok = window.confirm(`Remove user "${target.name}"?`);
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await deleteUser(selectedId);
-      setUsers((prev) => (prev ? prev.filter((u) => u.id !== selectedId) : prev));
-      setError(null);
-    } catch (e) {
-      setError(e.message || String(e));
-    } finally {
-      setBusy(false);
-    }
+    // FIX311.3.2 <cmd-delete-user> [deep-updated from the plain-confirm
+    // FIX311.3.2(deep-old)]. FIX311.3.2.1: confirmation popup.
+    setConfirm({
+      title: 'Delete user',
+      message: `Confirm deletion of user "${target.name}"?`,
+      run: async () => {
+        // FIX311.3.2.2: on Ok, delete the user.
+        setBusy(true);
+        try {
+          await deleteUser(selectedId);
+          setUsers((prev) => (prev ? prev.filter((u) => u.id !== selectedId) : prev));
+          setError(null);
+        } catch (e) {
+          setError(e.message || String(e));
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   };
 
   return (
@@ -213,7 +226,7 @@ export default function UsersPanel({ onClose }) {
           </button>
         </header>
         {/* FIX311.2.0 layout diagram — toolbar order:
-            [<admin-add-user>][<admin-remove-user>][<btn-edit-user>][<cmd-reset-pswd>]
+            [<admin-add-user>][<cmd-delete-user>][<btn-edit-user>][<cmd-reset-pswd>]
             FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only; FIX311.5.6
             also lets project managers open the Edit panel (only the
             projects they manage are editable inside it). */}
@@ -233,11 +246,11 @@ export default function UsersPanel({ onClose }) {
                 >
                   <IconAdd size={20} />
                 </button>
-                {/* FIX311.2.3 + FIX311.2.3.0 <admin-remove-user>: red cross icon. */}
+                {/* FIX311.2.3 + FIX311.2.3.0[ex-admin-remove-user] <cmd-delete-user>: red cross icon. */}
                 <button
                   type="button"
                   className="users-remove"
-                  data-yagu-id="admin-remove-user"
+                  data-yagu-id="cmd-delete-user"
                   onClick={onRemove}
                   disabled={busy || !selectedId}
                   aria-label="Remove user"
@@ -380,6 +393,21 @@ export default function UsersPanel({ onClose }) {
             onSubmit={(payload) => applyUserEdits(selectedId, payload)}
           />
         )}
+        {/* FIX311.3.2.1 / FIX311.3.6.1: shared confirmation popup for
+            delete-user and reset-password. */}
+        {confirm && (
+          <ConfirmDialog
+            title={confirm.title}
+            message={confirm.message}
+            busy={busy}
+            onCancel={() => setConfirm(null)}
+            onConfirm={() => {
+              const { run } = confirm;
+              setConfirm(null);
+              run();
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -450,6 +478,34 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// FIX311.3.2.1 / FIX311.3.6.1: shared Title/Message confirmation popup,
+// used by delete-user and reset-password — both spec entries define the
+// same shape (Title, Message, Cancel/Ok). Title renders bold + larger
+// than the message so it reads as a heading, not a native browser
+// confirm() (which can't be styled at all).
+function ConfirmDialog({ title, message, busy, onCancel, onConfirm }) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div
+        className="modal confirm-dialog"
+        data-yagu-id="confirm-dialog"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="confirm-dialog-title">{title}</div>
+        <div className="confirm-dialog-message">{message}</div>
+        <div className="confirm-dialog-actions">
+          <button type="button" className="btn-cancel" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button type="button" className="btn-primary" onClick={onConfirm} disabled={busy}>
+            {busy ? '…' : 'Ok'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

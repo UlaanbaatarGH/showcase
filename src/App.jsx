@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import HomeView from './HomeView.jsx';
-import ShowcaseView from './ShowcaseView.jsx';
+import CatalogueView from './CatalogueView.jsx';
+import MyRatingsView from './MyRatingsView.jsx';
 import { AuthProvider } from './AuthContext.jsx';
 import { LanguageProvider } from './i18n/i18n.jsx';
 import { navigate, parseLocation, projectSlug } from './router.js';
@@ -9,7 +10,7 @@ import { forceLocalMode, checkCloudReachable } from './data/backend.js';
 const isLocalApp = import.meta.env.DEV;
 
 // FIX680.3 <local-start-mode-popup>: local-app-only, shown once at startup —
-// blocks HomeView/ShowcaseView from mounting until the user picks a mode.
+// blocks HomeView/CatalogueView from mounting until the user picks a mode.
 // FIX680.3.1: 'On-line' stays disabled until checkCloudReachable() resolves
 // true; it never re-checks after that (FIX680.2 — a later reconnect, or a
 // connection that drops right after this check, is not this popup's
@@ -58,12 +59,23 @@ function AppBody() {
   // FIX680.3: decided once per session — local-app builds start gated,
   // online (production) builds skip the popup entirely.
   const [startModeChosen, setStartModeChosen] = useState(!isLocalApp);
+  // FIX503.2.10 / FIX503.3.6 / FIX503.3.7 <menu-view>: which of the two
+  // views (<view-catalogue> / <view-my-ratings>) is showing for the
+  // current project. Client-side only, on purpose — the URL stays on
+  // the project (per direct instruction: item-level deep-linking for a
+  // specific view is a later, still-TBD feature), so switching views
+  // never touches history/pushState.
+  const [projectView, setProjectView] = useState('catalogue');
 
   useEffect(() => {
     const onPop = () => setRoute(parseLocation());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+
+  // Reset to Catalogue whenever the project itself changes — a view
+  // choice made on one project shouldn't leak into the next one opened.
+  useEffect(() => { setProjectView('catalogue'); }, [route.slug]);
 
   if (isLocalApp && !startModeChosen) {
     return (
@@ -95,11 +107,23 @@ function AppBody() {
   }
 
   // route.view === 'project'
+  if (projectView === 'my-ratings') {
+    return (
+      <MyRatingsView
+        slug={route.slug}
+        onNavigateHome={() => navigate('/')}
+        currentView={projectView}
+        onSwitchView={setProjectView}
+      />
+    );
+  }
   return (
-    <ShowcaseView
+    <CatalogueView
       slug={route.slug}
       initialItemId={route.item}
       onNavigateHome={() => navigate('/')}
+      currentView={projectView}
+      onSwitchView={setProjectView}
     />
   );
 }

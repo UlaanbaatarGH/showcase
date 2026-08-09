@@ -9,17 +9,13 @@ import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
 import SetGsheetPanel from './gsheet/SetGsheetPanel.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
-import ContactPanel from './ContactPanel.jsx';
 import {
-  IconHome,
-  IconAbout,
-  IconContact,
-  IconSignOut,
   IconCamera,
   RichText,
   RATING_ICONS,
   IconRatingConflict,
 } from './Icons.jsx';
+import { ProjectHeaderLeft, ProjectHeaderRight } from './ProjectHeader.jsx';
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
@@ -31,7 +27,6 @@ import {
 import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
-import { buildItemShortLabel } from './properties/itemShortLabel.js';
 import { isAcceptedImage } from './images/importImages.js';
 import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, clearDeletedTag, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
 
@@ -54,7 +49,7 @@ const CAMERA_CAPTURE_LAST_FOLDER_KEY = 'sc-camera-capture-last-folder';
 // publishItemImages.js; this used to be FIX653's own capture-only copy of
 // the same mechanism, now formalized and generalized by FIX670).
 
-// Live viewport-size listener; pairs with FIX503.5.4 (long vs short
+// Live viewport-size listener; pairs with FIX503.4.4 (long vs short
 // project title pick). Returns `true` when the media query matches
 // and re-renders on resize.
 function useMediaQuery(query) {
@@ -166,10 +161,19 @@ function compareValues(a, b) {
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
 }
 
-export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
-  const { profile, signOut } = useAuth();
+// FIX502 [ex-showcase-view] <view-catalogue>: renamed from 'Showcase
+// View' -- it's a catalogue (table + image viewer) of a project's
+// items, not the app's namesake view. currentView/onSwitchView come
+// from the parent (App.jsx) so <menu-view> (FIX503.2.10, rendered by
+// the shared ProjectHeader) can flip to <view-my-ratings> (FIX700)
+// without touching the URL.
+export default function CatalogueView({ slug, initialItemId, onNavigateHome, currentView, onSwitchView }) {
+  // signOut moved into ProjectHeaderRight (own useAuth() call) since the
+  // sign-out button lives there now — profile is still needed here for
+  // other gates (rating, sensitive-field visibility, etc).
+  const { profile } = useAuth();
   const [data, setData] = useState(null);
-  // FIX503.5.1: <menu-import>, <button-item-grouping>, <button-setup>,
+  // FIX503.4.1: <menu-import>, <button-item-grouping>, <button-setup>,
   // <menu-admin> are visible only to project Admins/Managers. The
   // backend computes per-project membership and returns the flag on
   // /api/showcase.
@@ -839,10 +843,6 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
-  // FIX503.3.5 <button-project-about>: simple Ok-only popup showing
-  // <project-introduction>.
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // FIX656 'Other…' group: local-app-only Commands menu items that aren't in
   // the always-visible top-level set (Add item/Delete item/Publish all) live
@@ -902,7 +902,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [undeleteItemPopup, setUndeleteItemPopup] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [activeBucketKey, setActiveBucketKey] = useState(null);
-  // FIX503.5.4: pick the smartphone vs PC variant of <project-title>.
+  // FIX503.4.4: pick the smartphone vs PC variant of <project-title>.
   // 600px matches the existing breakpoint used to hide
   // <label-project-name> on mobile.
   const isSmallScreen = useMediaQuery('(max-width: 600px)');
@@ -1186,13 +1186,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     getShowcase(slug)
       .then(setData)
       .catch((e) => setError(e.message || String(e)));
-    // FIX503.5.1: re-fetch on sign-in/sign-out too — the response
+    // FIX503.4.1: re-fetch on sign-in/sign-out too — the response
     // carries the per-user is_admin_or_manager flag that gates the
     // header's admin affordances.
   }, [slug, profile?.id]);
 
   // FIX352.3.10.10: re-fetch when admin saves project details (name,
-  // managers, intros, slugs etc.) so the open ShowcaseView reflects
+  // managers, intros, slugs etc.) so the open CatalogueView reflects
   // them without a manual reload. Skip when the event is for a
   // different project.
   useEffect(() => {
@@ -2116,7 +2116,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   // (FIX404.1.1), open the item whose id (folder name) matches the URL — no
   // group selected, item on the right (FIX404.1.2). Runs after the
   // select-first-item effect so this selection wins, and re-applies on each
-  // (re)fetch — e.g. the auth-triggered reload (FIX503.5.1) replaces `data`,
+  // (re)fetch — e.g. the auth-triggered reload (FIX503.4.1) replaces `data`,
   // and we must re-select rather than fall back to the default — until the
   // user picks a row themselves (userPickedRef).
   const userPickedRef = useRef(false);
@@ -2623,15 +2623,22 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   };
 
   return (
+    // FIX502 [ex-showcase-view] / FIX502.0 <view-catalogue>: reuses
+    // <panel-project-home> (FIX401.0) rather than defining a separate
+    // Id — same shared-container-Id pattern already used for
+    // <menu-import> (FIX369.0 doesn't define a separate one for FIX656
+    // either). MyRatingsView.jsx's <view-my-ratings> (FIX700.0) shares
+    // it the same way.
     <div className="sc-layout" data-yagu-id="panel-project-home">
       {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel.
-          FIX503.2.20.1 [ex-503.2.10.1] left: <button-home>,
-            <label-project-name>, <button-project-about>.
-          All other elements are right-aligned (FIX503.2.20). */}
+          FIX503.2.0 (updated) left: <button-home>, <label-project-name>,
+            <menu-view> (new), <label-project-title>.
+          All other elements are right-aligned. FIX503.3.5(removed):
+          <button-project-about> is gone from this left cluster. */}
       <div className="sc-topbar" data-yagu-id="panel-showcase-header">
         {/* FIX650.1 / FIX650.1.2.1 / FIX651 <menu-projects>: the local
             app's entire header is this switcher + <menu-import> + the
-            FIX654 <local-setup-menu> below — no Home/About/Title/Columns/
+            FIX654 <local-setup-menu> below — no Home/Title/Columns/
             Grouping/website-Admin/website-Setup/sign-out, matching the
             (updated) FIX650.1 mockup's 'Projects Import Setup' row. */}
         {isLocalApp && (
@@ -2678,43 +2685,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         )}
         {!isLocalApp && (
           <>
-            {/* FIX503.2.1 + FIX503.2.1.0 + FIX503.2.1.1 + FIX503.3.1
-                <button-home>: icon button, navigates to the home page. */}
-            <button
-              type="button"
-              className="sc-icon-btn"
-              data-yagu-id="button-home"
-              onClick={() => onNavigateHome?.()}
-              aria-label="Home"
-              title="Home"
-            >
-              <IconHome size={22} />
-            </button>
-            {/* FIX503.2.2 + FIX503.2.2.0 <label-project-name>. */}
-            <h1 className="sc-project-title" data-yagu-id="label-project-name">
-              {data.project?.name ?? 'Showcase'}
-            </h1>
-            {/* FIX503.2.12 [ex-503.2.11(dup)] + FIX503.3.5 + FIX503.5.3 +
-                FIX503.2.20.1 <button-project-about>: info '?' icon,
-                left-aligned next to the project name. Visible only when
-                the project has a non-empty <project-introduction>;
-                clicking opens a layer popup with the introduction text
-                and an Ok button. */}
-            {(data.project?.introduction || '').trim() && (
-              <button
-                type="button"
-                className="sc-icon-btn"
-                data-yagu-id="button-project-about"
-                onClick={() => setAboutOpen(true)}
-                aria-label="About this project"
-                title="About"
-              >
-                <IconAbout size={22} />
-              </button>
-            )}
-            {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.5.4
+            {/* FIX503.2.1/.2/.10 + FIX503.3.1/.3.6/.3.7 <button-home> +
+                <label-project-name> + <menu-view>: shared with the My
+                ratings header (FIX701.2.1/.2.2/.2.3) — see
+                ProjectHeader.jsx. FIX503.3.5(removed): the old
+                <button-project-about> that used to sit here is gone. */}
+            <ProjectHeaderLeft
+              projectName={data.project?.name}
+              onNavigateHome={() => onNavigateHome?.()}
+              currentView={currentView}
+              onSwitchView={onSwitchView}
+            />
+            {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.4.4
                 <label-project-title>: decorative label rendered in the
-                left cluster after the About button. Long text on PC
+                left cluster after the View menu. Long text on PC
                 viewports, short text on smartphone (matched against
                 min/max-width: 600px). When a project only has one of
                 the two, that one is shown on both — keeps existing
@@ -2747,10 +2731,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             {/* FIX503.2.20: spacer pushes the rest of the header to the
                 right edge. */}
             <span className="sc-topbar-spacer" />
-            {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.5.1.4
+            {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.4.1.4
                 <button-columns>: opens the standalone
                 <panel-showcase-view-setup> popup. Now gated to admin /
-                project-manager (FIX503.5.1.4 dup). */}
+                project-manager (FIX503.4.1.4 dup). */}
             {isAdminOrManager && (
               <button
                 type="button"
@@ -2761,7 +2745,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 Columns
               </button>
             )}
-            {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.5.1 (.4.1.2)
+            {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.4.1 (.4.1.2)
                 <button-item-grouping>: opens <panel-item-grouping-setup> in a
                 layer popup, admin- or project-manager-only. */}
             {isAdminOrManager && (
@@ -2776,8 +2760,8 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
             )}
           </>
         )}
-        {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Website: admin- or project-manager-only (FIX503.5.1). FIX369.1's
+        {/* FIX503.2.5 + FIX503.4.1.1 / FIX369 / FIX369.0 <menu-import>:
+            Website: admin- or project-manager-only (FIX503.4.1). FIX369.1's
             order now branches on whether <setup-properties-gsheet> is set —
             FIX369.1.1 (set): Open / Import properties gsheet / Import
             images, then <cmd-set-properties-gsheet> in an 'Other…' flyout.
@@ -3146,13 +3130,13 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
         )}
         {!isLocalApp && (
           <>
-            {/* FIX503.2.7 + FIX503.5.1 (.4.1.4) <menu-admin>: admin- or
+            {/* FIX503.2.7 + FIX503.4.1 (.4.1.4) <menu-admin>: admin- or
                 project-manager-only, alongside the other admin affordances.
                 Reuses the same component instantiated on the App home page
                 (FIX410.4.1 / FIX410.4.2). FIX650: dropped entirely for the
                 local app — no admin menu there. */}
             {isAdminOrManager && <AdminMenu projectId={data.project?.id ?? null} />}
-            {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.5.1 (.4.1.3)
+            {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.4.1 (.4.1.3)
                 <button-setup>: Setup icon button, admin- or project-manager-only.
                 Opens the tabbed general panel (property list + file-explorer
                 settings, plus the Showcase tab as a convenience). */}
@@ -3168,41 +3152,15 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                 ⚙
               </button>
             )}
-            {/* FIX503.2.11 + FIX503.3.4 <button-contact-admin>: opens
-                <panel-contact-admin>. Visible to everyone (anonymous
-                visitors included). Now an icon button (envelope). */}
-            <button
-              type="button"
-              className="sc-icon-btn"
-              data-yagu-id="button-contact-admin"
-              onClick={() => setContactOpen(true)}
-              aria-label="Contact"
-              title="Contact"
-            >
-              <IconContact size={22} />
-            </button>
-            {/* FIX503.2.9 {user}: the signed-in user's name, between
-                Contact and Sign out per the FIX503.2 layout. Only visible
-                when signed in. FIX650: local app has no sign-in concept. */}
-            {profile && (
-              <span className="sc-user-label">{profile.login_name}</span>
-            )}
-            {/* FIX503.2 layout (last item) + FIX503.2.8 [ex-503.2.6] +
-                FIX503.2.8.1 (the spec's typo'd FIX400.2.8.1) +
-                FIX400.4.10 <button-sign-out>: icon button, visible only
-                when the caller is signed in (FIX503.2.8.2). */}
-            {profile && (
-              <button
-                type="button"
-                className="sc-icon-btn"
-                data-yagu-id="button-sign-out"
-                onClick={signOut}
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <IconSignOut size={22} />
-              </button>
-            )}
+            {/* FIX503.2.11(removed) <button-contact-admin>: gone from
+                the header (see the removal note further down near
+                where its popup used to render). */}
+            {/* FIX503.2.9/.2.8 {user} + <button-sign-out>: shared with
+                the My ratings header (FIX701.2.9/.2.8) — see
+                ProjectHeader.jsx. FIX650: local app has no sign-in
+                concept, hence this whole block staying inside
+                !isLocalApp. */}
+            <ProjectHeaderRight />
           </>
         )}
       </div>
@@ -4299,64 +4257,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX503.3.4 + FIX420 <panel-contact-admin>: anonymous
-          contact form opened from <button-contact-admin>. The
-          message is tagged with the current project so
-          <panel-message-list> can filter by project (FIX421). */}
-      {contactOpen && (() => {
-        // FIX420.2.2 + FIX420.4.2.4: build the {id, label} list for the
-        // currently-selected items in display order. Empty when nothing
-        // is selected — the contact form just hides the section.
-        const labelParts = viewSetup.item_short_label;
-        const idsSet = new Set(selectedFolderIds);
-        const itemsForContact = (displayedFolders || [])
-          .filter((f) => idsSet.has(f.id))
-          .map((f) => ({
-            id: f.id,
-            label: buildItemShortLabel(
-              f, labelParts, properties, propertiesByLabel,
-            ) || f.name || `Item ${f.id}`,
-          }));
-        return (
-          <ContactPanel
-            onClose={() => setContactOpen(false)}
-            projectId={data.project?.id ?? null}
-            selectedItems={itemsForContact}
-            // FIX420.4.2.5: pre-fill the reply-addr with the signed-in
-            // visitor's email when one is on file.
-            defaultEmail={profile?.email || ''}
-          />
-        );
-      })()}
-      {/* FIX503.3.5 'About' popup: read-only display of the project
-          introduction with a single Ok button. */}
-      {aboutOpen && (
-        <div className="modal-backdrop" onClick={() => setAboutOpen(false)}>
-          <div
-            className="modal sc-about-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2>About</h2>
-            <div
-              className="sc-about-text"
-              data-yagu-id="project-introduction"
-            >
-              {/* FIX352.3.4.4 */}
-              <RichText text={data.project?.introduction} />
-            </div>
-            <div className="sc-about-actions">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => setAboutOpen(false)}
-                autoFocus
-              >
-                Ok
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* FIX503.2.11(removed) <button-contact-admin> / <panel-contact-admin>:
+          the Contact entry point is gone from the Catalogue header. FIX420
+          (the contact-form feature itself) is untouched/still spec'd —
+          this only removes its trigger here. */}
+      {/* FIX503.3.5(removed) 'About' popup: the whole feature (button +
+          popup) is gone per direct instruction — <project-introduction>
+          had no other visible entry point, so it's effectively dormant
+          data now (still stored/editable in Setup, just not surfaced). */}
       {/* FIX520.3.2 + FIX523 <panel-showcase-img-viewer-fullscreen>:
           full-screen image overlay. FIX523.2: same layout as the
           in-page viewer with no sections panel — image fills the

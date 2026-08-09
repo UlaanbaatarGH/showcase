@@ -164,6 +164,11 @@ body {
    the top bar. */
 .sc-topbar-spacer { flex: 1; }
 
+/* FIX702.2 <panel-my-ratings-content>: 'UI Layout: blank screen' —
+   just fills the space below <panel-my-ratings-header>, same flex:1
+   role .sc-main plays for the Catalogue view. */
+.sc-my-ratings-content { flex: 1; }
+
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left
    cluster. Inline styles set size / colour / weight from the
    project's settings; this only handles the layout. white-space:
@@ -2108,7 +2113,7 @@ body {
   letter-spacing: 0.02em;
   color: var(--color-text);
 }
-/* FIX503.5.2: <label-project-name> hidden on smartphone-sized
+/* FIX503.4.2: <label-project-name> hidden on smartphone-sized
    viewports — it eats too much room from the top bar buttons. */
 @media (max-width: 600px) {
   .sc-project-title { display: none; }
@@ -3038,23 +3043,5 @@ body {
   color: var(--color-text-muted);
 }
 
-/* FIX503.3.5 About popup: small modal showing <project-introduction>. */
-.sc-about-modal {
-  width: min(420px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem 1.25rem;
-}
-.sc-about-modal h2 { margin: 0; font-size: 1.1rem; }
-.sc-about-text {
-  white-space: pre-wrap;
-  color: var(--color-text);
-  line-height: 1.4;
-  max-height: 50vh;
-  overflow: auto;
-}
-.sc-about-actions {
-  display: flex;
-  justify-content: flex-end;
-}
+/* FIX503.3.5(removed): the About popup CSS (.sc-about-modal/-text/
+   -actions) was removed along with the feature. */

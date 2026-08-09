@@ -455,7 +455,7 @@ function ProjectPanel({
   const [intro, setIntro] = useState(project?.introduction || '');
   // FIX352.2.7 <project-title> section — long + short text + size +
   // colour + bold. The header picks long or short at render time
-  // based on viewport width (FIX503.5.4).
+  // based on viewport width (FIX503.4.4).
   const [titleLongText, setTitleLongText] = useState(project?.title_long_text || '');
   const [titleShortText, setTitleShortText] = useState(project?.title_short_text || '');
   const [titleSize, setTitleSize] = useState(

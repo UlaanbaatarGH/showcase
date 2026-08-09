@@ -168,6 +168,16 @@ body {
    just fills the space below <panel-my-ratings-header>, same flex:1
    role .sc-main plays for the Catalogue view. */
 .sc-my-ratings-content { flex: 1; }
+/* CatalogueView's brief re-fetch loading state (header already shown,
+   stable — see the `if (!data)` branch): centers the text within the
+   flex:1 area above, no forced viewport height (unlike .sc-loading,
+   which assumes it's the only thing on the page). */
+.sc-catalogue-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
 
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left
    cluster. Inline styles set size / colour / weight from the

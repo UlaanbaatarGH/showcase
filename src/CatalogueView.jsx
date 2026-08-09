@@ -166,8 +166,18 @@ function compareValues(a, b) {
 // items, not the app's namesake view. currentView/onSwitchView come
 // from the parent (App.jsx) so <menu-view> (FIX503.2.10, rendered by
 // the shared ProjectHeader) can flip to <view-my-ratings> (FIX700)
-// without touching the URL.
-export default function CatalogueView({ slug, initialItemId, onNavigateHome, currentView, onSwitchView }) {
+// without touching the URL. initialProjectName/onProjectLoaded cache
+// the project name at the App.jsx level: switching to My ratings and
+// back would otherwise remount this component, so the header briefly
+// falls back to the 'Showcase' placeholder while data re-fetches --
+// visibly bumping <label-project-name> and everything right of it
+// (<menu-view> included) sideways. Seeding the header from the cached
+// name (still refetching underneath, unchanged) keeps that cluster
+// pixel-stable across a view switch.
+export default function CatalogueView({
+  slug, initialItemId, onNavigateHome, currentView, onSwitchView,
+  initialProjectName, onProjectLoaded,
+}) {
   // signOut moved into ProjectHeaderRight (own useAuth() call) since the
   // sign-out button lives there now — profile is still needed here for
   // other gates (rating, sensitive-field visibility, etc).
@@ -1184,7 +1194,7 @@ export default function CatalogueView({ slug, initialItemId, onNavigateHome, cur
     setData(null);
     selectOnly(null);
     getShowcase(slug)
-      .then(setData)
+      .then((d) => { setData(d); onProjectLoaded?.(d.project?.name); })
       .catch((e) => setError(e.message || String(e)));
     // FIX503.4.1: re-fetch on sign-in/sign-out too — the response
     // carries the per-user is_admin_or_manager flag that gates the
@@ -2404,7 +2414,37 @@ export default function CatalogueView({ slug, initialItemId, onNavigateHome, cur
       </div>
     );
   }
-  if (!data) return <div className="sc-loading">Loading…</div>;
+  if (!data) {
+    // Bug fix: this used to be a bare <div>Loading…</div> — dropping the
+    // whole header (Home/name/View-menu/user/sign-out) while re-fetching,
+    // which visibly bumped that cluster out and back on every mount
+    // (including a view switch away from and back to Catalogue, since
+    // MyRatingsView is a fully separate component). Rendering the same
+    // minimal header MyRatingsView.jsx uses, seeded with the cached
+    // initialProjectName, keeps it pixel-stable while just the content
+    // area shows the loading state.
+    return (
+      <div className="sc-layout" data-yagu-id="panel-project-home">
+        <div className="sc-topbar" data-yagu-id="panel-showcase-header">
+          {!isLocalApp && (
+            <ProjectHeaderLeft
+              projectName={initialProjectName}
+              onNavigateHome={() => onNavigateHome?.()}
+              currentView={currentView}
+              onSwitchView={onSwitchView}
+            />
+          )}
+          <span className="sc-topbar-spacer" />
+          {!isLocalApp && <ProjectHeaderRight />}
+        </div>
+        {/* Not .sc-loading -- that forces min-height: 100vh, meant for a
+            full-page state with no header above it. Reuses
+            .sc-my-ratings-content's flex:1 (fills what's left below the
+            topbar) instead. */}
+        <div className="sc-my-ratings-content sc-catalogue-loading">Loading…</div>
+      </div>
+    );
+  }
 
   const currentImage = images[currentImageIdx];
 

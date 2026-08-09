@@ -66,6 +66,13 @@ function AppBody() {
   // specific view is a later, still-TBD feature), so switching views
   // never touches history/pushState.
   const [projectView, setProjectView] = useState('catalogue');
+  // Cached from CatalogueView's own fetch (CatalogueView.jsx's
+  // onProjectLoaded) so the header's project name — and everything
+  // right of it in the same row, <menu-view> included — doesn't bump
+  // when switching views. Catalogue is the default view and always
+  // fetches first, so by the time My ratings can even be reached this
+  // is already populated; My ratings never fetches its own copy.
+  const [projectName, setProjectName] = useState(null);
 
   useEffect(() => {
     const onPop = () => setRoute(parseLocation());
@@ -75,7 +82,7 @@ function AppBody() {
 
   // Reset to Catalogue whenever the project itself changes — a view
   // choice made on one project shouldn't leak into the next one opened.
-  useEffect(() => { setProjectView('catalogue'); }, [route.slug]);
+  useEffect(() => { setProjectView('catalogue'); setProjectName(null); }, [route.slug]);
 
   if (isLocalApp && !startModeChosen) {
     return (
@@ -110,7 +117,7 @@ function AppBody() {
   if (projectView === 'my-ratings') {
     return (
       <MyRatingsView
-        slug={route.slug}
+        projectName={projectName}
         onNavigateHome={() => navigate('/')}
         currentView={projectView}
         onSwitchView={setProjectView}
@@ -124,6 +131,8 @@ function AppBody() {
       onNavigateHome={() => navigate('/')}
       currentView={projectView}
       onSwitchView={setProjectView}
+      initialProjectName={projectName}
+      onProjectLoaded={setProjectName}
     />
   );
 }

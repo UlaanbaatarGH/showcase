@@ -16,8 +16,8 @@ import { useAuth } from './AuthContext.jsx';
 // app_user row with their flags + project access summary. Lets the
 // admin add new users (FIX311.3.1) and remove them (FIX311.3.2). One
 // row is always selected (FIX311.5.1). Editing a row's fields is
-// done via a separate <panel-user> opened with <button-edit-user>
-// (FIX311.3.5 + FIX312).
+// done via a separate <panel-user> opened with <cmd-edit-user>
+// (FIX311.3.5 + FIX312), or by double-clicking the row (FIX311.3.7).
 export default function UsersPanel({ onClose }) {
   const { profile } = useAuth();
   // FIX311.5.2 / .3 / .4 / .5: every editing affordance is gated on
@@ -226,7 +226,7 @@ export default function UsersPanel({ onClose }) {
           </button>
         </header>
         {/* FIX311.2.0 layout diagram — toolbar order:
-            [<admin-add-user>][<cmd-delete-user>][<btn-edit-user>][<cmd-reset-pswd>]
+            [<admin-add-user>][<cmd-delete-user>][<cmd-edit-user>][<cmd-reset-pswd>]
             FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only; FIX311.5.6
             also lets project managers open the Edit panel (only the
             projects they manage are editable inside it). */}
@@ -260,12 +260,14 @@ export default function UsersPanel({ onClose }) {
                 </button>
               </>
             )}
-            {/* FIX311.2.4 + FIX311.2.4.0 + FIX311.3.5 <button-edit-user>:
-                opens <panel-user> against the selected user. */}
+            {/* FIX311.2.4 + FIX311.2.4.0[ex-btn-edit-user] + FIX311.3.5
+                <cmd-edit-user>: opens <panel-user> against the selected
+                user. FIX311.3.7: double-clicking a row does the same
+                (see the table row's onDoubleClick below). */}
             <button
               type="button"
               className="users-projects-btn"
-              data-yagu-id="button-edit-user"
+              data-yagu-id="cmd-edit-user"
               onClick={() => setUserEditOpen(true)}
               disabled={busy || !selectedId}
               title="Edit user"
@@ -315,6 +317,14 @@ export default function UsersPanel({ onClose }) {
                   key={u.id}
                   className={u.id === selectedId ? 'selected' : ''}
                   onClick={() => setSelectedId(u.id)}
+                  // FIX311.3.7: double-clicking a row is equivalent to
+                  // selecting it then clicking <cmd-edit-user> — same
+                  // gate as that button (busy / isAdmin-or-canEditAnyProject).
+                  onDoubleClick={() => {
+                    if (busy || !(isAdmin || canEditAnyProject)) return;
+                    setSelectedId(u.id);
+                    setUserEditOpen(true);
+                  }}
                 >
                   {/* FIX311.2.1.1 <user-name>: read-only display.
                       Editing happens through <panel-user>
@@ -510,8 +520,9 @@ function ConfirmDialog({ title, message, busy, onCancel, onConfirm }) {
   );
 }
 
-// FIX312 <panel-user>: full-user editor. Reached via <button-edit-user>
-// (FIX311.3.5). Edits the user's Name (FIX312.2.1), Email (FIX312.2.2)
+// FIX312 <panel-user>: full-user editor. Reached via <cmd-edit-user>
+// (FIX311.3.5) or a row double-click (FIX311.3.7). Edits the user's
+// Name (FIX312.2.1), Email (FIX312.2.2)
 // and Projects (FIX312.2.3) — Save commits them in one batch
 // (FIX312.2.11), Cancel discards (FIX312.2.10). Name and Email are
 // admin-only fields per FIX311.5.4 / .5.5 — for non-admin callers

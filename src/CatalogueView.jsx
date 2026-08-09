@@ -2186,6 +2186,9 @@ export default function CatalogueView({
   // key) the logged-in user's own rating for an item. Optimistic update —
   // FIX520.4.3 means this only ever touches the caller's own value.
   const handleSetMyRating = (folderId, ratingValueId) => {
+    const prevFolder = (data?.folders ?? []).find((f) => f.id === folderId);
+    const prevRatingValueId = prevFolder?.my_rating_value_id ?? null;
+    const prevRatingsByUser = prevFolder?.ratings_by_user;
     setData((prev) => ({
       ...prev,
       folders: (prev.folders ?? []).map((f) => {
@@ -2202,7 +2205,22 @@ export default function CatalogueView({
         };
       }),
     }));
-    setMyRating(folderId, ratingValueId).catch((e) => setError(String(e.message || e)));
+    // Bug fix: the backend can reject this (e.g. caller isn't an enabled
+    // rater — FIX507.2.3.1.3) after the optimistic update above already
+    // applied, leaving a rating showing that never actually saved. No
+    // error message is spec'd for this action, so on failure this just
+    // reverts the optimistic change silently rather than surfacing an
+    // unspecified full-screen error popup.
+    setMyRating(folderId, ratingValueId).catch(() => {
+      setData((prev) => ({
+        ...prev,
+        folders: (prev.folders ?? []).map((f) => (
+          f.id === folderId
+            ? { ...f, my_rating_value_id: prevRatingValueId, ratings_by_user: prevRatingsByUser }
+            : f
+        )),
+      }));
+    });
   };
 
   // FIX520.2.7 / FIX520.4.4 <icon-rating>: null whenever rating is off or

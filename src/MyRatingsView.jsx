@@ -16,7 +16,7 @@ import { RATING_ICONS, IconRatingConflict } from './Icons.jsx';
 // immediately from the cached `projectName` prop (see App.jsx) and
 // only the content area shows its own loading state, so switching
 // into this view never bumps Home/name/menu-view/user.
-export default function MyRatingsView({ slug, projectName, ratingEnabled, onNavigateHome, currentView, onSwitchView }) {
+export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegisteredRater, onNavigateHome, currentView, onSwitchView }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   // FIX702.3.1: which rating (by rating_value id, or 'novalue') is
@@ -93,6 +93,7 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, onNavi
           currentView={currentView}
           onSwitchView={onSwitchView}
           ratingEnabled={ratingEnabled}
+          isRegisteredRater={isRegisteredRater}
         />
         <span className="sc-topbar-spacer" />
         <ProjectHeaderRight />

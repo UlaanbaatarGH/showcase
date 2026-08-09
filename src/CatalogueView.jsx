@@ -176,7 +176,7 @@ function compareValues(a, b) {
 // pixel-stable across a view switch.
 export default function CatalogueView({
   slug, initialItemId, onNavigateHome, currentView, onSwitchView,
-  initialProjectName, initialRatingEnabled, onProjectLoaded,
+  initialProjectName, initialRatingEnabled, initialIsRegisteredRater, onProjectLoaded,
 }) {
   // signOut moved into ProjectHeaderRight (own useAuth() call) since the
   // sign-out button lives there now — profile is still needed here for
@@ -188,6 +188,12 @@ export default function CatalogueView({
   // backend computes per-project membership and returns the flag on
   // /api/showcase.
   const isAdminOrManager = !!data?.project?.is_admin_or_manager;
+  // FIX503.4.5 / FIX504.5.3: is the logged-in user themselves a
+  // registered, enabled rater on this project (<table-users-allowed-
+  // to-rate>)? Drives <menu-view>'s visibility and, further below,
+  // which user_rating columns are shown/pickable at all.
+  const myRaterEntry = (data?.rating_setup?.raters ?? []).find((r) => r.user_id === profile?.id);
+  const isRegisteredRater = !!myRaterEntry?.enabled;
   // FIX510.2.1.11: Ctrl-click adds rows to the selection. The order
   // matters because FIX510.5.3 says the *first* selected row drives
   // what the right-hand Item Panel renders.
@@ -1194,7 +1200,13 @@ export default function CatalogueView({
     setData(null);
     selectOnly(null);
     getShowcase(slug)
-      .then((d) => { setData(d); onProjectLoaded?.(d.project?.name, !!d.rating_setup?.enabled); })
+      .then((d) => {
+        setData(d);
+        // FIX503.4.5: registered (and enabled) in <table-users-allowed-to-rate>.
+        const registeredRater = (d.rating_setup?.raters ?? [])
+          .some((r) => r.user_id === profile?.id && r.enabled);
+        onProjectLoaded?.(d.project?.name, !!d.rating_setup?.enabled, registeredRater);
+      })
       .catch((e) => setError(e.message || String(e)));
     // FIX503.4.1: re-fetch on sign-in/sign-out too — the response
     // carries the per-user is_admin_or_manager flag that gates the
@@ -1896,9 +1908,15 @@ export default function CatalogueView({
     // FIX504.2.1.2.2.6.2: a rating column stays in the saved config but
     // is hidden from the actual item list while rating is disabled.
     const ratingOn = !!data?.rating_setup?.enabled;
-    const cols = (showcaseCfg.columns ?? []).filter(
-      (c) => c.type !== 'main_image_icon' && (c.type !== 'user_rating' || ratingOn),
-    );
+    const cols = (showcaseCfg.columns ?? []).filter((c) => {
+      if (c.type === 'main_image_icon') return false;
+      if (c.type !== 'user_rating') return true;
+      if (!ratingOn) return false;
+      // FIX504.5.3: a column bound to another user's rating cannot be
+      // shown, even if it was configured (by an admin, or back when the
+      // caller was someone else) — only the caller's own rater entry.
+      return myRaterEntry != null && c.rater_id === myRaterEntry.id;
+    });
     // FIX510.5.4: when no column is defined, fall back to the # column.
     // _hash forces the header to '#' regardless of folder_column_name.
     return cols.length > 0 ? cols : [{ type: 'folder_name', _hash: true }];
@@ -2451,6 +2469,7 @@ export default function CatalogueView({
               currentView={currentView}
               onSwitchView={onSwitchView}
               ratingEnabled={initialRatingEnabled}
+              isRegisteredRater={initialIsRegisteredRater}
             />
           )}
           <span className="sc-topbar-spacer" />
@@ -2755,6 +2774,7 @@ export default function CatalogueView({
               currentView={currentView}
               onSwitchView={onSwitchView}
               ratingEnabled={!!data?.rating_setup?.enabled}
+              isRegisteredRater={isRegisteredRater}
             />
             {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.4.4
                 <label-project-title>: decorative label rendered in the

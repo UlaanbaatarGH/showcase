@@ -68,13 +68,15 @@ function AppBody() {
   const [projectView, setProjectView] = useState('catalogue');
   // Cached from CatalogueView's own fetch (CatalogueView.jsx's
   // onProjectLoaded) so the header's project name and <menu-view>'s
-  // visibility (FIX503.4.5: logged-in + rating-enabled projects only)
-  // — and everything right of them in the same row — don't bump when
-  // switching views. Catalogue is the default view and always fetches
-  // first, so by the time My ratings can even be reached these are
-  // already populated; My ratings never fetches its own copy.
+  // visibility (FIX503.4.5: logged-in + rating-enabled + registered
+  // rater only) — and everything right of them in the same row — don't
+  // bump when switching views. Catalogue is the default view and
+  // always fetches first, so by the time My ratings can even be
+  // reached these are already populated; My ratings never fetches its
+  // own copy.
   const [projectName, setProjectName] = useState(null);
   const [ratingEnabled, setRatingEnabled] = useState(false);
+  const [isRegisteredRater, setIsRegisteredRater] = useState(false);
 
   useEffect(() => {
     const onPop = () => setRoute(parseLocation());
@@ -88,6 +90,7 @@ function AppBody() {
     setProjectView('catalogue');
     setProjectName(null);
     setRatingEnabled(false);
+    setIsRegisteredRater(false);
   }, [route.slug]);
 
   if (isLocalApp && !startModeChosen) {
@@ -126,6 +129,7 @@ function AppBody() {
         slug={route.slug}
         projectName={projectName}
         ratingEnabled={ratingEnabled}
+        isRegisteredRater={isRegisteredRater}
         onNavigateHome={() => navigate('/')}
         currentView={projectView}
         onSwitchView={setProjectView}
@@ -141,7 +145,12 @@ function AppBody() {
       onSwitchView={setProjectView}
       initialProjectName={projectName}
       initialRatingEnabled={ratingEnabled}
-      onProjectLoaded={(name, enabled) => { setProjectName(name); setRatingEnabled(enabled); }}
+      initialIsRegisteredRater={isRegisteredRater}
+      onProjectLoaded={(name, enabled, registeredRater) => {
+        setProjectName(name);
+        setRatingEnabled(enabled);
+        setIsRegisteredRater(registeredRater);
+      }}
     />
   );
 }

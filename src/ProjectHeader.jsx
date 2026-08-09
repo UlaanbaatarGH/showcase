@@ -11,7 +11,7 @@ import { useAuth } from './AuthContext.jsx';
 // middle content (Columns/Grouping/Import/Admin/Setup for Catalogue;
 // nothing for My ratings) exactly where it already lives in its own
 // JSX, instead of threading it through as children.
-export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, onSwitchView, ratingEnabled }) {
+export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, onSwitchView, ratingEnabled, isRegisteredRater }) {
   const { profile } = useAuth();
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const viewMenuRef = useRef(null);
@@ -47,11 +47,14 @@ export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, on
       </h1>
       {/* FIX503.2.10 + .2.10.0 + .2.10.2 / FIX701.2.3 + .2.3.0 <menu-view>:
           switch between <view-catalogue> (FIX503.3.6) and
-          <view-my-ratings> (FIX503.3.7). FIX503.4.5: only visible to
-          logged-in users, and only in projects with rating enabled
-          (<field-enable-rating> / rating_setup.enabled) — there'd be
-          nothing to show in My ratings otherwise. */}
-      {profile && ratingEnabled && (
+          <view-my-ratings> (FIX503.3.7). FIX503.4.5 (updated): only
+          visible when logged in, the project has rating enabled
+          (<field-enable-rating> / rating_setup.enabled), AND the caller
+          is registered (and enabled) in <table-users-allowed-to-rate> —
+          otherwise there's nothing to show in My ratings, and per the
+          backend's own set_item_rating check (FIX507.2.3.1.3) they
+          couldn't rate anything from it either. */}
+      {profile && ratingEnabled && isRegisteredRater && (
         <div className="sc-menu" data-yagu-id="menu-view" ref={viewMenuRef}>
           <button
             type="button"

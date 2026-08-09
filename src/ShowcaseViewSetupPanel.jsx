@@ -253,7 +253,7 @@ export default function ShowcaseViewSetupPanel({
                   const key = columnKey(col);
                   // FIX504.2.1.2.2.6.2: an already-added rating column is
                   // shown disabled (not deleted) while rating is off — it
-                  // also won't render on the actual item list (ShowcaseView).
+                  // also won't render on the actual item list (CatalogueView).
                   const isDisabledRatingCol = col.type === 'user_rating' && !ratingSetup?.enabled;
                   return (
                     <tr

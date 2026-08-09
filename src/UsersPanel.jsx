@@ -153,12 +153,19 @@ export default function UsersPanel({ onClose }) {
   };
 
   // FIX311.2.5[ex-312.2.12] <btn-reset-pswd> (users-list toolbar) triggers
-  // <process-reset-pswd> (FIX312.3.1 -> FIX318). Admin-only, same gate as
+  // <process-reset-pswd> (FIX311.3.6.2 -> FIX318). Admin-only, same gate as
   // the <panel-user> credential fields (FIX311.5.4 / .5.5). FIX318.2.3:
   // refresh <list-users> afterwards so the cleared password / new access
   // code show up in the table.
   const onResetPassword = async (userId) => {
     if (!userId || !isAdmin) return;
+    const target = users?.find((u) => u.id === userId);
+    if (!target) return;
+    // FIX311.3.6.1: confirmation popup before triggering the process.
+    const ok = window.confirm(
+      `Reset user's password\n\nConfirm password reset for user "${target.name}"?`,
+    );
+    if (!ok) return;
     setBusy(true);
     try {
       await resetUserPassword(userId);
@@ -255,8 +262,9 @@ export default function UsersPanel({ onClose }) {
             {/* FIX311.2.5[ex-312.2.12] + FIX311.2.5.0[ex-312.2.12.0]
                 <btn-reset-pswd>: moved here from <panel-user> (was
                 FIX312.2.12, now FIX312.2.12(removed)). Admin-only, same
-                gate as Add/Remove — triggers <process-reset-pswd>
-                (FIX312.3.1 -> FIX318) for the selected row directly. */}
+                gate as Add/Remove — FIX311.3.6 confirmation popup then
+                triggers <process-reset-pswd> (FIX311.3.6.2 -> FIX318)
+                for the selected row directly. */}
             {isAdmin && (
               <button
                 type="button"

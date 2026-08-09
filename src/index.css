@@ -223,6 +223,14 @@ body {
   right: 4px;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85));
 }
+/* FIX702.4.4: item ref, white, centred, below the image. Literal white
+   (not a theme token) per spec wording. */
+.sc-rated-image-ref {
+  color: #fff;
+  text-align: center;
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
 
 /* FIX503.2.13 + FIX503.2.20.1: decorative project title in the left
    cluster. Inline styles set size / colour / weight from the

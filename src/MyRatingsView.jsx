@@ -147,6 +147,9 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, onNavi
                   {f.has_rating_conflict && (
                     <IconRatingConflict size={18} className="sc-rated-image-conflict" />
                   )}
+                  {/* FIX702.4.4: item ref (folder.name), white, centred,
+                      below the image. */}
+                  <div className="sc-rated-image-ref">{f.name}</div>
                 </div>
               ))}
             </section>

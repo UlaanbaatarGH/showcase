@@ -233,6 +233,9 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const newProperties = [];
   const renames = [];
   const headerToFinalLabel = new Map();
+  // FIX370.2.1.6.1: main-sheet headers dropped because they don't match an
+  // existing property (only populated in the no-setup-sheet branch below).
+  const droppedColumns = [];
 
   // Map from a main-sheet header (full or short name) to its setup entry.
   // Built only when a setup sheet is provided. Unmatched main-sheet
@@ -309,12 +312,17 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       headerToFinalLabel.set(mainLabel, e.label);
     }
   } else {
-    // 2.1.6.1 — no setup sheet → every main-sheet property header must exist.
+    // FIX370.2.1.6.1 (updated): no setup sheet → a main-sheet header that
+    // doesn't match an existing property is no longer a hard error. It's
+    // dropped (excluded from headerToFinalLabel / importedPropHeaders
+    // below, same "silently skip" treatment the with-setup-sheet branch
+    // already gives an unlisted column) and surfaced to the user as a
+    // confirmable list rather than blocking the import outright.
     for (const col of propHeaders) {
-      if (!propByLabel.has(col.label)) {
-        errors.push(`FIX370.2.1.6.1: property "${col.label}" does not exist in the project (and no setup sheet was provided).`);
-      } else {
+      if (propByLabel.has(col.label)) {
         headerToFinalLabel.set(col.label, col.label);
+      } else {
+        droppedColumns.push(col.label);
       }
     }
   }
@@ -338,10 +346,12 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const folderByName = new Map((project.folders || []).map((f) => [f.name, f]));
   // FIX370.2.2.1 (updated): only the property columns that are actually
   // listed in the setup sheet (matched by full or short name) participate
-  // in the import. The rest are silently dropped.
+  // in the import. The rest are silently dropped. FIX370.2.1.6.1 (updated):
+  // with no setup sheet, only headers matching an existing property
+  // participate — droppedColumns holds everything else.
   const importedPropHeaders = setupCsv != null
     ? propHeaders.filter((c) => setupByMainHeader.has(c.label))
-    : propHeaders;
+    : propHeaders.filter((c) => propByLabel.has(c.label));
   // Resolve each imported header to the property id it will carry after
   // import. null = brand-new property.
   const labelToFinalId = new Map();
@@ -494,6 +504,9 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     updatedFolders: updatedFolderDisplays,
     deletedFolders: deletedFolderDisplays,
     renamedFolders: renamedFolders.map((r) => ({ from: r.from, to: r.to })),
+    // FIX370.2.1.6.1 (updated): columns dropped for not matching an
+    // existing property, when no setup sheet was provided.
+    droppedColumns,
   };
 
   const plan = {

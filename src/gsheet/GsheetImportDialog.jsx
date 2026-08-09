@@ -28,7 +28,10 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
       } else {
         setRecap(res.recap);
         setPlan(res.plan);
-        setStage('recap');
+        // FIX370.2.1.6.1 (updated): no longer a hard error — with no setup
+        // sheet, an unmatched column header is dropped but must first be
+        // confirmed by the user before the normal recap shows.
+        setStage(res.recap.droppedColumns?.length > 0 ? 'confirm-dropped' : 'recap');
       }
     } catch (ex) {
       setFatal(ex.message || String(ex));
@@ -106,6 +109,29 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
                   Retry
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* FIX370.2.1.6.1 (updated): only reached when no setup sheet was
+            provided and at least one main-sheet header doesn't match an
+            existing property. Cancel aborts the whole import (same as the
+            recap stage's own Cancel); Import proceeds to the normal recap
+            with those columns already excluded (gsheetImport.js dropped
+            them from importedPropHeaders). */}
+        {stage === 'confirm-dropped' && recap && (
+          <div className="gsheet-stage">
+            <h2>Confirm dropped columns</h2>
+            <p>The gsheet columns below are not defined as properties. They won't be uploaded.</p>
+            <RecapList title="Dropped columns" items={recap.droppedColumns} />
+            <p>Create a 2nd sheet 'setup' to exclude these columns and skip this confirmation step.</p>
+            <div className="gsheet-actions">
+              <button type="button" className="btn-cancel" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={() => setStage('recap')}>
+                Import
+              </button>
             </div>
           </div>
         )}

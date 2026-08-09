@@ -44,7 +44,11 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, onNavi
   // would reorder by rating_value id instead of the admin-defined
   // rating order).
   const folders = data?.folders ?? [];
-  const ratingValues = data?.rating_setup?.values ?? [];
+  // FIX702.4.1: listed by *decreasing* index in <table-rating-values> —
+  // rating_setup.values already comes back sort_order-ascending (same
+  // order the Rating setup tab and CatalogueView's own grouping use), so
+  // this reverses it for display here specifically.
+  const ratingValues = [...(data?.rating_setup?.values ?? [])].reverse();
   const ratingBuckets = (() => {
     const counts = new Map();
     let noValueCount = 0;
@@ -52,9 +56,12 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, onNavi
       if (f.my_rating_value_id == null) noValueCount += 1;
       else counts.set(f.my_rating_value_id, (counts.get(f.my_rating_value_id) || 0) + 1);
     }
+    // FIX702.4.2: every defined rating value is listed even with a 0
+    // count (no .filter() here, unlike the 'No value' catch-all below,
+    // which isn't one of <table-rating-values>'s own entries and stays
+    // hidden when nothing is unrated).
     const list = ratingValues
-      .map((v) => ({ key: String(v.id), ratingValueId: v.id, icon: v.icon, count: counts.get(v.id) || 0 }))
-      .filter((b) => b.count > 0);
+      .map((v) => ({ key: String(v.id), ratingValueId: v.id, icon: v.icon, count: counts.get(v.id) || 0 }));
     if (noValueCount > 0) {
       list.push({ key: 'novalue', ratingValueId: null, icon: null, count: noValueCount, noValue: true });
     }

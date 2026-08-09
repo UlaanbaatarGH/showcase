@@ -3,6 +3,8 @@
 // fetch the tabs, run consistency checks, and build the plan that the
 // backend applies.
 
+import { fetchGsheetTitle } from '../data/backend.js';
+
 const FOLDER_COL = '#';
 // FIX370.2.1.7: optional column carrying a rename command for the current
 // '#' (or, per FIX370.2.1.7.2, the ref to create a new item under).
@@ -531,5 +533,27 @@ export async function planFromUrl(url, project) {
   }
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
   const setupCsv = await fetchSetupCsv(parsed.sheetId);
-  return buildPlan({ mainCsv, setupCsv, project });
+  const result = buildPlan({ mainCsv, setupCsv, project });
+
+  // FIX370.2.1.8: the gsheet's document title must be 'Showcase
+  // <project-name>'. Fetched server-side (backend /api/gsheet-title) --
+  // the /edit page (the only place carrying the actual title) isn't
+  // CORS-fetchable from the browser, same reasoning as FIX378.3.4.2's
+  // identical check in the create-gsheet wizard. Merged into the same
+  // errors list as every other FIX370.2.1.x check (FIX370.3.2.2.1: list
+  // every error together, deny the import) rather than its own popup --
+  // unlike FIX370.2.1.6.1, nothing here is safe to silently drop/skip.
+  const expectedTitle = `Showcase ${project?.name || ''}`.trim();
+  let title = null;
+  try {
+    const res = await fetchGsheetTitle(url);
+    title = res?.title || null;
+  } catch {
+    // best-effort — folds into the mismatch error below
+  }
+  if (!title || title.trim().toLowerCase() !== expectedTitle.toLowerCase()) {
+    const titleError = `FIX370.2.1.8: the gsheet must be named "${expectedTitle}" (found ${title ? `"${title}"` : 'nothing readable'}).`;
+    return { errors: [...(result.errors || []), titleError] };
+  }
+  return result;
 }

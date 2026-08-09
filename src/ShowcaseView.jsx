@@ -6,6 +6,7 @@ import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
 import { publishItemImages, isLocalRow, measureDims } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
+import { parseGsheetUrl } from './gsheet/gsheetImport.js';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
 import ContactPanel from './ContactPanel.jsx';
@@ -24,7 +25,7 @@ import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import {
   getShowcase, getFolderImages, trackVisit, setFolderZoomFactor, setMyRating,
-  listProjects,
+  listProjects, saveSetup,
   createFolder, renameFolder, deleteFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
 import { navigate, projectSlug } from './router.js';
@@ -888,6 +889,11 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [offlineAddItemPopup, setOfflineAddItemPopup] = useState(null); // null | { value, error }
   // FIX657 <cmd-change-item-ref>
   const [changeItemRefPopup, setChangeItemRefPopup] = useState(null); // null | { value, error }
+  // FIX376 <cmd-set-properties-gsheet>: Title/Message/text-input popup,
+  // Ok gated on a URL that parseGsheetUrl() can actually extract a
+  // sheet id from (FIX376.1's "Checks: Ok enabled only after a valid
+  // url is entered").
+  const [setGsheetPopup, setSetGsheetPopup] = useState(null); // null | { value, error, saving }
   // FIX658 <cmd-delete-item>: no per-item input, just a Confirm/Cancel gate —
   // true/false is enough state.
   const [deleteItemPopup, setDeleteItemPopup] = useState(false);
@@ -1115,6 +1121,39 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
     getShowcase(slug)
       .then((d) => setData(d))
       .catch((e) => setError(e.message || String(e)));
+
+  // FIX376.2: on Ok, save the url in <setup-properties-gsheet>. /api/setup
+  // diffs the incoming `properties` array against what's in DB and deletes
+  // whatever's missing (GroupingPanel.jsx does the same full-array-resend
+  // for this reason) -- so this resends every existing property verbatim
+  // and only actually changes properties_gsheet_url inside view_setup.
+  const confirmSetPropertiesGsheet = async () => {
+    const url = (setGsheetPopup?.value || '').trim();
+    if (!parseGsheetUrl(url)) {
+      setSetGsheetPopup((p) => ({ ...p, error: 'Enter a valid Google sheet url' }));
+      return;
+    }
+    setSetGsheetPopup((p) => ({ ...p, saving: true, error: null }));
+    try {
+      await saveSetup({
+        project_id: data?.project?.id ?? null,
+        properties: (data?.properties ?? []).map((p, i) => ({
+          id: p.id,
+          label: p.label,
+          short_label: p.short_label ?? null,
+          formula: p.formula ?? null,
+          trailing_values: p.trailing_values ?? null,
+          accepted_value_set: !!p.accepted_value_set,
+          sort_order: p.sort_order ?? i,
+        })),
+        view_setup: { ...(data?.view_setup || {}), properties_gsheet_url: url },
+      });
+      setSetGsheetPopup(null);
+      reloadShowcase();
+    } catch (e) {
+      setSetGsheetPopup((p) => ({ ...p, saving: false, error: e.message || String(e) }));
+    }
+  };
 
   // FIX371.6: after an image import, reload the view (FIX371.6.5) and store
   // each affected item's max image ZF <item-img-zoom-factor> (FIX371.6.4 /
@@ -2743,17 +2782,20 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </>
         )}
         {/* FIX503.2.5 + FIX503.5.1.1 / FIX369 / FIX369.0 <menu-import>:
-            Website: admin- or project-manager-only (FIX503.5.1), FIX369.1's
-            three options — Import images, Open properties gsheet, Import
-            properties gsheet. Local app: always shown (login/admin-gating
-            dropped there), but per FIX656 this is now the 'Commands' menu
-            instead — top level <cmd-add-item>, <cmd-delete-item>,
-            <cmd-publish-all-changes>, plus an 'Other…' group holding
-            <cmd-capture-cam-img>, <cmd-change-item-ref>,
+            Website: admin- or project-manager-only (FIX503.5.1). FIX369.1's
+            order now branches on whether <setup-properties-gsheet> is set —
+            FIX369.1.1 (set): Open / Import properties gsheet / Import
+            images, then <cmd-set-properties-gsheet> in an 'Other…' flyout.
+            FIX369.1.2 (not set): <cmd-set-properties-gsheet> / Import
+            images only. Local app: always shown (login/admin-gating dropped
+            there), but per FIX656 this is now the 'Commands' menu instead —
+            top level <cmd-add-item>, <cmd-delete-item>,
+            <cmd-publish-all-changes>, plus its own unrelated 'Other…' group
+            holding <cmd-capture-cam-img>, <cmd-change-item-ref>,
             <cmd-undelete-item>, <cmd-reset-item>, <cmd-publish-selection> —
             same shared container Id as the website's Import menu (FIX369.0
-            doesn't define a separate one for FIX656), the three Import
-            options stay website-only either way. */}
+            doesn't define a separate one for FIX656), the Import options
+            stay website-only either way. */}
         {(isLocalApp || isAdminOrManager) && (
           <div className="sc-menu" data-yagu-id="menu-import" ref={menuRef}>
             <button
@@ -2769,55 +2811,113 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               <ul className="sc-menu-items" role="menu">
                 {!isLocalApp && (
                   <>
-                    {/* FIX371.2 <cmd-import-harddisk-img>: label 'Import
-                        images' (was 'Images'). Placed first per FIX369.1's
-                        list order — FIX371.2.2/.2.2.1's own 'place it
-                        first' wording is now removed, superseded by that
-                        list. */}
-                    <li>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        data-yagu-id="cmd-import-harddisk-img"
-                        onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
-                      >
-                        Import images
-                      </button>
-                    </li>
-                    {/* FIX375 <cmd-open-properties-gsheet>: opens the gsheet
-                        stored at <setup-properties-gsheet> (FIX508.2.5) in a
-                        new tab. Disabled when that field is blank — nothing
-                        to open yet. */}
-                    <li>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        data-yagu-id="cmd-open-properties-gsheet"
-                        disabled={!viewSetup.properties_gsheet_url}
-                        title={!viewSetup.properties_gsheet_url ? 'Set the Properties Google sheet in Setup > General first' : undefined}
-                        onClick={() => { setMenuOpen(false); window.open(viewSetup.properties_gsheet_url, '_blank', 'noopener'); }}
-                      >
-                        Open properties gsheet
-                      </button>
-                    </li>
-                    {/* FIX370.3 <cmd-import-properties-gsheet>: label
-                        'Import properties gsheet' (was 'Image Properties')
-                        — opens the Google Sheet import dialog (FIX370). Id
-                        renamed from <cmd-import-google-sheet> (FIX370.0,
-                        itself spelled without the old spec's stray blank,
-                        'cmd-import- google-sheet'). FIX370.3.1's own 'menu
-                        option Image Properties' wording is now removed,
-                        superseded by FIX369.1's list + this label. */}
-                    <li>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        data-yagu-id="cmd-import-properties-gsheet"
-                        onClick={() => { setMenuOpen(false); setImportOpen(true); }}
-                      >
-                        Import properties gsheet
-                      </button>
-                    </li>
+                    {viewSetup.properties_gsheet_url ? (
+                      <>
+                        {/* FIX369.1.1: <setup-properties-gsheet> is set --
+                            Open, Import properties gsheet, Import images,
+                            in that order, then <cmd-set-properties-gsheet>
+                            tucked into 'Other…' ('other/' in the spec's
+                            list). */}
+                        {/* FIX375 <cmd-open-properties-gsheet>: opens the
+                            gsheet stored at <setup-properties-gsheet>
+                            (FIX508.2.5) in a new tab. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-open-properties-gsheet"
+                            onClick={() => { setMenuOpen(false); window.open(viewSetup.properties_gsheet_url, '_blank', 'noopener'); }}
+                          >
+                            Open properties gsheet
+                          </button>
+                        </li>
+                        {/* FIX370.3 <cmd-import-properties-gsheet>: opens
+                            the Google Sheet import dialog (FIX370). Id
+                            renamed from <cmd-import-google-sheet>
+                            (FIX370.0). */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-import-properties-gsheet"
+                            onClick={() => { setMenuOpen(false); setImportOpen(true); }}
+                          >
+                            Import properties gsheet
+                          </button>
+                        </li>
+                        {/* FIX371.2 <cmd-import-harddisk-img>. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-import-harddisk-img"
+                            onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
+                          >
+                            Import images
+                          </button>
+                        </li>
+                        {/* FIX369.1.1 'other/<cmd-set-properties-gsheet>':
+                            same nested flyout submenu mechanism as
+                            FIX656's local-app 'Other…' below, reused here
+                            for the website's Import menu. */}
+                        <li className="sc-submenu-parent">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            aria-haspopup="menu"
+                            aria-expanded={otherCommandsOpen}
+                            onClick={(e) => { e.stopPropagation(); setOtherCommandsOpen((v) => !v); }}
+                          >
+                            Other… ▸
+                          </button>
+                          {otherCommandsOpen && (
+                            <ul className="sc-menu-items sc-submenu" role="menu">
+                              <li>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  data-yagu-id="cmd-set-properties-gsheet"
+                                  onClick={() => {
+                                    setMenuOpen(false);
+                                    setOtherCommandsOpen(false);
+                                    setSetGsheetPopup({ value: viewSetup.properties_gsheet_url || '', error: null, saving: false });
+                                  }}
+                                >
+                                  Set properties gsheet
+                                </button>
+                              </li>
+                            </ul>
+                          )}
+                        </li>
+                      </>
+                    ) : (
+                      <>
+                        {/* FIX369.1.2: <setup-properties-gsheet> is NOT
+                            set -- <cmd-set-properties-gsheet> then Import
+                            images only. Open / Import properties gsheet
+                            don't appear at all with no url to act on. */}
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-set-properties-gsheet"
+                            onClick={() => { setMenuOpen(false); setSetGsheetPopup({ value: '', error: null, saving: false }); }}
+                          >
+                            Set properties gsheet
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            data-yagu-id="cmd-import-harddisk-img"
+                            onClick={() => { setMenuOpen(false); setImportImagesOpen(true); }}
+                          >
+                            Import images
+                          </button>
+                        </li>
+                      </>
+                    )}
                   </>
                 )}
                 {/* FIX655 <cmd-add-item>: local-app only, works both online
@@ -4010,6 +4110,41 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
               </button>
               <button type="button" className="primary" onClick={confirmChangeItemRef}>
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX376 <cmd-set-properties-gsheet>: Title/Message popup, title
+          rendered bold + larger than the message per direct instruction
+          (a plain <strong> reads the same size as body text). Ok stays
+          disabled until parseGsheetUrl() can extract a sheet id from the
+          entered text (FIX376.1's url validity check). */}
+      {setGsheetPopup && (
+        <div className="setup-overlay" onMouseDown={() => setSetGsheetPopup(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p className="sc-shrink-title">Set the project Google sheet</p>
+            <p>Enter the url of the Google sheet:</p>
+            <input
+              type="text"
+              data-yagu-id="input-set-properties-gsheet"
+              value={setGsheetPopup.value}
+              onChange={(e) => setSetGsheetPopup((p) => ({ ...p, value: e.target.value, error: null }))}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter' && parseGsheetUrl(setGsheetPopup.value.trim())) confirmSetPropertiesGsheet(); }}
+            />
+            {setGsheetPopup.error && <div className="sc-viewer-err">{setGsheetPopup.error}</div>}
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setSetGsheetPopup(null)} disabled={setGsheetPopup.saving}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={confirmSetPropertiesGsheet}
+                disabled={setGsheetPopup.saving || !parseGsheetUrl(setGsheetPopup.value.trim())}
+              >
+                {setGsheetPopup.saving ? '…' : 'Ok'}
               </button>
             </div>
           </div>

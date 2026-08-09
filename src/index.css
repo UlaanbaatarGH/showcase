@@ -1460,6 +1460,14 @@ body {
   color: var(--color-text);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
+/* FIX376.1 <cmd-set-properties-gsheet> popup title: bold + larger than
+   the message, so a Title/Message popup reads as a heading + body
+   rather than two same-weight lines. */
+.sc-shrink-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+}
 .sc-shrink-row {
   display: flex;
   align-items: center;

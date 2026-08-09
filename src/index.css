@@ -1460,14 +1460,6 @@ body {
   color: var(--color-text);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
-/* FIX376.1 <cmd-set-properties-gsheet> popup title: bold + larger than
-   the message, so a Title/Message popup reads as a heading + body
-   rather than two same-weight lines. */
-.sc-shrink-title {
-  font-weight: 700;
-  font-size: 1.1rem;
-  margin-bottom: 0.4rem;
-}
 .sc-shrink-row {
   display: flex;
   align-items: center;
@@ -2809,6 +2801,10 @@ body {
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+/* FIX377.2 layout: '[Create new sheet]          [Cancel][Done]' — the
+   left button stands alone, Cancel/Done stay grouped on the right. */
+.gsheet-actions-split { justify-content: space-between; }
+.gsheet-actions-right { display: flex; gap: 0.5rem; }
 .gsheet-busy { color: var(--color-text-muted); font-size: 0.9rem; }
 .gsheet-errors {
   margin: 0;

@@ -6,7 +6,7 @@ import ShowcaseImageCanvas from './viewer/ShowcaseImageCanvas.jsx';
 import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
 import { publishItemImages, isLocalRow, measureDims } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
-import { parseGsheetUrl } from './gsheet/gsheetImport.js';
+import SetGsheetPanel from './gsheet/SetGsheetPanel.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
 import ContactPanel from './ContactPanel.jsx';
@@ -889,11 +889,10 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
   const [offlineAddItemPopup, setOfflineAddItemPopup] = useState(null); // null | { value, error }
   // FIX657 <cmd-change-item-ref>
   const [changeItemRefPopup, setChangeItemRefPopup] = useState(null); // null | { value, error }
-  // FIX376 <cmd-set-properties-gsheet>: Title/Message/text-input popup,
-  // Ok gated on a URL that parseGsheetUrl() can actually extract a
-  // sheet id from (FIX376.1's "Checks: Ok enabled only after a valid
-  // url is entered").
-  const [setGsheetPopup, setSetGsheetPopup] = useState(null); // null | { value, error, saving }
+  // FIX376.1 <cmd-set-properties-gsheet>: opens <panel-set-gsheet>
+  // (FIX377, see SetGsheetPanel.jsx) — holds just the initial url text;
+  // the panel component owns its own field/validation state.
+  const [setGsheetPopup, setSetGsheetPopup] = useState(null); // null | { initialUrl }
   // FIX658 <cmd-delete-item>: no per-item input, just a Confirm/Cancel gate —
   // true/false is enough state.
   const [deleteItemPopup, setDeleteItemPopup] = useState(false);
@@ -1122,18 +1121,14 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       .then((d) => setData(d))
       .catch((e) => setError(e.message || String(e)));
 
-  // FIX376.2: on Ok, save the url in <setup-properties-gsheet>. /api/setup
-  // diffs the incoming `properties` array against what's in DB and deletes
-  // whatever's missing (GroupingPanel.jsx does the same full-array-resend
-  // for this reason) -- so this resends every existing property verbatim
-  // and only actually changes properties_gsheet_url inside view_setup.
-  const confirmSetPropertiesGsheet = async () => {
-    const url = (setGsheetPopup?.value || '').trim();
-    if (!parseGsheetUrl(url)) {
-      setSetGsheetPopup((p) => ({ ...p, error: 'Enter a valid Google sheet url' }));
-      return;
-    }
-    setSetGsheetPopup((p) => ({ ...p, saving: true, error: null }));
+  // FIX376.2 / FIX377.3.2 / FIX378.3.4.11.1: save the url in
+  // <setup-properties-gsheet> — shared by <panel-set-gsheet>'s Done button
+  // and <panel-create-gsheet>'s successful Finish. /api/setup diffs the
+  // incoming `properties` array against what's in DB and deletes whatever's
+  // missing (GroupingPanel.jsx does the same full-array-resend for this
+  // reason) -- so this resends every existing property verbatim and only
+  // actually changes properties_gsheet_url inside view_setup.
+  const saveGsheetUrl = async (url) => {
     try {
       await saveSetup({
         project_id: data?.project?.id ?? null,
@@ -1151,7 +1146,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
       setSetGsheetPopup(null);
       reloadShowcase();
     } catch (e) {
-      setSetGsheetPopup((p) => ({ ...p, saving: false, error: e.message || String(e) }));
+      setError(e.message || String(e));
     }
   };
 
@@ -2880,7 +2875,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                                   onClick={() => {
                                     setMenuOpen(false);
                                     setOtherCommandsOpen(false);
-                                    setSetGsheetPopup({ value: viewSetup.properties_gsheet_url || '', error: null, saving: false });
+                                    setSetGsheetPopup({ initialUrl: viewSetup.properties_gsheet_url || '' });
                                   }}
                                 >
                                   Set properties gsheet
@@ -2901,7 +2896,7 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
                             type="button"
                             role="menuitem"
                             data-yagu-id="cmd-set-properties-gsheet"
-                            onClick={() => { setMenuOpen(false); setSetGsheetPopup({ value: '', error: null, saving: false }); }}
+                            onClick={() => { setMenuOpen(false); setSetGsheetPopup({ initialUrl: '' }); }}
                           >
                             Set properties gsheet
                           </button>
@@ -4115,40 +4110,16 @@ export default function ShowcaseView({ slug, initialItemId, onNavigateHome }) {
           </div>
         </div>
       )}
-      {/* FIX376 <cmd-set-properties-gsheet>: Title/Message popup, title
-          rendered bold + larger than the message per direct instruction
-          (a plain <strong> reads the same size as body text). Ok stays
-          disabled until parseGsheetUrl() can extract a sheet id from the
-          entered text (FIX376.1's url validity check). */}
+      {/* FIX376.1 <cmd-set-properties-gsheet>: opens <panel-set-gsheet>
+          (FIX377), which can itself launch <panel-create-gsheet> (FIX378).
+          Both paths end up calling saveGsheetUrl(). */}
       {setGsheetPopup && (
-        <div className="setup-overlay" onMouseDown={() => setSetGsheetPopup(null)}>
-          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
-            <p className="sc-shrink-title">Set the project Google sheet</p>
-            <p>Enter the url of the Google sheet:</p>
-            <input
-              type="text"
-              data-yagu-id="input-set-properties-gsheet"
-              value={setGsheetPopup.value}
-              onChange={(e) => setSetGsheetPopup((p) => ({ ...p, value: e.target.value, error: null }))}
-              autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter' && parseGsheetUrl(setGsheetPopup.value.trim())) confirmSetPropertiesGsheet(); }}
-            />
-            {setGsheetPopup.error && <div className="sc-viewer-err">{setGsheetPopup.error}</div>}
-            <div className="sc-shrink-actions">
-              <button type="button" onClick={() => setSetGsheetPopup(null)} disabled={setGsheetPopup.saving}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="primary"
-                onClick={confirmSetPropertiesGsheet}
-                disabled={setGsheetPopup.saving || !parseGsheetUrl(setGsheetPopup.value.trim())}
-              >
-                {setGsheetPopup.saving ? '…' : 'Ok'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SetGsheetPanel
+          initialUrl={setGsheetPopup.initialUrl}
+          projectName={data?.project?.name}
+          onCancel={() => setSetGsheetPopup(null)}
+          onDone={saveGsheetUrl}
+        />
       )}
       {/* FIX658 <cmd-delete-item>: Title 'Item deletion', prompt lists every
           selected ref one per line (FIX658.1). */}

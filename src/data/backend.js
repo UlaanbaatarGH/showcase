@@ -53,6 +53,7 @@ export const deleteLanguage = impl.deleteLanguage;
 // Writes
 export const saveSetup = impl.saveSetup;
 export const importGsheet = impl.importGsheet;
+export const fetchGsheetTitle = impl.fetchGsheetTitle;
 export const getExistingImages = impl.getExistingImages;
 export const signUpload = impl.signUpload;
 export const confirmImage = impl.confirmImage;

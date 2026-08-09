@@ -169,6 +169,9 @@ export default {
   saveSetup: (payload) => call('/api/setup', { method: 'POST', body: payload }),
   importGsheet: (projectId, plan) =>
     call(`/api/projects/${projectId}/import-gsheet`, { method: 'POST', body: plan }),
+  // FIX378.3.4.2: server-side title fetch — the /edit page (only place
+  // carrying the document title) isn't CORS-fetchable from the browser.
+  fetchGsheetTitle: (url) => call('/api/gsheet-title', { method: 'POST', body: { url } }),
   getExistingImages: (projectId) =>
     call(`/api/projects/${projectId}/existing-images`),
   signUpload: (body) => call('/api/images/sign-upload', { method: 'POST', body }),

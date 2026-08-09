@@ -152,7 +152,7 @@ export default function UsersPanel({ onClose }) {
     }
   };
 
-  // FIX311.2.5[ex-312.2.12] <btn-reset-pswd> (users-list toolbar) triggers
+  // FIX311.2.5[ex-312.2.12] <cmd-reset-pswd> (users-list toolbar) triggers
   // <process-reset-pswd> (FIX311.3.6.2 -> FIX318). Admin-only, same gate as
   // the <panel-user> credential fields (FIX311.5.4 / .5.5). FIX318.2.3:
   // refresh <list-users> afterwards so the cleared password / new access
@@ -213,7 +213,7 @@ export default function UsersPanel({ onClose }) {
           </button>
         </header>
         {/* FIX311.2.0 layout diagram — toolbar order:
-            [<admin-add-user>][<admin-remove-user>][<btn-edit-user>][<btn-reset-pswd>]
+            [<admin-add-user>][<admin-remove-user>][<btn-edit-user>][<cmd-reset-pswd>]
             FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only; FIX311.5.6
             also lets project managers open the Edit panel (only the
             projects they manage are editable inside it). */}
@@ -260,7 +260,7 @@ export default function UsersPanel({ onClose }) {
               Edit
             </button>
             {/* FIX311.2.5[ex-312.2.12] + FIX311.2.5.0[ex-312.2.12.0]
-                <btn-reset-pswd>: moved here from <panel-user> (was
+                <cmd-reset-pswd>: moved here from <panel-user> (was
                 FIX312.2.12, now FIX312.2.12(removed)). Admin-only, same
                 gate as Add/Remove — FIX311.3.6 confirmation popup then
                 triggers <process-reset-pswd> (FIX311.3.6.2 -> FIX318)
@@ -269,7 +269,7 @@ export default function UsersPanel({ onClose }) {
               <button
                 type="button"
                 className="users-projects-btn"
-                data-yagu-id="btn-reset-pswd"
+                data-yagu-id="cmd-reset-pswd"
                 onClick={() => onResetPassword(selectedId)}
                 disabled={busy || !selectedId}
                 title="Reset password"
@@ -461,7 +461,7 @@ function AddUserDialog({ busy, existingNames, existingEmails, onCancel, onSubmit
 // admin-only fields per FIX311.5.4 / .5.5 — for non-admin callers
 // (Project Managers) those inputs render disabled. The project list
 // follows FIX312.4.1: admins see every project, others only the ones
-// they themselves manage. <btn-reset-pswd> moved out to the users-list
+// they themselves manage. <cmd-reset-pswd> moved out to the users-list
 // toolbar (FIX311.2.5[ex-312.2.12]) — FIX312.2.12 is now removed here.
 function UserPanel({
   busy,

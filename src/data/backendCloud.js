@@ -107,7 +107,7 @@ export default {
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deleteUser: (id) =>
     call(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  // FIX311.2.5[ex-312.2.12] <btn-reset-pswd> -> FIX311.3.6 (confirm) ->
+  // FIX311.2.5[ex-312.2.12] <cmd-reset-pswd> -> FIX311.3.6 (confirm) ->
   // FIX318 <process-reset-pswd>.
   resetUserPassword: (id) =>
     call(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST' }),

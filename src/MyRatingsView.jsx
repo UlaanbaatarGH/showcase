@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getShowcase } from './data/backend.js';
 import { ProjectHeaderLeft, ProjectHeaderRight } from './ProjectHeader.jsx';
-import { RATING_ICONS } from './Icons.jsx';
+import { RATING_ICONS, IconRatingConflict } from './Icons.jsx';
 
 // FIX700 <view-my-ratings>: give a visual view of the items the user has
 // rated. Deliberately its own file/component rather than a mode flag
@@ -136,7 +136,18 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, onNavi
                 in a checked (grid) pattern with a vertical scrollbar. */}
             <section className="sc-rated-images" data-yagu-id="panel-rated-images">
               {selectedFolders.map((f) => (
-                <img key={f.id} src={f.main_image_url} alt={f.name} loading="lazy" />
+                <div key={f.id} className="sc-rated-image-cell">
+                  <img src={f.main_image_url} alt={f.name} loading="lazy" />
+                  {/* FIX702.4.3 <item-with-conflicting-rating>: red bold
+                      exclamation point, top right corner of the image —
+                      same has_rating_conflict flag + icon the Catalogue
+                      viewer's <icon-rating> already uses (FIX520.4.8),
+                      just positioned as an image overlay here instead
+                      of inline next to a rating icon. */}
+                  {f.has_rating_conflict && (
+                    <IconRatingConflict size={18} className="sc-rated-image-conflict" />
+                  )}
+                </div>
               ))}
             </section>
           </>

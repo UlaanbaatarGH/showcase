@@ -3483,9 +3483,20 @@ export default function CatalogueView({
                         className={`sc-gallery-cell${isSelected ? ' selected' : ''}`}
                         onClick={(e) => handleGalleryImageClick(e, f)}
                       >
-                        {/* FIX511.2.2: first image, or a black frame. */}
+                        {/* FIX511.2.2 / FIX511.4.1: the thumbnail
+                            (FIX371.6.2.1 / FIX670.20.4), or a black frame
+                            when there's no image. Falls back to the full
+                            image on load error -- an item published or
+                            imported before thumbnails existed has none. */}
                         {f.main_image_url ? (
-                          <img src={f.main_image_url} alt={f.name} loading="lazy" />
+                          <img
+                            src={f.main_image_thumb_url || f.main_image_url}
+                            alt={f.name}
+                            loading="lazy"
+                            onError={(e) => {
+                              if (e.target.src !== f.main_image_url) e.target.src = f.main_image_url;
+                            }}
+                          />
                         ) : (
                           <div className="sc-gallery-cell-blank" />
                         )}

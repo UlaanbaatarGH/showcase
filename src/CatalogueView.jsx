@@ -2139,6 +2139,31 @@ export default function CatalogueView({
     return rows;
   }, [liveFolders, filters, sortKeys, configuredColumns, activeGroup, activeBucketKey, activeParsed, propertiesById, propertiesByLabel, data?.rating_setup]);
 
+  // FIX511.2.0.1 / FIX511.2.0.2: no property selected -> one flat,
+  // unlabelled strip; a property selected -> one strip per distinct value,
+  // ordered by increasing value (numeric-aware since values are often
+  // numbers), blanks collected into their own trailing '(no value)' strip.
+  // Must sit above the `if (!data) return` guard below (Rules of Hooks) --
+  // same reasoning as curImgSizeInfo's effect further down.
+  const galleryStrips = useMemo(() => {
+    if (!galleryPropertyId) return [{ key: null, label: null, items: displayedFolders }];
+    const prop = propertiesById.get(galleryPropertyId);
+    const byValue = new Map();
+    for (const f of displayedFolders) {
+      const raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
+      const key = raw == null ? '' : String(raw).trim();
+      if (!byValue.has(key)) byValue.set(key, []);
+      byValue.get(key).push(f);
+    }
+    const blanks = byValue.get('') ?? [];
+    byValue.delete('');
+    const strips = [...byValue.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+      .map(([key, items]) => ({ key, label: key, items }));
+    if (blanks.length > 0) strips.push({ key: '__novalue__', label: '(no value)', items: blanks });
+    return strips;
+  }, [displayedFolders, galleryPropertyId, propertiesById, propertiesByLabel]);
+
   // FIX508.2.3 / <setup-select-first-item>: when the option is on, keep
   // the first *displayed* item selected. Runs against displayedFolders
   // (after grouping, bucket and column filters) so the spec's "1st
@@ -2561,29 +2586,6 @@ export default function CatalogueView({
         </select>
       </div>
     ) : null;
-
-  // FIX511.2.0.1 / FIX511.2.0.2: no property selected -> one flat,
-  // unlabelled strip; a property selected -> one strip per distinct value,
-  // ordered by increasing value (numeric-aware since values are often
-  // numbers), blanks collected into their own trailing '(no value)' strip.
-  const galleryStrips = useMemo(() => {
-    if (!galleryPropertyId) return [{ key: null, label: null, items: displayedFolders }];
-    const prop = propertiesById.get(galleryPropertyId);
-    const byValue = new Map();
-    for (const f of displayedFolders) {
-      const raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
-      const key = raw == null ? '' : String(raw).trim();
-      if (!byValue.has(key)) byValue.set(key, []);
-      byValue.get(key).push(f);
-    }
-    const blanks = byValue.get('') ?? [];
-    byValue.delete('');
-    const strips = [...byValue.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-      .map(([key, items]) => ({ key, label: key, items }));
-    if (blanks.length > 0) strips.push({ key: '__novalue__', label: '(no value)', items: blanks });
-    return strips;
-  }, [displayedFolders, galleryPropertyId, propertiesById, propertiesByLabel]);
 
   // FIX511.3.1: same multi-select mechanics as a <panel-item-list> row
   // click (FIX510.2.1.11 ctrl/shift/plain), but always also switches the

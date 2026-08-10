@@ -7,6 +7,8 @@ import ShowcaseImgListEditor from './viewer/ShowcaseImgListEditor.jsx';
 import ItemDetailsPanel from './ItemDetailsPanel.jsx';
 import { publishItemImages, isLocalRow, measureDims } from './viewer/publishItemImages.js';
 import GsheetImportDialog from './gsheet/GsheetImportDialog.jsx';
+import GsheetFormatErrorPopup from './gsheet/GsheetFormatErrorPopup.jsx';
+import { planFromUrl } from './gsheet/gsheetImport.js';
 import SetGsheetPanel from './gsheet/SetGsheetPanel.jsx';
 import ImportImagesDialog from './images/ImportImagesDialog.jsx';
 import GroupingPanel from './grouping/GroupingPanel.jsx';
@@ -860,6 +862,10 @@ export default function CatalogueView({
   const [showGrouping, setShowGrouping] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
+  // FIX375.1.1: format-check errors found when opening the gsheet, shown
+  // via <popup-gsheet-format-err> (FIX379) for information only -- unlike
+  // the import dialog, they don't stop anything (the tab is already open).
+  const [gsheetOpenErrors, setGsheetOpenErrors] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   // FIX656 'Other…' group: local-app-only Commands menu items that aren't in
   // the always-visible top-level set (Add item/Delete item/Publish all) live
@@ -2701,6 +2707,22 @@ export default function CatalogueView({
     );
   };
 
+  // FIX375.1.1: run the same format checks as the import dialog on the
+  // just-opened gsheet, informationally -- window.open must fire
+  // synchronously from the click (a later `await` would get popup-blocked),
+  // so this runs after, not before, FIX375.1.2's window.open.
+  const checkOpenedGsheet = async () => {
+    if (!data?.project) return;
+    const res = await planFromUrl(viewSetup.properties_gsheet_url, {
+      id: data.project.id,
+      name: data.project.name,
+      properties,
+      folders: data.folders,
+      deleted_property_id: deletedPropertyId,
+    });
+    if (res.errors && res.errors.length > 0) setGsheetOpenErrors(res.errors);
+  };
+
   return (
     // FIX502 [ex-showcase-view] / FIX502.0 <view-catalogue>: reuses
     // <panel-project-home> (FIX401.0) rather than defining a separate
@@ -2880,13 +2902,19 @@ export default function CatalogueView({
                             list). */}
                         {/* FIX375 <cmd-open-properties-gsheet>: opens the
                             gsheet stored at <setup-properties-gsheet>
-                            (FIX508.2.5) in a new tab. */}
+                            (FIX508.2.5) in a new tab (FIX375.1.2), and
+                            runs format checks alongside for information
+                            (FIX375.1.1). */}
                         <li>
                           <button
                             type="button"
                             role="menuitem"
                             data-yagu-id="cmd-open-properties-gsheet"
-                            onClick={() => { setMenuOpen(false); window.open(viewSetup.properties_gsheet_url, '_blank', 'noopener'); }}
+                            onClick={() => {
+                              setMenuOpen(false);
+                              window.open(viewSetup.properties_gsheet_url, '_blank', 'noopener');
+                              checkOpenedGsheet();
+                            }}
                           >
                             Open properties gsheet
                           </button>
@@ -3898,6 +3926,12 @@ export default function CatalogueView({
             setLocalShowcaseOverride(null);
             setShowColumns(false);
           }}
+        />
+      )}
+      {gsheetOpenErrors && (
+        <GsheetFormatErrorPopup
+          errors={gsheetOpenErrors}
+          onOk={() => setGsheetOpenErrors(null)}
         />
       )}
       {importOpen && data.project && (

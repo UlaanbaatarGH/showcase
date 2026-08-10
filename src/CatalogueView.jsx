@@ -2587,9 +2587,10 @@ export default function CatalogueView({
       </div>
     ) : null;
 
-  // FIX511.3.1: same multi-select mechanics as a <panel-item-list> row
-  // click (FIX510.2.1.11 ctrl/shift/plain), but always also switches the
-  // right panel to the Details tab instead of leaving it wherever it was.
+  // FIX511.3.1 (updated): same multi-select mechanics as a <panel-item-list>
+  // row click (FIX510.2.1.11 ctrl/shift/plain) -- no longer also forces the
+  // Details tab active; whichever of <panel-item-details>/<panel-item-img-
+  // list> was already showing stays as it was.
   const handleGalleryImageClick = (e, folder) => {
     userPickedRef.current = true; // FIX404: stop re-applying the URL item
     if (e.shiftKey && itemSelectAnchorRef.current != null) {
@@ -2601,7 +2602,6 @@ export default function CatalogueView({
       selectOnly(folder.id);
       itemSelectAnchorRef.current = folder.id;
     }
-    setViewerTab('details');
   };
 
   const renderHeaderCell = (col) => {
@@ -3454,11 +3454,15 @@ export default function CatalogueView({
              rows (FIX511.3.3). */
           <section className="sc-gallery-panel" data-yagu-id="panel-item-gallery">
             {groups.length > 0 && !activeGroup && groupSelector}
-            {/* FIX511.2.1: property selector for the strip-by-value layout
-                below (FIX511.2.0.2) -- 'no sorting' (FIX511.2.0.1) is one
-                flat strip, same as galleryStrips' own null-property case. */}
+            {/* FIX511.2.1 / FIX511.2.1.0 <ddown-property-selector>: property
+                selector for the strip-by-value layout below (FIX511.2.0.2)
+                -- 'no sorting' (FIX511.2.0.1) is one flat strip, same as
+                galleryStrips' own null-property case. FIX511.3.4: selecting
+                a property here is what drives galleryStrips -- no separate
+                wiring needed, its useMemo already keys off this state. */}
             <div className="sc-gallery-toolbar">
               <select
+                data-yagu-id="ddown-property-selector"
                 value={galleryPropertyId ?? ''}
                 onChange={(e) => setGalleryPropertyId(e.target.value || null)}
               >
@@ -3483,11 +3487,16 @@ export default function CatalogueView({
                         className={`sc-gallery-cell${isSelected ? ' selected' : ''}`}
                         onClick={(e) => handleGalleryImageClick(e, f)}
                       >
-                        {/* FIX511.2.2 / FIX511.4.1: the thumbnail
-                            (FIX371.6.2.1 / FIX670.20.4), or a black frame
-                            when there's no image. Falls back to the full
-                            image on load error -- an item published or
-                            imported before thumbnails existed has none. */}
+                        {/* FIX511.2.2 (updated): the thumbnail of the item's
+                            main image, or its first when no main is set --
+                            main_image_url/_thumb_url already resolve that
+                            (backend: order by is_main desc, sort_order, id),
+                            unchanged by this update. FIX511.4.1: the
+                            thumbnail itself (FIX371.6.2.1 / FIX670.20.4), or
+                            a black frame when there's no image at all. Falls
+                            back to the full image on load error -- an item
+                            published or imported before thumbnails existed
+                            has none. */}
                         {f.main_image_url ? (
                           <img
                             src={f.main_image_thumb_url || f.main_image_url}

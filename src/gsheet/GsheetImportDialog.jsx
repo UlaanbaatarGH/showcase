@@ -78,6 +78,18 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     return <GsheetFormatErrorPopup errors={errors} onOk={onClose} />;
   }
 
+  // FIX370.4.3.10.1: compare the preview's counts against what the backend
+  // actually reports it did. 'Deleted item' is left out -- the backend has
+  // no deleted-folder count of its own, it folds deletions into the same
+  // updated_folders_count as every other property-value change.
+  const countMismatches = recap && result ? [
+    ['New item', recap.changeCounts.newItem, result.new_folders_count ?? 0],
+    ['Updated item', recap.changeCounts.updatedItem, result.updated_folders_count ?? 0],
+    ['Updated item Ref', recap.changeCounts.updatedItemRef, result.folder_renames_count ?? 0],
+    ['New property', recap.changeCounts.newProperty, result.new_properties_count ?? 0],
+    ['Updated property name', recap.changeCounts.updatedPropertyName, result.renames_count ?? 0],
+  ].filter(([, expected, actual]) => expected !== actual) : [];
+
   return (
     <div className="modal-backdrop">
       <div
@@ -193,16 +205,23 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
           </div>
         )}
 
+        {/* FIX370.4.3.10: no details -- the import preview (FIX370.4.2)
+            already gave them. FIX370.4.3.10.1: unless the effective
+            import's counts don't match what the preview promised, in
+            which case that mismatch is the one thing worth raising here. */}
         {stage === 'done' && result && (
           <div className="gsheet-stage">
             <h2>Import done</h2>
-            <ul className="gsheet-result">
-              <li>New properties: {result.new_properties_count ?? 0}</li>
-              <li>Renames: {result.renames_count ?? 0}</li>
-              <li>New items: {result.new_folders_count ?? 0}</li>
-              <li>Updated items: {result.updated_folders_count ?? 0}</li>
-              <li>Renamed items: {result.folder_renames_count ?? 0}</li>
-            </ul>
+            {countMismatches.length > 0 && (
+              <div className="gsheet-err-fatal">
+                <p>Effective import counts don't match the preview:</p>
+                <ul>
+                  {countMismatches.map(([label, expected, actual]) => (
+                    <li key={label}>{label}: preview {expected}, import {actual}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="gsheet-actions">
               <button
                 type="button"

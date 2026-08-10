@@ -2902,6 +2902,11 @@ body {
   color: var(--color-text);
   font-size: 0.9rem;
 }
+/* FIX370.4.2.2 <popup-import-preview>: fixed-order list of change-type
+   counts, replacing the old per-name recap lists. FIX370.4.2.2.2's blank
+   line between the item-count group and the ref/property-count group. */
+.gsheet-preview-lines p { margin: 0; }
+.gsheet-preview-gap { margin-top: 0.75rem !important; }
 .gsheet-err-fatal {
   color: var(--color-invalid);
   background: rgba(248, 113, 113, 0.1);

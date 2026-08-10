@@ -141,29 +141,20 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
           </div>
         )}
 
+        {/* FIX370.4.2(deep-old) family retired: the old per-name recap
+            lists are replaced by a fixed-order list of change-type counts
+            (FIX370.4.2.2.2). */}
         {stage === 'recap' && recap && (
-          <div className="gsheet-stage">
-            <h2>Import recap</h2>
-            <RecapList title="New properties" items={recap.newProperties} />
-            <RecapList
-              title="Renamed properties"
-              items={recap.renames.map((r) => `${r.from} → ${r.to}`)}
-            />
-            <RecapList title="New items" items={recap.newFolders} />
-            <RecapList title="Updated items" items={recap.updatedFolders} />
-            <RecapList title="Deleted items" items={recap.deletedFolders} />
-            <RecapList
-              title="Renamed items"
-              items={recap.renamedFolders.map((r) => `${r.from} → ${r.to}`)}
-            />
-            {recap.newProperties.length === 0 &&
-              recap.renames.length === 0 &&
-              recap.newFolders.length === 0 &&
-              recap.updatedFolders.length === 0 &&
-              recap.deletedFolders.length === 0 &&
-              recap.renamedFolders.length === 0 && (
-                <div className="gsheet-empty">Nothing to import.</div>
-              )}
+          <div className="gsheet-stage" data-yagu-id="popup-import-preview">
+            <h2>Import preview</h2>
+            <div className="gsheet-preview-lines">
+              <p>- New item : {recap.changeCounts.newItem}</p>
+              <p>- Updated item : {recap.changeCounts.updatedItem}</p>
+              <p>- Deleted item : {recap.changeCounts.deletedItem}</p>
+              <p className="gsheet-preview-gap">- Updated item Ref : {recap.changeCounts.updatedItemRef}</p>
+              <p>- New property : {recap.changeCounts.newProperty}</p>
+              <p>- Updated property name : {recap.changeCounts.updatedPropertyName}</p>
+            </div>
             <div className="gsheet-actions">
               <button type="button" className="btn-cancel" onClick={onClose}>
                 Cancel
@@ -172,14 +163,7 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
                 type="button"
                 className="btn-primary"
                 onClick={handleImport}
-                disabled={
-                  recap.newProperties.length === 0 &&
-                  recap.renames.length === 0 &&
-                  recap.newFolders.length === 0 &&
-                  recap.updatedFolders.length === 0 &&
-                  recap.deletedFolders.length === 0 &&
-                  recap.renamedFolders.length === 0
-                }
+                disabled={Object.values(recap.changeCounts).every((n) => n === 0)}
               >
                 Import
               </button>

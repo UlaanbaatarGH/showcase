@@ -418,6 +418,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const deletedFolderDisplays = [];
   const renamedFolders = [];
   const updates = [];
+  // FIX370.4.2.2.4: a ref-renamed item also counts as an 'Updated item',
+  // alongside items with a changed property value -- deduped by row so an
+  // item with both doesn't count twice.
+  const updatedItemRows = new Set();
 
   dataRows.forEach((row, i) => {
     const name = rowFolderNames[i];
@@ -433,6 +437,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     // taken instead of '#' to create the new item.
     if (!isNew && newRefRaw && newRefRaw !== name) {
       renamedFolders.push({ id: existingFolder.id, from: name, to: newRefRaw });
+      updatedItemRows.add(i);
     }
     let display = effectiveName;
     if (mainColIdx != null) {
@@ -493,22 +498,29 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
           updates.push({ folder_name: effectiveName, property_label: finalLabel, value: (row[col.idx] ?? '').trim() });
         }
       }
-      if (changed) updatedFolderDisplays.push(display);
+      if (changed) {
+        updatedFolderDisplays.push(display);
+        updatedItemRows.add(i);
+      }
     }
   });
 
+  // FIX370.4.2 <popup-import-preview>: replaces the old per-name recap
+  // lists (FIX370.4.2(deep-old) family) with counts only, one per
+  // change-type (FIX370.4.2.2.2's fixed display order). FIX370.4.2.2.3: a
+  // new property alone isn't an 'Updated item' -- only setting a value for
+  // it (which the updatedItemRows tracking above already requires) is.
+  // FIX370.4.2.2.5: a property rename doesn't touch updatedItemRows at all,
+  // so it's correctly excluded from 'Updated item'.
   const recap = {
-    // Recap renders the list as plain text, so expose labels only.
-    newProperties: newProperties.map((p) => p.label),
-    renames: renames.map((r) => ({
-      id: r.id,
-      from: propById.get(r.id)?.label || '?',
-      to: r.label,
-    })),
-    newFolders: newFolderDisplays,
-    updatedFolders: updatedFolderDisplays,
-    deletedFolders: deletedFolderDisplays,
-    renamedFolders: renamedFolders.map((r) => ({ from: r.from, to: r.to })),
+    changeCounts: {
+      newItem: newFolderDisplays.length,
+      updatedItem: updatedItemRows.size,
+      deletedItem: deletedFolderDisplays.length,
+      updatedItemRef: renamedFolders.length,
+      newProperty: newProperties.length,
+      updatedPropertyName: renames.length,
+    },
     // FIX370.2.1.6.1 (updated): columns dropped for not matching an
     // existing property, when no setup sheet was provided.
     droppedColumns,

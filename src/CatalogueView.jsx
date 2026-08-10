@@ -2324,13 +2324,21 @@ export default function CatalogueView({
       const tag = ae?.tagName;
       const editable =
         tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
-      // FIX520.3.4: '0' clears the rating; any other single digit N sets
-      // the Nth <table-rating-values> row (not capped at 2 — the spec's
-      // '1'/'2'/'...' pattern generalizes to however many rows are
-      // configured). Gated on field-enable-rating; same in and out of
-      // fullscreen, so this runs before the fullscreen branch splits off.
-      if (!editable && !editionMode && data?.rating_setup?.enabled && selectedFolderId != null
-          && /^[0-9]$/.test(e.key)) {
+      // FIX520.3.4 / FIX520.3.4.0 <action-item-rating>: '0' clears the
+      // rating; any other single digit N sets the Nth <table-rating-values>
+      // row (not capped at 2 — the spec's '1'/'2'/'...' pattern generalizes
+      // to however many rows are configured). FIX520.3.4.1: gated on both
+      // field-enable-rating AND the caller being a registered+enabled rater
+      // (isRegisteredRater) -- previously only the former was checked here,
+      // so a logged-in non-rater's keypress would optimistically flash a
+      // rating before the backend's own check (FIX507.2.3.1.3) silently
+      // reverted it (FIX520.4.5); this stops it before that round-trip.
+      // FIX510.3.5: same in and out of fullscreen, and whether or not an
+      // item is open in the image viewer -- this runs before the
+      // fullscreen branch splits off, so <action-item-rating> is just as
+      // effective from the plain item list.
+      if (!editable && !editionMode && data?.rating_setup?.enabled && isRegisteredRater
+          && selectedFolderId != null && /^[0-9]$/.test(e.key)) {
         e.preventDefault();
         if (e.key === '0') {
           handleSetMyRating(selectedFolderId, null);
@@ -2391,7 +2399,7 @@ export default function CatalogueView({
   }, [
     showSetup, showColumns, showGrouping, importOpen, importImagesOpen,
     editionMode, displayedFolders, selectedFolderId, images.length,
-    data?.rating_setup,
+    data?.rating_setup, isRegisteredRater,
   ]);
 
   // Keep the selected row in view when ↑/↓ walks past the panel edge.

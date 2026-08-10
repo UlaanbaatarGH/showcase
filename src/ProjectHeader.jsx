@@ -11,7 +11,18 @@ import { useAuth } from './AuthContext.jsx';
 // middle content (Columns/Grouping/Import/Admin/Setup for Catalogue;
 // nothing for My ratings) exactly where it already lives in its own
 // JSX, instead of threading it through as children.
-export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, onSwitchView, ratingEnabled, isRegisteredRater }) {
+//
+// FIX503.2.11 / .2.11.0 <select-catalogue-show-as>: only for the
+// Catalogue view (currentView === 'catalogue' — CatalogueView.jsx always
+// passes 'catalogue' here, MyRatingsView.jsx always passes 'my-ratings',
+// so this doesn't depend on <menu-view> itself being visible/available).
+// The showAs value and its setter live in CatalogueView (only place that
+// needs to know which panel to render), passed through as plain props —
+// undefined for MyRatingsView's caller, which just never renders this.
+export function ProjectHeaderLeft({
+  projectName, onNavigateHome, currentView, onSwitchView, ratingEnabled, isRegisteredRater,
+  showAs, onShowAsChange,
+}) {
   const { profile } = useAuth();
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const viewMenuRef = useRef(null);
@@ -91,6 +102,31 @@ export function ProjectHeaderLeft({ projectName, onNavigateHome, currentView, on
               </li>
             </ul>
           )}
+        </div>
+      )}
+      {/* FIX503.2.11 <select-catalogue-show-as>: '(x) Item list (x)
+          Gallery list' radio pair, default Item list (FIX503.2.11.2 —
+          CatalogueView's showAs state itself defaults to 'list'). */}
+      {currentView === 'catalogue' && onShowAsChange && (
+        <div className="sc-show-as-selector" data-yagu-id="select-catalogue-show-as">
+          <label>
+            <input
+              type="radio"
+              name="catalogue-show-as"
+              checked={showAs === 'list'}
+              onChange={() => onShowAsChange('list')}
+            />
+            Item list
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="catalogue-show-as"
+              checked={showAs === 'gallery'}
+              onChange={() => onShowAsChange('gallery')}
+            />
+            Gallery list
+          </label>
         </div>
       )}
     </>

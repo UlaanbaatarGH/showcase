@@ -860,6 +860,16 @@ export default function CatalogueView({
   const [showColumns, setShowColumns] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [showGrouping, setShowGrouping] = useState(false);
+  // FIX503.2.11 / FIX503.2.11.0 <select-catalogue-show-as>: Item list vs
+  // Gallery list, default Item list (FIX503.2.11.2). Lives here (not in
+  // ProjectHeaderLeft, which just renders it) since it drives which panel
+  // -- <panel-item-list> or <panel-item-gallery> -- fills the same middle
+  // slot below.
+  const [showAs, setShowAs] = useState('list');
+  // FIX511.2.1 <panel-item-gallery>: property selector for the gallery's
+  // strip-by-value layout (FIX511.2.0.2); null = no sorting, one flat grid
+  // (FIX511.2.0.1).
+  const [galleryPropertyId, setGalleryPropertyId] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importImagesOpen, setImportImagesOpen] = useState(false);
   // FIX375.1.1: format-check errors found when opening the gsheet, shown
@@ -2270,6 +2280,19 @@ export default function CatalogueView({
     );
   };
 
+  // FIX511.2.4 / FIX511.2.5: same rating + conflict icons as <icon-rating>
+  // above, but for an arbitrary gallery folder rather than the current
+  // selection.
+  const renderFolderRatingIcon = (folder) => {
+    if (!data?.rating_setup?.enabled) return null;
+    const rvId = folder?.my_rating_value_id;
+    if (rvId == null) return null;
+    const rv = (data?.rating_setup?.values ?? []).find((v) => v.id === rvId);
+    const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
+    if (!RatingIconComp) return null;
+    return <RatingIconComp size={14} className="sc-gallery-rating-icon" title={rv.text} />;
+  };
+
   const handleSaveGrouping = (result) => {
     setData((prev) => ({
       ...prev,
@@ -2485,6 +2508,8 @@ export default function CatalogueView({
               onSwitchView={onSwitchView}
               ratingEnabled={initialRatingEnabled}
               isRegisteredRater={initialIsRegisteredRater}
+              showAs={showAs}
+              onShowAsChange={setShowAs}
             />
           )}
           <span className="sc-topbar-spacer" />
@@ -2536,6 +2561,46 @@ export default function CatalogueView({
         </select>
       </div>
     ) : null;
+
+  // FIX511.2.0.1 / FIX511.2.0.2: no property selected -> one flat,
+  // unlabelled strip; a property selected -> one strip per distinct value,
+  // ordered by increasing value (numeric-aware since values are often
+  // numbers), blanks collected into their own trailing '(no value)' strip.
+  const galleryStrips = useMemo(() => {
+    if (!galleryPropertyId) return [{ key: null, label: null, items: displayedFolders }];
+    const prop = propertiesById.get(galleryPropertyId);
+    const byValue = new Map();
+    for (const f of displayedFolders) {
+      const raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
+      const key = raw == null ? '' : String(raw).trim();
+      if (!byValue.has(key)) byValue.set(key, []);
+      byValue.get(key).push(f);
+    }
+    const blanks = byValue.get('') ?? [];
+    byValue.delete('');
+    const strips = [...byValue.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+      .map(([key, items]) => ({ key, label: key, items }));
+    if (blanks.length > 0) strips.push({ key: '__novalue__', label: '(no value)', items: blanks });
+    return strips;
+  }, [displayedFolders, galleryPropertyId, propertiesById, propertiesByLabel]);
+
+  // FIX511.3.1: same multi-select mechanics as a <panel-item-list> row
+  // click (FIX510.2.1.11 ctrl/shift/plain), but always also switches the
+  // right panel to the Details tab instead of leaving it wherever it was.
+  const handleGalleryImageClick = (e, folder) => {
+    userPickedRef.current = true; // FIX404: stop re-applying the URL item
+    if (e.shiftKey && itemSelectAnchorRef.current != null) {
+      selectRange(displayedFolders, itemSelectAnchorRef.current, folder.id);
+    } else if (e.ctrlKey || e.metaKey) {
+      toggleSelected(folder.id);
+      itemSelectAnchorRef.current = folder.id;
+    } else {
+      selectOnly(folder.id);
+      itemSelectAnchorRef.current = folder.id;
+    }
+    setViewerTab('details');
+  };
 
   const renderHeaderCell = (col) => {
     const key = columnKey(col);
@@ -2806,6 +2871,8 @@ export default function CatalogueView({
               onSwitchView={onSwitchView}
               ratingEnabled={!!data?.rating_setup?.enabled}
               isRegisteredRater={isRegisteredRater}
+              showAs={showAs}
+              onShowAsChange={setShowAs}
             />
             {/* FIX503.2.13 + FIX503.2.13.0 + FIX503.2.20.1 + FIX503.4.4
                 <label-project-title>: decorative label rendered in the
@@ -3372,68 +3439,136 @@ export default function CatalogueView({
             </section>
           );
         })()}
-        {/* FIX502.2.2 <panel-showcase-list>: the list region of the
-            Showcase view. FIX630.0: the local app adapts this same Id
-            rather than defining its own — FIX630.1's red-Ref styling
-            (below, in renderBodyCell) is the only local-app-specific
-            behavior layered on top. */}
-        <section className="sc-list-panel" data-yagu-id="panel-showcase-list">
-          {groups.length > 0 && !activeGroup && groupSelector}
-          <table className="sc-table">
-            <thead>
-              <tr>{configuredColumns.map(renderHeaderCell)}</tr>
-              <tr className="sc-filter-row">
-                {configuredColumns.map(renderFilterCell)}
-              </tr>
-            </thead>
-            <tbody>
-              {displayedFolders.map((f) => {
-                const isSelected = selectedFolderIds.includes(f.id);
-                const isPrimary = f.id === selectedFolderId;
-                return (
-                  <tr
-                    key={f.id}
-                    ref={isPrimary ? selectedRowRef : null}
-                    /* FIX510.5.3: the *first* selected row carries an
-                       extra 'primary' class so the existing styling
-                       (highlight + Item-Panel-target) keeps working. */
-                    className={
-                      [
-                        isSelected ? 'selected' : '',
-                        isPrimary ? 'selected-primary' : '',
-                      ].filter(Boolean).join(' ')
-                    }
-                    onClick={(e) => {
-                      // FIX510.2.1.11: Ctrl/Cmd-click toggles the row in the
-                      // multi-selection; Shift-click selects the contiguous
-                      // range from the last-clicked row; plain click resets
-                      // to a single-row selection.
-                      userPickedRef.current = true; // FIX404: stop re-applying the URL item
-                      if (e.shiftKey && itemSelectAnchorRef.current != null) {
-                        selectRange(displayedFolders, itemSelectAnchorRef.current, f.id);
-                      } else if (e.ctrlKey || e.metaKey) {
-                        toggleSelected(f.id);
-                        itemSelectAnchorRef.current = f.id;
-                      } else {
-                        selectOnly(f.id);
-                        itemSelectAnchorRef.current = f.id;
-                      }
-                    }}
-                  >
-                    {configuredColumns.map((col) => renderBodyCell(f, col))}
-                  </tr>
-                );
-              })}
-              {displayedFolders.length === 0 && (
-                <tr>
-                  <td colSpan={configuredColumns.length || 1} className="sc-empty">
-                    No items match the current filter.
-                  </td>
+        {/* FIX502.2.0: <panel-item-list> and <panel-item-gallery> share
+            this one middle slot, toggled by <select-catalogue-show-as>
+            (FIX503.2.11) -- never both at once. groupSelector stays
+            nested inside whichever section is showing (not a grid sibling
+            of its own -- .sc-main's gridTemplateColumns only accounts for
+            the groups-panel/list-or-gallery/splitter/viewer children). */}
+        {showAs === 'gallery' ? (
+          /* FIX511 <panel-item-gallery>: first image of every item in
+             <panel-item-list>'s exact same filtered/grouped set
+             (displayedFolders), as a checked-pattern grid instead of table
+             rows (FIX511.3.3). */
+          <section className="sc-gallery-panel" data-yagu-id="panel-item-gallery">
+            {groups.length > 0 && !activeGroup && groupSelector}
+            {/* FIX511.2.1: property selector for the strip-by-value layout
+                below (FIX511.2.0.2) -- 'no sorting' (FIX511.2.0.1) is one
+                flat strip, same as galleryStrips' own null-property case. */}
+            <div className="sc-gallery-toolbar">
+              <select
+                value={galleryPropertyId ?? ''}
+                onChange={(e) => setGalleryPropertyId(e.target.value || null)}
+              >
+                <option value="">No sorting</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            {galleryStrips.map((strip) => (
+              <div key={strip.key ?? '__flat__'} className="sc-gallery-strip">
+                {strip.label != null && (
+                  <div className="sc-gallery-strip-label">{strip.label}</div>
+                )}
+                <div className="sc-gallery-images">
+                  {strip.items.map((f) => {
+                    const isSelected = selectedFolderIds.includes(f.id);
+                    return (
+                      <div
+                        key={f.id}
+                        ref={f.id === selectedFolderId ? selectedRowRef : null}
+                        className={`sc-gallery-cell${isSelected ? ' selected' : ''}`}
+                        onClick={(e) => handleGalleryImageClick(e, f)}
+                      >
+                        {/* FIX511.2.2: first image, or a black frame. */}
+                        {f.main_image_url ? (
+                          <img src={f.main_image_url} alt={f.name} loading="lazy" />
+                        ) : (
+                          <div className="sc-gallery-cell-blank" />
+                        )}
+                        {/* FIX511.2.3 / .2.4 / .2.5: ref, my rating icon,
+                            conflict icon -- one caption line. */}
+                        <div className="sc-gallery-caption">
+                          {f.name}
+                          {renderFolderRatingIcon(f)}
+                          {f.has_rating_conflict && (
+                            <IconRatingConflict size={14} className="sc-gallery-conflict" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {displayedFolders.length === 0 && (
+              <div className="sc-empty">No items match the current filter.</div>
+            )}
+          </section>
+        ) : (
+          /* FIX630.0: the local app adapts this same Id rather than
+             defining its own — FIX630.1's red-Ref styling (below, in
+             renderBodyCell) is the only local-app-specific behavior
+             layered on top. */
+          <section className="sc-list-panel" data-yagu-id="panel-item-list">
+            {groups.length > 0 && !activeGroup && groupSelector}
+            <table className="sc-table">
+              <thead>
+                <tr>{configuredColumns.map(renderHeaderCell)}</tr>
+                <tr className="sc-filter-row">
+                  {configuredColumns.map(renderFilterCell)}
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
+              </thead>
+              <tbody>
+                {displayedFolders.map((f) => {
+                  const isSelected = selectedFolderIds.includes(f.id);
+                  const isPrimary = f.id === selectedFolderId;
+                  return (
+                    <tr
+                      key={f.id}
+                      ref={isPrimary ? selectedRowRef : null}
+                      /* FIX510.5.3: the *first* selected row carries an
+                         extra 'primary' class so the existing styling
+                         (highlight + Item-Panel-target) keeps working. */
+                      className={
+                        [
+                          isSelected ? 'selected' : '',
+                          isPrimary ? 'selected-primary' : '',
+                        ].filter(Boolean).join(' ')
+                      }
+                      onClick={(e) => {
+                        // FIX510.2.1.11: Ctrl/Cmd-click toggles the row in the
+                        // multi-selection; Shift-click selects the contiguous
+                        // range from the last-clicked row; plain click resets
+                        // to a single-row selection.
+                        userPickedRef.current = true; // FIX404: stop re-applying the URL item
+                        if (e.shiftKey && itemSelectAnchorRef.current != null) {
+                          selectRange(displayedFolders, itemSelectAnchorRef.current, f.id);
+                        } else if (e.ctrlKey || e.metaKey) {
+                          toggleSelected(f.id);
+                          itemSelectAnchorRef.current = f.id;
+                        } else {
+                          selectOnly(f.id);
+                          itemSelectAnchorRef.current = f.id;
+                        }
+                      }}
+                    >
+                      {configuredColumns.map((col) => renderBodyCell(f, col))}
+                    </tr>
+                  );
+                })}
+                {displayedFolders.length === 0 && (
+                  <tr>
+                    <td colSpan={configuredColumns.length || 1} className="sc-empty">
+                      No items match the current filter.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+        )}
         <div
           className="sc-splitter"
           onMouseDown={onSplitterDown}

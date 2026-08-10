@@ -781,6 +781,58 @@ body {
 .sc-list-panel {
   overflow: auto;
 }
+/* FIX511 <panel-item-gallery>: fills the same grid slot as .sc-list-panel
+   above (FIX502.2.0), toggled by <select-catalogue-show-as>. Mirrors
+   .sc-rated-image-* (FIX702.2.2.0)'s checked-pattern grid rather than
+   sharing those classes -- visually close today but a different feature,
+   kept independently stylable. */
+.sc-gallery-panel {
+  overflow: auto;
+  padding: 0.75rem;
+}
+.sc-gallery-toolbar { margin-bottom: 0.5rem; }
+.sc-gallery-strip + .sc-gallery-strip { margin-top: 1rem; }
+.sc-gallery-strip-label {
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.sc-gallery-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  align-content: start;
+}
+.sc-gallery-cell {
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 2px;
+}
+.sc-gallery-cell.selected {
+  border-color: var(--color-selected-border, var(--color-accent));
+}
+.sc-gallery-cell img,
+.sc-gallery-cell-blank {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--color-bg-lighter);
+}
+.sc-gallery-cell-blank { background: #000; }
+/* FIX511.2.3/.2.4/.2.5: ref, my rating icon, conflict icon on one
+   centred caption line -- same literal-white wording as
+   .sc-rated-image-caption (FIX702.4.4). */
+.sc-gallery-caption {
+  color: #fff;
+  text-align: center;
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+.sc-gallery-rating-icon, .sc-gallery-conflict { vertical-align: middle; }
 .sc-splitter {
   cursor: col-resize;
   background: var(--color-border);
@@ -2231,6 +2283,24 @@ body {
 .sc-menu-items button:hover { background: var(--color-bg-light); }
 .sc-menu-items button:disabled { opacity: 0.4; cursor: not-allowed; }
 .sc-menu-items button:disabled:hover { background: transparent; }
+
+/* FIX503.2.11 <select-catalogue-show-as>: '(x) Item list (x) Gallery
+   list' radio pair, sits in the left cluster right after <menu-view>
+   (FIX503.2.0's updated layout diagram). */
+.sc-show-as-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+.sc-show-as-selector label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
 
 /* FIX656 <cmd-...> 'Other…' group: a true nested flyout, not an inline
    expand — .sc-submenu reuses .sc-menu-items' look, just anchored to the

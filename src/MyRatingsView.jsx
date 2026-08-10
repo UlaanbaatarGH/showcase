@@ -28,7 +28,7 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
   // FIX702.3.3: which image in <panel-rated-images> is selected — no
   // FTag defines the click-to-select itself (none numbered between
   // FIX702.3.1 and FIX702.3.3), but the keyboard shortcuts need a
-  // target, same as <panel-showcase-img-viewer>'s own selectedFolderId.
+  // target, same as <panel-item>'s own selectedFolderId.
   const [selectedItemId, setSelectedItemId] = useState(null);
   // FIX702.2.10: slidable vertical splitter between <panel-rated-images>
   // and <panel-item-details> — same drag-resize mechanics as

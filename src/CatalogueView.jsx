@@ -3589,9 +3589,10 @@ export default function CatalogueView({
           aria-orientation="vertical"
           title="Drag to resize"
         />
-        {/* FIX502.2.3 <panel-showcase-img-viewer>: the image-viewer
-            region (Images + Details tabs share this column). */}
-        <section className="sc-viewer" data-yagu-id="panel-showcase-img-viewer">
+        {/* FIX502.2.3 / FIX515.0 <panel-item>: a panel dedicated to the
+            selected item -- Images (<panel-item-img-list>) + Details
+            (<panel-item-details>) tabs share this one column. */}
+        <section className="sc-viewer" data-yagu-id="panel-item">
           {/* FIX515.2.1: tab strip switches between Images and Details.
               FIX515.2.2 + FIX515.2.2.0 + FIX515.3.2 + FIX515.4.3
               <cmd-edit-item-page>: right-aligned on the tab row, signed-in
@@ -3683,6 +3684,11 @@ export default function CatalogueView({
             </div>
           </div>
           {viewerTab === 'images' ? (
+            // FIX515.2.1.1 <panel-item-img-list>: the Images tab -- list of
+            // this item's images and their attributes, integrating the
+            // (read-only or, in edition mode, editable) img viewer itself.
+            <div data-yagu-id="panel-item-img-list">
+            {
             // FIX515.3.2.1: when the user clicks <button-edit> on the Images
             // tab, swap the read-only viewer for <panel-showcase-img-list-editor>.
             editionMode ? (
@@ -4005,6 +4011,8 @@ export default function CatalogueView({
                 </div>
               );
             })()
+            }
+            </div>
           ) : (
             // FIX518 <panel-item-details>: extracted into
             // ItemDetailsPanel.jsx so FIX702.2.3's My-ratings panel can

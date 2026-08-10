@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext.jsx';
 
 // FIX503.2.1/.2.2 + FIX701.2.1/.2.2 + FIX503.2.10 / FIX701.2.3
 // <menu-view>: the LEFT-aligned header elements shared by
-// <panel-showcase-header> (Catalogue view, FIX503) and
+// <panel-catalogue-header> (Catalogue view, FIX503) and
 // <panel-my-ratings-header> (My ratings view, FIX701) — Home, project
 // name, the View switcher. Split from ProjectHeaderRight (below) rather
 // than one wrapping component so each caller can keep its own existing

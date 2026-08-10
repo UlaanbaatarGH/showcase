@@ -2476,7 +2476,7 @@ export default function CatalogueView({
     // area shows the loading state.
     return (
       <div className="sc-layout" data-yagu-id="panel-project-home">
-        <div className="sc-topbar" data-yagu-id="panel-showcase-header">
+        <div className="sc-topbar" data-yagu-id="panel-catalogue-header">
           {!isLocalApp && (
             <ProjectHeaderLeft
               projectName={initialProjectName}
@@ -2739,12 +2739,12 @@ export default function CatalogueView({
     // either). MyRatingsView.jsx's <view-my-ratings> (FIX700.0) shares
     // it the same way.
     <div className="sc-layout" data-yagu-id="panel-project-home">
-      {/* FIX503 / FIX503.0 <panel-showcase-header>: Showcase header panel.
+      {/* FIX503 / FIX503.0 <panel-catalogue-header> (renamed from <panel-showcase-header>): Showcase header panel.
           FIX503.2.0 (updated) left: <button-home>, <label-project-name>,
             <menu-view> (new), <label-project-title>.
           All other elements are right-aligned. FIX503.3.5(removed):
           <button-project-about> is gone from this left cluster. */}
-      <div className="sc-topbar" data-yagu-id="panel-showcase-header">
+      <div className="sc-topbar" data-yagu-id="panel-catalogue-header">
         {/* FIX650.1 / FIX650.1.2.1 / FIX651 <menu-projects>: the local
             app's entire header is this switcher + <menu-import> + the
             FIX654 <local-setup-menu> below — no Home/Title/Columns/

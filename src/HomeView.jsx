@@ -189,7 +189,7 @@ export default function HomeView({ onOpenProject }) {
       <div className="home-topbar">
         {/* FIX400.2.10: every command on the home top bar uses the
             same .sc-menu-trigger styling as the project header
-            (<panel-showcase-header>) — same font, same colour, same
+            (<panel-catalogue-header>) — same font, same colour, same
             border, regardless of whether it acts like a button or a
             menu. */}
         {profile ? (

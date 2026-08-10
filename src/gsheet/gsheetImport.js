@@ -331,8 +331,9 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
 
   if (errors.length > 0) return { errors };
 
-  // FIX370.3.2.2.2.3/4: find the "Main" property in the setup sheet (if any)
-  // so the recap can postfix each folder with its value under that property.
+  // FIX370.4.2.3 and FIX370.4.2.4: find the "Main" property in the setup
+  // sheet (if any) so the recap can postfix each folder with its value
+  // under that property.
   // The main entry is matched against any main-sheet header by full or
   // short name (FIX370.2.2.1 updated).
   const mainEntry = setupEntries?.find((e) => e.main) ?? null;
@@ -366,7 +367,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     }
   }
 
-  // FIX370.3.2.2.2.5 / <setup-property-tagged-deleted>: recap the folders
+  // FIX370.4.2.5 / <setup-property-tagged-deleted>: recap the folders
   // that will be tagged as deleted after the import (i.e. the rows where
   // the deletion property's value is non-blank). null = feature disabled.
   const deletedPropertyId = project.deleted_property_id ?? null;
@@ -436,7 +437,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       const v = (row[mainColIdx] ?? '').trim();
       if (v) display = `${effectiveName} — ${v}`;
     }
-    // FIX370.3.2.2.2.5.1 (updated): an item is recapped as 'Deleted' only
+    // FIX370.4.2.5.1 (updated): an item is recapped as 'Deleted' only
     // when the deletion property is non-blank in the sheet AND blank or
     // missing in the DB — i.e. the import is the act of tagging it.
     // Items already tagged in the DB don't reappear in this list, and
@@ -540,7 +541,7 @@ export async function planFromUrl(url, project) {
   // the /edit page (the only place carrying the actual title) isn't
   // CORS-fetchable from the browser, same reasoning as FIX378.3.4.2's
   // identical check in the create-gsheet wizard. Merged into the same
-  // errors list as every other FIX370.2.1.x check (FIX370.3.2.2.1: list
+  // errors list as every other FIX370.2.1.x check (FIX370.4.1: list
   // every error together, deny the import) rather than its own popup --
   // unlike FIX370.2.1.6.1, nothing here is safe to silently drop/skip.
   const expectedTitle = `Showcase ${project?.name || ''}`.trim();

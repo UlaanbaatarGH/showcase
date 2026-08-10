@@ -3,10 +3,11 @@ import { planFromUrl } from './gsheetImport.js';
 import { importGsheet } from '../data/backend.js';
 
 // FIX370 / FIX370.0 <cmd-import-properties-gsheet>: Google Sheet import
-// dialog. FIX370.3.2.1/.1.1/.2.2 (removed): no more URL-entry popup or
-// last-URL Local Storage memory — FIX370.3.2.2.1 now reads the URL straight
-// from <setup-properties-gsheet> (FIX508.2.5), so the dialog jumps directly
-// to consistency checks → recap → apply → done.
+// dialog. FIX370.3.2.1 (removed), FIX370.3.2.1.1 (removed), and FIX370.4
+// (removed): no more URL-entry popup or last-URL Local Storage memory —
+// FIX370.4.1 now reads the URL straight from <setup-properties-gsheet>
+// (FIX508.2.5), so the dialog jumps directly to consistency checks → recap
+// → apply → done.
 export default function GsheetImportDialog({ project, onClose, onDone }) {
   const hasUrl = !!(project.properties_gsheet_url || '').trim();
   const [stage, setStage] = useState(hasUrl ? 'fetching' : 'errors');
@@ -39,8 +40,8 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     }
   }
 
-  // FIX370.3.2.2.1: starts the read + consistency checks the moment the
-  // dialog opens, no separate confirmation step (FIX370.3.2.2 removed).
+  // FIX370.4.1: starts the read + consistency checks the moment the
+  // dialog opens, no separate confirmation step (FIX370.4 removed).
   useEffect(() => {
     if (hasUrl) runImportCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,7 +53,7 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     try {
       const r = await importGsheet(project.id, plan);
       setResult(r);
-      // FIX370.3.2.2.3.5: refresh the current view before the Done popup
+      // FIX370.4.3.5: refresh the current view before the Done popup
       // so the user sees the imported data behind it.
       onDone?.();
       setStage('done');

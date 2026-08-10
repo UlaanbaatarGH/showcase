@@ -582,7 +582,7 @@ export default function SetupPanel({
                 </button>
               </div>
               {/* FIX508.2.5 / <setup-properties-gsheet>: the gsheet URL
-                  <cmd-import-properties-gsheet> (FIX370.3.2.2.1) reads
+                  <cmd-import-properties-gsheet> (FIX370.4.1) reads
                   from and <cmd-open-properties-gsheet> (FIX375) opens. */}
               <label className="setup-inline-row">
                 <span>Properties Google sheet</span>

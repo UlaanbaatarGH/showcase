@@ -3908,7 +3908,7 @@ export default function CatalogueView({
             properties,
             folders: data.folders,
             deleted_property_id: deletedPropertyId,
-            // FIX370.3.2.2.1 / <setup-properties-gsheet> (FIX508.2.5): the
+            // FIX370.4.1 / <setup-properties-gsheet> (FIX508.2.5): the
             // import now reads this instead of prompting for a URL.
             properties_gsheet_url: viewSetup.properties_gsheet_url || '',
           }}

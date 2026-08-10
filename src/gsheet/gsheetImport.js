@@ -422,6 +422,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   // alongside items with a changed property value -- deduped by row so an
   // item with both doesn't count twice.
   const updatedItemRows = new Set();
+  // FIX370.4.2.11.1: refs behind updatedItemRows's count, for the 'Show
+  // details' popup -- one push per row (first of the two branches below to
+  // touch it wins), matching updatedItemRows's own dedup.
+  const updatedItemNames = [];
   // FIX370.4.3.10.1: names (not ids -- a newly-deleted row may also be a
   // brand-new folder with no id yet) of items predicted to end up deletion-
   // tagged, so the effective-import check can re-read each one's actual
@@ -442,6 +446,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     // taken instead of '#' to create the new item.
     if (!isNew && newRefRaw && newRefRaw !== name) {
       renamedFolders.push({ id: existingFolder.id, from: name, to: newRefRaw });
+      if (!updatedItemRows.has(i)) updatedItemNames.push(effectiveNames[i]);
       updatedItemRows.add(i);
     }
     let display = effectiveName;
@@ -506,6 +511,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       }
       if (changed) {
         updatedFolderDisplays.push(display);
+        if (!updatedItemRows.has(i)) updatedItemNames.push(effectiveName);
         updatedItemRows.add(i);
       }
     }
@@ -526,6 +532,16 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       updatedItemRef: renamedFolders.length,
       newProperty: newProperties.length,
       updatedPropertyName: renames.length,
+    },
+    // FIX370.4.2.11.1: comma-joinable refs/property names behind each
+    // change-type count above, for the 'Show details' popup.
+    changeDetails: {
+      newItem: newFolderNames,
+      updatedItem: updatedItemNames,
+      deletedItem: deletedFolderNames,
+      updatedItemRef: renamedFolders.map((r) => `${r.from} → ${r.to}`),
+      newProperty: newProperties.map((p) => p.label),
+      updatedPropertyName: renames.map((r) => `${propById.get(r.id)?.label || '?'} → ${r.label}`),
     },
     // FIX370.4.2.2.2: every main-sheet property column, flagged with
     // whether it's actually read (imported) -- this is what would have

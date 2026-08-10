@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { planFromUrl } from './gsheetImport.js';
 import { importGsheet, getShowcase } from '../data/backend.js';
 import GsheetFormatErrorPopup from './GsheetFormatErrorPopup.jsx';
+import ChangeDetailsPopup from './ChangeDetailsPopup.jsx';
 
 // FIX370 / FIX370.0 <cmd-import-properties-gsheet>: Google Sheet import
 // dialog. FIX370.3.2.1 (removed), FIX370.3.2.1.1 (removed), and FIX370.4
@@ -23,6 +24,8 @@ export default function GsheetImportDialog({ project, slug, onClose, onDone }) {
   // many really ended up tagged. null = not checked yet (own fetch, not
   // reliant on onDone's reload / this dialog's own project prop refreshing).
   const [deletedCheckCount, setDeletedCheckCount] = useState(null);
+  // FIX370.4.2.11: 'Show details' popup, open/closed.
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   async function runImportCheck() {
     setStage('fetching');
@@ -117,150 +120,165 @@ export default function GsheetImportDialog({ project, slug, onClose, onDone }) {
   ].filter(([, expected, actual]) => expected !== actual) : [];
 
   return (
-    <div className="modal-backdrop">
-      <div
-        className="modal gsheet-dialog"
-      >
-        {stage === 'fetching' && (
-          <div className="gsheet-stage">
-            <h2>Reading the sheet…</h2>
-            <div className="gsheet-busy">Fetching and validating…</div>
-          </div>
-        )}
+    <>
+      <div className="modal-backdrop">
+        <div
+          className="modal gsheet-dialog"
+        >
+          {stage === 'fetching' && (
+            <div className="gsheet-stage">
+              <h2>Reading the sheet…</h2>
+              <div className="gsheet-busy">Fetching and validating…</div>
+            </div>
+          )}
 
-        {stage === 'importing' && (
-          <div className="gsheet-stage">
-            <h2>Importing…</h2>
-            <div className="gsheet-busy">Applying changes on the server…</div>
-          </div>
-        )}
+          {stage === 'importing' && (
+            <div className="gsheet-stage">
+              <h2>Importing…</h2>
+              <div className="gsheet-busy">Applying changes on the server…</div>
+            </div>
+          )}
 
-        {stage === 'errors' && (
-          <div className="gsheet-stage">
-            <h2>Import cannot proceed</h2>
-            {fatal && <div className="gsheet-err-fatal">{fatal}</div>}
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>
-                Close
-              </button>
-              {hasUrl && (
+          {stage === 'errors' && (
+            <div className="gsheet-stage">
+              <h2>Import cannot proceed</h2>
+              {fatal && <div className="gsheet-err-fatal">{fatal}</div>}
+              <div className="gsheet-actions">
+                <button type="button" className="btn-cancel" onClick={onClose}>
+                  Close
+                </button>
+                {hasUrl && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={runImportCheck}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* FIX370.2.1.6.1 (updated): only reached when no setup sheet was
+              provided and at least one main-sheet header doesn't match an
+              existing property. Cancel aborts the whole import (same as the
+              recap stage's own Cancel); Import proceeds to the normal recap
+              with those columns already excluded (gsheetImport.js dropped
+              them from importedPropHeaders). */}
+          {stage === 'confirm-dropped' && recap && (
+            <div className="gsheet-stage">
+              <h2>Confirm dropped columns</h2>
+              <p>The gsheet columns below are not defined as properties. They won't be uploaded.</p>
+              <RecapList title="Dropped columns" items={recap.droppedColumns} />
+              <p>Create a 2nd sheet 'setup' to exclude these columns and skip this confirmation step.</p>
+              <div className="gsheet-actions">
+                <button type="button" className="btn-cancel" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="button" className="btn-primary" onClick={() => setStage('recap')}>
+                  Import
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* FIX370.4.2.2(deep-old) family retired: 2-column layout, left
+              (FIX370.4.2.2.2) listing every gsheet property column with a
+              read/not-read flag -- this is what surfaces a column silently
+              dropped by the setup-sheet allowlist (FIX370.2.2.1), instead of
+              it just failing silently -- right (FIX370.4.2.2.1) the
+              change-type counts. */}
+          {stage === 'recap' && recap && (
+            <div className="gsheet-stage" data-yagu-id="popup-import-preview">
+              <h2>Import preview</h2>
+              <div className="gsheet-preview-columns">
+                <div className="gsheet-preview-col">
+                  {/* FIX370.4.2.2.2.1: spec's literal title text (typo and all). */}
+                  <div className="gsheet-preview-col-title">Ghseet columns:</div>
+                  <ul className="gsheet-columns-list">
+                    {recap.gsheetColumns.map((c, i) => (
+                      <li key={i}>
+                        <span className={c.read ? 'gsheet-col-read' : 'gsheet-col-unread'}>
+                          {c.read ? '✓' : '✗'}
+                        </span>{' '}
+                        {c.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="gsheet-preview-col">
+                  <div className="gsheet-preview-col-title">Changes</div>
+                  <div className="gsheet-preview-lines">
+                    <p>- New item : {recap.changeCounts.newItem}</p>
+                    <p>- Updated item : {recap.changeCounts.updatedItem}</p>
+                    <p>- Deleted item : {recap.changeCounts.deletedItem}</p>
+                    <p className="gsheet-preview-gap">- Updated item Ref : {recap.changeCounts.updatedItemRef}</p>
+                    <p>- New property : {recap.changeCounts.newProperty}</p>
+                    <p>- Updated property name : {recap.changeCounts.updatedPropertyName}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="gsheet-actions gsheet-actions-split">
+                {/* FIX370.4.2.11: far left, alongside Cancel/Import. */}
+                <button type="button" onClick={() => setDetailsOpen(true)}>
+                  Show details
+                </button>
+                <div className="gsheet-actions-right">
+                  <button type="button" className="btn-cancel" onClick={onClose}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleImport}
+                    disabled={Object.values(recap.changeCounts).every((n) => n === 0)}
+                  >
+                    Import
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* FIX370.4.3.10: no details -- the import preview (FIX370.4.2)
+              already gave them. FIX370.4.3.10.1: unless the effective
+              import's counts don't match what the preview promised, in
+              which case that mismatch is the one thing worth raising here. */}
+          {stage === 'done' && result && (
+            <div className="gsheet-stage">
+              <h2>Import done</h2>
+              {countMismatches.length > 0 && (
+                <div className="gsheet-err-fatal">
+                  <p>Effective import counts don't match the preview:</p>
+                  <ul>
+                    {countMismatches.map(([label, expected, actual]) => (
+                      <li key={label}>{label}: preview {expected}, import {actual}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="gsheet-actions">
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={runImportCheck}
+                  onClick={handleDone}
                 >
-                  Retry
+                  OK
                 </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* FIX370.2.1.6.1 (updated): only reached when no setup sheet was
-            provided and at least one main-sheet header doesn't match an
-            existing property. Cancel aborts the whole import (same as the
-            recap stage's own Cancel); Import proceeds to the normal recap
-            with those columns already excluded (gsheetImport.js dropped
-            them from importedPropHeaders). */}
-        {stage === 'confirm-dropped' && recap && (
-          <div className="gsheet-stage">
-            <h2>Confirm dropped columns</h2>
-            <p>The gsheet columns below are not defined as properties. They won't be uploaded.</p>
-            <RecapList title="Dropped columns" items={recap.droppedColumns} />
-            <p>Create a 2nd sheet 'setup' to exclude these columns and skip this confirmation step.</p>
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="button" className="btn-primary" onClick={() => setStage('recap')}>
-                Import
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* FIX370.4.2.2(deep-old) family retired: the single-column count
-            list is now the left column (FIX370.4.2.2.1) of a 2-column
-            layout, alongside a new right column (FIX370.4.2.2.2) listing
-            every gsheet property column with a read/not-read flag -- this
-            is what surfaces a column silently dropped by the setup-sheet
-            allowlist (FIX370.2.2.1), instead of it just failing silently. */}
-        {stage === 'recap' && recap && (
-          <div className="gsheet-stage" data-yagu-id="popup-import-preview">
-            <h2>Import preview</h2>
-            <div className="gsheet-preview-columns">
-              <div className="gsheet-preview-col">
-                <div className="gsheet-preview-col-title">Changes</div>
-                <div className="gsheet-preview-lines">
-                  <p>- New item : {recap.changeCounts.newItem}</p>
-                  <p>- Updated item : {recap.changeCounts.updatedItem}</p>
-                  <p>- Deleted item : {recap.changeCounts.deletedItem}</p>
-                  <p className="gsheet-preview-gap">- Updated item Ref : {recap.changeCounts.updatedItemRef}</p>
-                  <p>- New property : {recap.changeCounts.newProperty}</p>
-                  <p>- Updated property name : {recap.changeCounts.updatedPropertyName}</p>
-                </div>
-              </div>
-              <div className="gsheet-preview-col">
-                {/* FIX370.4.2.2.2.1: spec's literal title text (typo and all). */}
-                <div className="gsheet-preview-col-title">Ghseet columns:</div>
-                <ul className="gsheet-columns-list">
-                  {recap.gsheetColumns.map((c, i) => (
-                    <li key={i}>
-                      <span className={c.read ? 'gsheet-col-read' : 'gsheet-col-unread'}>
-                        {c.read ? '✓' : '✗'}
-                      </span>{' '}
-                      {c.label}
-                    </li>
-                  ))}
-                </ul>
               </div>
             </div>
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleImport}
-                disabled={Object.values(recap.changeCounts).every((n) => n === 0)}
-              >
-                Import
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* FIX370.4.3.10: no details -- the import preview (FIX370.4.2)
-            already gave them. FIX370.4.3.10.1: unless the effective
-            import's counts don't match what the preview promised, in
-            which case that mismatch is the one thing worth raising here. */}
-        {stage === 'done' && result && (
-          <div className="gsheet-stage">
-            <h2>Import done</h2>
-            {countMismatches.length > 0 && (
-              <div className="gsheet-err-fatal">
-                <p>Effective import counts don't match the preview:</p>
-                <ul>
-                  {countMismatches.map(([label, expected, actual]) => (
-                    <li key={label}>{label}: preview {expected}, import {actual}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="gsheet-actions">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleDone}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+      {detailsOpen && recap && (
+        <ChangeDetailsPopup
+          changeCounts={recap.changeCounts}
+          changeDetails={recap.changeDetails}
+          onOk={() => setDetailsOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

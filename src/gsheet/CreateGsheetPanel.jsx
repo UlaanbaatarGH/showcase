@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { parseGsheetUrl, parseCsv, fetchMainCsv } from './gsheetImport.js';
-import { fetchGsheetTitle } from '../data/backend.js';
+import { parseGsheetUrl, planFromUrl } from './gsheetImport.js';
+import GsheetFormatErrorPopup from './GsheetFormatErrorPopup.jsx';
 
 // FIX378 <panel-create-gsheet>: 4-step wizard that walks the user through
 // creating, naming, structuring and sharing a fresh Google sheet, then
@@ -16,13 +16,17 @@ import { fetchGsheetTitle } from '../data/backend.js';
 // url field of its own -- so Step 4 gets one added here: the user pastes
 // the finished sheet's url right before Finish, which is what FIX378.3.4's
 // checks run against.
-export default function CreateGsheetPanel({ projectName, onCancel, onFinished }) {
+export default function CreateGsheetPanel({ project, onCancel, onFinished }) {
   const [step, setStep] = useState(1);
   const [url, setUrl] = useState('');
   const [checking, setChecking] = useState(false);
-  const [failures, setFailures] = useState([]);
+  const [urlError, setUrlError] = useState(null);
+  // FIX378.3.4.2.1: format-check errors, shown via <popup-gsheet-format-err>
+  // (FIX379). FIX378.3.4.2.2: On Ok, the wizard just stays on step 4 --
+  // clearing this is the only thing the popup's Ok button does.
+  const [formatErrors, setFormatErrors] = useState([]);
 
-  const expectedTitle = `Showcase ${projectName || ''}`.trim();
+  const expectedTitle = `Showcase ${project?.name || ''}`.trim();
 
   // FIX378.3.1.
   const handleCreate = () => {
@@ -30,153 +34,141 @@ export default function CreateGsheetPanel({ projectName, onCancel, onFinished })
     setStep(2);
   };
 
-  // FIX378.3.4: Is the url shared? / Has the gsheet the expected name? /
-  // Has A1 the value '#'? FIX378.3.4.10: every failing point is raised
-  // together, not just the first one hit.
+  // FIX378.3.4(deep old) family retired -- the bespoke shared/A1/title
+  // checks are replaced by the same <gsheet-format-checks> (FIX370.2 /
+  // FIX370.2.0) pipeline the import dialog (FIX370.4.1) and Open gsheet
+  // (FIX375.1.1) already run, via planFromUrl().
   const handleFinish = async () => {
     const parsed = parseGsheetUrl(url.trim());
     if (!parsed) {
-      setFailures(['Enter a valid Google sheet url']);
+      setUrlError('Enter a valid Google sheet url');
       return;
     }
     setChecking(true);
-    setFailures([]);
-    const found = [];
-    // FIX378.3.4.1 + FIX378.3.4.3: one fetch covers both -- a failed fetch
-    // means "not shared / not readable", a successful one lets us look at
-    // A1 directly, same fetchMainCsv() FIX370's import already relies on.
-    let csvText = null;
+    setUrlError(null);
+    setFormatErrors([]);
+    // FIX378.3.4.1: <gsheet-format-checks> also checks the gsheet title
+    // against `expectedTitle`, which is why `project` must carry the right
+    // `name` -- same check as FIX370.2.1.8 / FIX378.3.4(deep old).2.
+    let res;
     try {
-      csvText = await fetchMainCsv(parsed.sheetId, parsed.gid);
+      res = await planFromUrl(url.trim(), project);
     } catch (e) {
-      found.push(e.message || 'The sheet could not be read.');
-    }
-    if (csvText != null) {
-      const rows = parseCsv(csvText);
-      const a1 = (rows[0]?.[0] ?? '').trim();
-      if (a1 !== '#') {
-        found.push(`Cell A1 must contain '#' (found ${a1 ? `"${a1}"` : 'nothing'}).`);
-      }
-    }
-    // FIX378.3.4.2: document title, fetched server-side (see backend
-    // /api/gsheet-title -- the /edit page isn't CORS-fetchable client-side).
-    let title = null;
-    let titleDebug = null;
-    try {
-      const res = await fetchGsheetTitle(url.trim());
-      title = res?.title || null;
-      titleDebug = res?.debug || null;
-    } catch (e) {
-      titleDebug = e.message || String(e);
-    }
-    if (!title || title.trim().toLowerCase() !== expectedTitle.toLowerCase()) {
-      // TODO(temporary): the debug suffix is a diagnostic aid while this
-      // check is new (title-fetch is failing in production for reasons
-      // not yet confirmed) -- drop it once that's root-caused.
-      found.push(`The sheet should be named "${expectedTitle}" (found ${title ? `"${title}"` : 'nothing readable'})${titleDebug ? ` [${titleDebug}]` : ''}.`);
-    }
-    setChecking(false);
-    if (found.length > 0) {
-      setFailures(found);
+      // planFromUrl throws when the sheet can't be fetched at all (not
+      // shared, wrong url) -- the same "not readable" condition
+      // FIX378.3.4(deep old).1 used to check for. Folds into the same
+      // FIX379 popup since there's no separate stage for it here.
+      setChecking(false);
+      setFormatErrors([e.message || String(e)]);
       return;
     }
-    // FIX378.3.4.11.1 + .11.2: the caller sets <setup-properties-gsheet>
-    // and closes both panels.
+    setChecking(false);
+    if (res.errors && res.errors.length > 0) {
+      // FIX378.3.4.2: keep the panel open -- the caller isn't told.
+      setFormatErrors(res.errors);
+      return;
+    }
+    // FIX378.3.4.3: caller sets <setup-properties-gsheet> and closes both
+    // panels.
     onFinished(url.trim());
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={onCancel}>
-      <div
-        className="modal gsheet-dialog"
-        data-yagu-id="panel-create-gsheet"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {step === 1 && (
-          <div className="gsheet-stage">
-            <h2>Create the project's Google sheet</h2>
-            <p>Step 1: Google sheet creation.</p>
-            <p>Click 'Create' to start the process.</p>
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
-              <button type="button" className="btn-primary" data-yagu-id="btn-create" onClick={handleCreate}>
-                Create
-              </button>
+    <>
+      <div className="modal-backdrop" onMouseDown={onCancel}>
+        <div
+          className="modal gsheet-dialog"
+          data-yagu-id="panel-create-gsheet"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {step === 1 && (
+            <div className="gsheet-stage">
+              <h2>Create the project's Google sheet</h2>
+              <p>Step 1: Google sheet creation.</p>
+              <p>Click 'Create' to start the process.</p>
+              <div className="gsheet-actions">
+                <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
+                <button type="button" className="btn-primary" data-yagu-id="btn-create" onClick={handleCreate}>
+                  Create
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        {step === 2 && (
-          <div className="gsheet-stage">
-            <h2>Create the project's Google sheet</h2>
-            <p>A Google sheet was added as a new tab in your browser.</p>
-            <p>Step 2: Name the Google sheet.</p>
-            <p>At the top left, enter the name '{expectedTitle}', and click Next.</p>
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
-              <button type="button" className="btn-primary" data-yagu-id="btn-next" onClick={() => setStep(3)}>
-                Next
-              </button>
+          )}
+          {step === 2 && (
+            <div className="gsheet-stage">
+              <h2>Create the project's Google sheet</h2>
+              <p>A Google sheet was added as a new tab in your browser.</p>
+              <p>Step 2: Name the Google sheet.</p>
+              <p>At the top left, enter the name '{expectedTitle}', and click Next.</p>
+              <div className="gsheet-actions">
+                <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
+                <button type="button" className="btn-primary" data-yagu-id="btn-next" onClick={() => setStep(3)}>
+                  Next
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        {step === 3 && (
-          <div className="gsheet-stage">
-            <h2>Create the project's Google sheet</h2>
-            <p>Step 3: Add '#' in A1 as the column to enter the reference (Ref) of each item.</p>
-            <p>This is a mandatory column.</p>
-            <p>Then the label of each item property can be added later as the next columns.</p>
-            <p>Click Next.</p>
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
-              <button type="button" data-yagu-id="btn-prev" onClick={() => setStep(2)}>Previous</button>
-              <button type="button" className="btn-primary" data-yagu-id="btn-next" onClick={() => setStep(4)}>
-                Next
-              </button>
+          )}
+          {step === 3 && (
+            <div className="gsheet-stage">
+              <h2>Create the project's Google sheet</h2>
+              <p>Step 3: Add '#' in A1 as the column to enter the reference (Ref) of each item.</p>
+              <p>This is a mandatory column.</p>
+              <p>Then the label of each item property can be added later as the next columns.</p>
+              <p>Click Next.</p>
+              <div className="gsheet-actions">
+                <button type="button" className="btn-cancel" onClick={onCancel}>Cancel</button>
+                <button type="button" data-yagu-id="btn-prev" onClick={() => setStep(2)}>Previous</button>
+                <button type="button" className="btn-primary" data-yagu-id="btn-next" onClick={() => setStep(4)}>
+                  Next
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        {step === 4 && (
-          <div className="gsheet-stage">
-            <h2>Create the project's Google sheet</h2>
-            <p>Step 4: Share the Google sheet.</p>
-            <p>This will enable Showcase to read it.</p>
-            <p>1- Click the 'Share' button at the top right</p>
-            <p>2- In 'General access', select 'Anyone with the link' and keep 'Viewer'</p>
-            <p>3- Click 'Done'</p>
-            <p>4- Paste the sheet's url below, then click 'Finish'.</p>
-            <input
-              type="text"
-              data-yagu-id="input-create-gsheet-url"
-              value={url}
-              onChange={(e) => { setUrl(e.target.value); setFailures([]); }}
-              placeholder="https://docs.google.com/spreadsheets/d/…"
-              autoFocus
-            />
-            {failures.length > 0 && (
-              <ul className="gsheet-errors">
-                {failures.map((f, i) => <li key={i}>{f}</li>)}
-              </ul>
-            )}
-            <div className="gsheet-actions">
-              <button type="button" className="btn-cancel" onClick={onCancel} disabled={checking}>
-                Cancel
-              </button>
-              <button type="button" data-yagu-id="btn-prev" onClick={() => setStep(3)} disabled={checking}>
-                Previous
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                data-yagu-id="btn-finish"
-                onClick={handleFinish}
-                disabled={checking || !parseGsheetUrl(url.trim())}
-              >
-                {checking ? '…' : 'Finish'}
-              </button>
+          )}
+          {step === 4 && (
+            <div className="gsheet-stage">
+              <h2>Create the project's Google sheet</h2>
+              <p>Step 4: Share the Google sheet.</p>
+              <p>This will enable Showcase to read it.</p>
+              <p>1- Click the 'Share' button at the top right</p>
+              <p>2- In 'General access', select 'Anyone with the link' and keep 'Viewer'</p>
+              <p>3- Click 'Done'</p>
+              <p>4- Paste the sheet's url below, then click 'Finish'.</p>
+              <input
+                type="text"
+                data-yagu-id="input-create-gsheet-url"
+                value={url}
+                onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
+                placeholder="https://docs.google.com/spreadsheets/d/…"
+                autoFocus
+              />
+              {urlError && <div className="gsheet-err-fatal">{urlError}</div>}
+              <div className="gsheet-actions">
+                <button type="button" className="btn-cancel" onClick={onCancel} disabled={checking}>
+                  Cancel
+                </button>
+                <button type="button" data-yagu-id="btn-prev" onClick={() => setStep(3)} disabled={checking}>
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  data-yagu-id="btn-finish"
+                  onClick={handleFinish}
+                  disabled={checking || !parseGsheetUrl(url.trim())}
+                >
+                  {checking ? '…' : 'Finish'}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+      {formatErrors.length > 0 && (
+        <GsheetFormatErrorPopup
+          errors={formatErrors}
+          onOk={() => setFormatErrors([])}
+        />
+      )}
+    </>
   );
 }

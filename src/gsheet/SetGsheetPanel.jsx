@@ -10,7 +10,7 @@ import CreateGsheetPanel from './CreateGsheetPanel.jsx';
 // closes both panels — onFinished just bubbles the url to the same
 // onDone this panel's own Done button uses, so the caller only needs
 // one save path.
-export default function SetGsheetPanel({ initialUrl, projectName, onCancel, onDone }) {
+export default function SetGsheetPanel({ initialUrl, project, onCancel, onDone }) {
   const [url, setUrl] = useState(initialUrl || '');
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -59,7 +59,7 @@ export default function SetGsheetPanel({ initialUrl, projectName, onCancel, onDo
       </div>
       {createOpen && (
         <CreateGsheetPanel
-          projectName={projectName}
+          project={project}
           onCancel={() => setCreateOpen(false)}
           onFinished={(finishedUrl) => { setCreateOpen(false); onDone(finishedUrl); }}
         />

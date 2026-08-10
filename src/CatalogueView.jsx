@@ -4046,10 +4046,16 @@ export default function CatalogueView({
       {/* FIX376.1 <cmd-set-properties-gsheet>: opens <panel-set-gsheet>
           (FIX377), which can itself launch <panel-create-gsheet> (FIX378).
           Both paths end up calling saveGsheetUrl(). */}
-      {setGsheetPopup && (
+      {setGsheetPopup && data.project && (
         <SetGsheetPanel
           initialUrl={setGsheetPopup.initialUrl}
-          projectName={data?.project?.name}
+          project={{
+            id: data.project.id,
+            name: data.project.name,
+            properties,
+            folders: data.folders,
+            deleted_property_id: deletedPropertyId,
+          }}
           onCancel={() => setSetGsheetPopup(null)}
           onDone={saveGsheetUrl}
         />

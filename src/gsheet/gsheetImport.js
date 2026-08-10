@@ -507,11 +507,11 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
 
   // FIX370.4.2 <popup-import-preview>: replaces the old per-name recap
   // lists (FIX370.4.2(deep-old) family) with counts only, one per
-  // change-type (FIX370.4.2.2.2's fixed display order). FIX370.4.2.2.3: a
-  // new property alone isn't an 'Updated item' -- only setting a value for
+  // change-type (FIX370.4.2.2.1.3's fixed display order). FIX370.4.2.2.1.10:
+  // a new property alone isn't an 'Updated item' -- only setting a value for
   // it (which the updatedItemRows tracking above already requires) is.
-  // FIX370.4.2.2.5: a property rename doesn't touch updatedItemRows at all,
-  // so it's correctly excluded from 'Updated item'.
+  // FIX370.4.2.2.1.12: a property rename doesn't touch updatedItemRows at
+  // all, so it's correctly excluded from 'Updated item'.
   const recap = {
     changeCounts: {
       newItem: newFolderDisplays.length,
@@ -521,6 +521,15 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       newProperty: newProperties.length,
       updatedPropertyName: renames.length,
     },
+    // FIX370.4.2.2.2: every main-sheet property column, flagged with
+    // whether it's actually read (imported) -- this is what would have
+    // caught the "colour silently dropped because a setup sheet only
+    // listed an unrelated column" case directly, instead of the user
+    // having to be told the setup-sheet-is-an-allowlist rule.
+    gsheetColumns: propHeaders.map((c) => ({
+      label: c.label,
+      read: importedPropHeaders.includes(c),
+    })),
     // FIX370.2.1.6.1 (updated): columns dropped for not matching an
     // existing property, when no setup sheet was provided.
     droppedColumns,

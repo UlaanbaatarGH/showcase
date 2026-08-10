@@ -141,19 +141,41 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
           </div>
         )}
 
-        {/* FIX370.4.2(deep-old) family retired: the old per-name recap
-            lists are replaced by a fixed-order list of change-type counts
-            (FIX370.4.2.2.2). */}
+        {/* FIX370.4.2.2(deep-old) family retired: the single-column count
+            list is now the left column (FIX370.4.2.2.1) of a 2-column
+            layout, alongside a new right column (FIX370.4.2.2.2) listing
+            every gsheet property column with a read/not-read flag -- this
+            is what surfaces a column silently dropped by the setup-sheet
+            allowlist (FIX370.2.2.1), instead of it just failing silently. */}
         {stage === 'recap' && recap && (
           <div className="gsheet-stage" data-yagu-id="popup-import-preview">
             <h2>Import preview</h2>
-            <div className="gsheet-preview-lines">
-              <p>- New item : {recap.changeCounts.newItem}</p>
-              <p>- Updated item : {recap.changeCounts.updatedItem}</p>
-              <p>- Deleted item : {recap.changeCounts.deletedItem}</p>
-              <p className="gsheet-preview-gap">- Updated item Ref : {recap.changeCounts.updatedItemRef}</p>
-              <p>- New property : {recap.changeCounts.newProperty}</p>
-              <p>- Updated property name : {recap.changeCounts.updatedPropertyName}</p>
+            <div className="gsheet-preview-columns">
+              <div className="gsheet-preview-col">
+                <div className="gsheet-preview-col-title">Changes</div>
+                <div className="gsheet-preview-lines">
+                  <p>- New item : {recap.changeCounts.newItem}</p>
+                  <p>- Updated item : {recap.changeCounts.updatedItem}</p>
+                  <p>- Deleted item : {recap.changeCounts.deletedItem}</p>
+                  <p className="gsheet-preview-gap">- Updated item Ref : {recap.changeCounts.updatedItemRef}</p>
+                  <p>- New property : {recap.changeCounts.newProperty}</p>
+                  <p>- Updated property name : {recap.changeCounts.updatedPropertyName}</p>
+                </div>
+              </div>
+              <div className="gsheet-preview-col">
+                {/* FIX370.4.2.2.2.1: spec's literal title text (typo and all). */}
+                <div className="gsheet-preview-col-title">Ghseet columns:</div>
+                <ul className="gsheet-columns-list">
+                  {recap.gsheetColumns.map((c, i) => (
+                    <li key={i}>
+                      <span className={c.read ? 'gsheet-col-read' : 'gsheet-col-unread'}>
+                        {c.read ? '✓' : '✗'}
+                      </span>{' '}
+                      {c.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
             <div className="gsheet-actions">
               <button type="button" className="btn-cancel" onClick={onClose}>

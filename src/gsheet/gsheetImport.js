@@ -1,7 +1,7 @@
 // FIX370 / FIX370.0 <cmd-import-google-sheet>: Google Sheet import logic
 // (no React). The UI component calls these functions to parse a sheet URL,
-// fetch the tabs, run consistency checks, and build the plan that the
-// backend applies.
+// fetch the tabs, run format checks (FIX370.2 / FIX370.2.0
+// <gsheet-format-checks>), and build the plan that the backend applies.
 
 import { fetchGsheetTitle } from '../data/backend.js';
 
@@ -124,7 +124,7 @@ function isRowBlank(row) {
   return row.every((c) => (c ?? '').trim() === '');
 }
 
-// ---------- Consistency checks + plan building ----------
+// ---------- Format checks + plan building ----------
 
 export function buildPlan({ mainCsv, setupCsv, project }) {
   const errors = [];
@@ -541,8 +541,8 @@ export async function planFromUrl(url, project) {
   // the /edit page (the only place carrying the actual title) isn't
   // CORS-fetchable from the browser, same reasoning as FIX378.3.4.2's
   // identical check in the create-gsheet wizard. Merged into the same
-  // errors list as every other FIX370.2.1.x check (FIX370.4.1: list
-  // every error together, deny the import) rather than its own popup --
+  // errors list as every other FIX370.2.1.x check, all surfaced together
+  // via the FIX379 <popup-gsheet-format-err> popup (FIX370.4.1.3) --
   // unlike FIX370.2.1.6.1, nothing here is safe to silently drop/skip.
   const expectedTitle = `Showcase ${project?.name || ''}`.trim();
   let title = null;

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { planFromUrl } from './gsheetImport.js';
 import { importGsheet } from '../data/backend.js';
+import GsheetFormatErrorPopup from './GsheetFormatErrorPopup.jsx';
 
 // FIX370 / FIX370.0 <cmd-import-properties-gsheet>: Google Sheet import
 // dialog. FIX370.3.2.1 (removed), FIX370.3.2.1.1 (removed), and FIX370.4
 // (removed): no more URL-entry popup or last-URL Local Storage memory —
 // FIX370.4.1 now reads the URL straight from <setup-properties-gsheet>
-// (FIX508.2.5), so the dialog jumps directly to consistency checks → recap
-// → apply → done.
+// (FIX508.2.5), so the dialog jumps directly to format checks → recap →
+// apply → done.
 export default function GsheetImportDialog({ project, onClose, onDone }) {
   const hasUrl = !!(project.properties_gsheet_url || '').trim();
   const [stage, setStage] = useState(hasUrl ? 'fetching' : 'errors');
@@ -40,8 +41,11 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     }
   }
 
-  // FIX370.4.1: starts the read + consistency checks the moment the
-  // dialog opens, no separate confirmation step (FIX370.4 removed).
+  // FIX370.4.1: starts the read + checks the moment the dialog opens, no
+  // separate confirmation step (FIX370.4 removed). FIX370.4.1.3: format
+  // errors (errors state below) surface via <popup-gsheet-format-err>
+  // (FIX379); fatal state is an unspecified fetch/setup failure, shown
+  // inline instead since FIX379 only covers the format-checks list.
   useEffect(() => {
     if (hasUrl) runImportCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,6 +71,13 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     onClose?.();
   }
 
+  // FIX370.4.1.3: format-check errors stop the import and surface via the
+  // dedicated FIX379 popup, rendered on its own rather than nested inside
+  // this dialog's own modal-backdrop/modal wrapper below.
+  if (stage === 'errors' && errors.length > 0) {
+    return <GsheetFormatErrorPopup errors={errors} onOk={onClose} />;
+  }
+
   return (
     <div className="modal-backdrop">
       <div
@@ -90,13 +101,6 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
           <div className="gsheet-stage">
             <h2>Import cannot proceed</h2>
             {fatal && <div className="gsheet-err-fatal">{fatal}</div>}
-            {errors.length > 0 && (
-              <ul className="gsheet-errors">
-                {errors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            )}
             <div className="gsheet-actions">
               <button type="button" className="btn-cancel" onClick={onClose}>
                 Close

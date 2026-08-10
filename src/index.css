@@ -2889,6 +2889,19 @@ body {
   color: var(--color-invalid);
   font-size: 0.9rem;
 }
+/* FIX379 <popup-gsheet-format-err>: heading paragraph and error list read
+   as one block, not two gapped ones -- the list text is plain (not red;
+   the boldface 'Error: ' prefix on each line already marks it as one). */
+.gsheet-format-errors { display: flex; flex-direction: column; gap: 0.25rem; }
+.gsheet-format-errors p { margin: 0; }
+.gsheet-format-errors ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  max-height: 40vh;
+  overflow-y: auto;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
 .gsheet-err-fatal {
   color: var(--color-invalid);
   background: rgba(248, 113, 113, 0.1);

@@ -135,21 +135,22 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const headers = (mainRows[0] || []).map((h) => (h ?? '').trim());
   const dataRows = mainRows.slice(1);
 
-  // 2.1.1 — '#' column mandatory
+  // FIX370.2.1.1 — '#' column mandatory. Error text carries no FIX
+  // reference -- a FTag is a spec entry id, not an error id, for the user.
   const folderColIdx = headers.indexOf(FOLDER_COL);
   if (folderColIdx < 0) {
-    errors.push("FIX370.2.1.1: a '#' column is mandatory in the main sheet.");
+    errors.push("A '#' column is mandatory in the main sheet.");
   }
   // FIX370.2.1.7 — optional '# new' column (rename command, not a property).
   const folderNewColIdx = headers.indexOf(FOLDER_NEW_COL);
 
-  // 2.1.2 — unique column headers
+  // FIX370.2.1.2 — unique column headers
   {
     const seen = new Set();
     for (const h of headers) {
       if (!h) continue;
       if (seen.has(h)) {
-        errors.push(`FIX370.2.1.2: duplicate column header "${h}".`);
+        errors.push(`Duplicate column header "${h}".`);
       } else {
         seen.add(h);
       }
@@ -161,9 +162,9 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     .map((h, idx) => ({ label: h, idx }))
     .filter((c) => c.label && c.idx !== folderColIdx && c.idx !== folderNewColIdx);
 
-  // 2.1.3 / 2.1.4 / 2.1.5 — row-level checks only run when the '#' column
-  // exists; otherwise per-row '#' errors would just be noise flowing from
-  // the already-reported 2.1.1 failure.
+  // FIX370.2.1.3 / FIX370.2.1.4 / FIX370.2.1.5 — row-level checks only run
+  // when the '#' column exists; otherwise per-row '#' errors would just be
+  // noise flowing from the already-reported FIX370.2.1.1 failure.
   const rowFolderNames = [];
   if (folderColIdx >= 0) {
     const seen = new Map();
@@ -174,13 +175,13 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       }
       const name = (row[folderColIdx] ?? '').trim();
       if (!name) {
-        errors.push(`FIX370.2.1.3: row ${i + 2} has a blank '#' value.`);
+        errors.push(`Row ${i + 2} has a blank '#' value.`);
         rowFolderNames.push(null);
         return;
       }
       if (seen.has(name)) {
         errors.push(
-          `FIX370.2.1.4: '#' value "${name}" appears on rows ${seen.get(name) + 2} and ${i + 2}.`,
+          `'#' value "${name}" appears on rows ${seen.get(name) + 2} and ${i + 2}.`,
         );
         rowFolderNames.push(null);
         return;
@@ -219,8 +220,9 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         if (!label) continue;
       }
       const id = idStr === '' ? null : Number(idStr);
+      // FIX370.1.2.1.1 — property id must be an integer when given.
       if (idStr !== '' && !Number.isInteger(id)) {
-        errors.push(`FIX370 setup sheet: row ${i + 1} has a non-integer id "${idStr}".`);
+        errors.push(`Setup sheet: row ${i + 1} has a non-integer id "${idStr}".`);
         continue;
       }
       setupEntries.push({ label, id, main, shortLabel });
@@ -244,29 +246,29 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   // columns are silently skipped (FIX370.2.2.1 updated).
   const setupByMainHeader = new Map();
   if (setupCsv != null) {
-    // 2.2.2 — all ids in setup must exist in the project.
+    // FIX370.2.2.2 — all ids in setup must exist in the project.
     for (const e of setupEntries) {
       if (e.id != null && !propById.has(e.id)) {
-        errors.push(`FIX370.2.2.2: setup sheet references unknown property id ${e.id}.`);
+        errors.push(`Setup sheet references unknown property id ${e.id}.`);
       }
     }
-    // 2.2.3 — a setup entry with no id means "new property"; its name must
-    // not collide with an existing property in the project.
+    // FIX370.2.2.3 — a setup entry with no id means "new property"; its
+    // name must not collide with an existing property in the project.
     for (const e of setupEntries) {
       if (e.id == null && propByLabel.has(e.label)) {
         errors.push(
-          `FIX370.2.2.3: property "${e.label}" cannot be declared as new — it already exists.`,
+          `Property "${e.label}" cannot be declared as new — it already exists.`,
         );
       }
     }
-    // 2.2.4 — a setup entry with an id must not clash with an existing
-    // property that has the same name but a different id.
+    // FIX370.2.2.4 — a setup entry with an id must not clash with an
+    // existing property that has the same name but a different id.
     for (const e of setupEntries) {
       if (e.id == null) continue;
       const byName = propByLabel.get(e.label);
       if (byName && byName.id !== e.id) {
         errors.push(
-          `FIX370.2.2.4: property "${e.label}" already exists with id ${byName.id}, not id ${e.id}.`,
+          `Property "${e.label}" already exists with id ${byName.id}, not id ${e.id}.`,
         );
       }
     }
@@ -282,7 +284,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       if (matches.length === 0) continue; // unlisted → skip silently
       if (matches.length > 1) {
         errors.push(
-          `FIX370.2.2.1: main-sheet column "${col.label}" matches ${matches.length} setup rows.`,
+          `Main-sheet column "${col.label}" matches ${matches.length} setup rows.`,
         );
         continue;
       }
@@ -401,7 +403,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       effectiveNames.push(effectiveName);
       if (seenEffective.has(effectiveName)) {
         errors.push(
-          `FIX370.2.1.4: rows ${seenEffective.get(effectiveName) + 2} and ${i + 2} both resolve to item '#' "${effectiveName}" (via '# new').`,
+          `Rows ${seenEffective.get(effectiveName) + 2} and ${i + 2} both resolve to item '#' "${effectiveName}" (via '# new').`,
         );
       } else {
         seenEffective.set(effectiveName, i);
@@ -553,7 +555,7 @@ export async function planFromUrl(url, project) {
     // best-effort — folds into the mismatch error below
   }
   if (!title || title.trim().toLowerCase() !== expectedTitle.toLowerCase()) {
-    const titleError = `FIX370.2.1.8: the gsheet must be named "${expectedTitle}" (found ${title ? `"${title}"` : 'nothing readable'}).`;
+    const titleError = `The gsheet must be named "${expectedTitle}" (found ${title ? `"${title}"` : 'nothing readable'}).`;
     return { errors: [...(result.errors || []), titleError] };
   }
   return result;

@@ -8,12 +8,14 @@ export default function GsheetFormatErrorPopup({ errors, onOk }) {
       <div className="modal gsheet-dialog" data-yagu-id="popup-gsheet-format-err">
         <div className="gsheet-stage">
           <h2>Google sheet format errors</h2>
-          <p>Format errors to be fixed before importing:</p>
-          <ul className="gsheet-errors">
-            {errors.map((e, i) => (
-              <li key={i}><strong>Error: </strong>{e}</li>
-            ))}
-          </ul>
+          <div className="gsheet-format-errors">
+            <p>Format errors to be fixed before importing:</p>
+            <ul>
+              {errors.map((e, i) => (
+                <li key={i}><strong>Error: </strong>{e}</li>
+              ))}
+            </ul>
+          </div>
           <div className="gsheet-actions">
             <button type="button" className="btn-primary" onClick={onOk}>
               Ok

@@ -3946,6 +3946,7 @@ export default function CatalogueView({
             // import now reads this instead of prompting for a URL.
             properties_gsheet_url: viewSetup.properties_gsheet_url || '',
           }}
+          slug={slug}
           onClose={() => setImportOpen(false)}
           onDone={reloadShowcase}
         />

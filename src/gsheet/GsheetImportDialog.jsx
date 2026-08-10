@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { planFromUrl } from './gsheetImport.js';
-import { importGsheet } from '../data/backend.js';
+import { importGsheet, getShowcase } from '../data/backend.js';
 import GsheetFormatErrorPopup from './GsheetFormatErrorPopup.jsx';
 
 // FIX370 / FIX370.0 <cmd-import-properties-gsheet>: Google Sheet import
@@ -9,7 +9,7 @@ import GsheetFormatErrorPopup from './GsheetFormatErrorPopup.jsx';
 // FIX370.4.1 now reads the URL straight from <setup-properties-gsheet>
 // (FIX508.2.5), so the dialog jumps directly to format checks → recap →
 // apply → done.
-export default function GsheetImportDialog({ project, onClose, onDone }) {
+export default function GsheetImportDialog({ project, slug, onClose, onDone }) {
   const hasUrl = !!(project.properties_gsheet_url || '').trim();
   const [stage, setStage] = useState(hasUrl ? 'fetching' : 'errors');
   const [errors, setErrors] = useState([]);
@@ -17,6 +17,12 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
   const [recap, setRecap] = useState(null);
   const [plan, setPlan] = useState(null);
   const [result, setResult] = useState(null);
+  // FIX370.4.3.10.1: deletion is logical (a property flag), so there's no
+  // backend delete count to compare against -- instead, re-read each
+  // predicted-deleted item's actual state after the import and count how
+  // many really ended up tagged. null = not checked yet (own fetch, not
+  // reliant on onDone's reload / this dialog's own project prop refreshing).
+  const [deletedCheckCount, setDeletedCheckCount] = useState(null);
 
   async function runImportCheck() {
     setStage('fetching');
@@ -67,6 +73,23 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
     }
   }
 
+  // FIX370.4.3.10.1: runs once the done stage is reached, independent of
+  // onDone's own reload timing/prop refresh.
+  useEffect(() => {
+    if (stage !== 'done' || !slug || !recap) return;
+    let cancelled = false;
+    getShowcase(slug).then((d) => {
+      if (cancelled) return;
+      const folders = d?.folders || [];
+      const count = recap.deletedFolderNames.filter((name) => {
+        const f = folders.find((x) => x.name === name);
+        return !!(f?.properties?.[String(project.deleted_property_id)] ?? '').toString().trim();
+      }).length;
+      setDeletedCheckCount(count);
+    }).catch(() => { /* best-effort — the other counts still get checked */ });
+    return () => { cancelled = true; };
+  }, [stage, slug, recap, project.deleted_property_id]);
+
   function handleDone() {
     onClose?.();
   }
@@ -79,15 +102,18 @@ export default function GsheetImportDialog({ project, onClose, onDone }) {
   }
 
   // FIX370.4.3.10.1: compare the preview's counts against what the backend
-  // actually reports it did. 'Deleted item' is left out -- the backend has
-  // no deleted-folder count of its own, it folds deletions into the same
-  // updated_folders_count as every other property-value change.
+  // actually reports it did. 'Deleted item' has no backend count to compare
+  // against (deletion is logical, folded into updated_folders_count like
+  // every other property-value change) -- deletedCheckCount re-reads each
+  // predicted-deleted item instead, added once that resolves (see effect
+  // above).
   const countMismatches = recap && result ? [
     ['New item', recap.changeCounts.newItem, result.new_folders_count ?? 0],
     ['Updated item', recap.changeCounts.updatedItem, result.updated_folders_count ?? 0],
     ['Updated item Ref', recap.changeCounts.updatedItemRef, result.folder_renames_count ?? 0],
     ['New property', recap.changeCounts.newProperty, result.new_properties_count ?? 0],
     ['Updated property name', recap.changeCounts.updatedPropertyName, result.renames_count ?? 0],
+    ...(deletedCheckCount != null ? [['Deleted item', recap.changeCounts.deletedItem, deletedCheckCount]] : []),
   ].filter(([, expected, actual]) => expected !== actual) : [];
 
   return (

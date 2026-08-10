@@ -422,6 +422,11 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   // alongside items with a changed property value -- deduped by row so an
   // item with both doesn't count twice.
   const updatedItemRows = new Set();
+  // FIX370.4.3.10.1: names (not ids -- a newly-deleted row may also be a
+  // brand-new folder with no id yet) of items predicted to end up deletion-
+  // tagged, so the effective-import check can re-read each one's actual
+  // deletion-property value after the import and compare counts.
+  const deletedFolderNames = [];
 
   dataRows.forEach((row, i) => {
     const name = rowFolderNames[i];
@@ -459,6 +464,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         if (!currentDeleted) {
           newlyDeleted = true;
           deletedFolderDisplays.push(display);
+          deletedFolderNames.push(effectiveName);
         }
       }
     }
@@ -533,6 +539,8 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     // FIX370.2.1.6.1 (updated): columns dropped for not matching an
     // existing property, when no setup sheet was provided.
     droppedColumns,
+    // FIX370.4.3.10.1: see deletedFolderNames declaration above.
+    deletedFolderNames,
   };
 
   const plan = {

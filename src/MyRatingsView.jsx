@@ -259,7 +259,18 @@ export default function MyRatingsView({ slug, projectName, ratingEnabled, isRegi
                   className={`sc-rated-image-cell${f.id === selectedItemId ? ' selected' : ''}`}
                   onClick={() => setSelectedItemId(f.id)}
                 >
-                  <img src={f.main_image_url} alt={f.name} loading="lazy" />
+                  {/* FIX702.4.5: the thumbnail created at image import or
+                      publication (FIX371.6.2.1 / FIX670.20.4), falling
+                      back to the full image for items from before
+                      thumbnails existed. */}
+                  <img
+                    src={f.main_image_thumb_url || f.main_image_url}
+                    alt={f.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      if (e.target.src !== f.main_image_url) e.target.src = f.main_image_url;
+                    }}
+                  />
                   {/* FIX702.4.4 + FIX702.4.3 (updated): caption row below
                       the image — item ref (folder.name), white, centred
                       (FIX702.4.4), with a conflicting rating's red bold

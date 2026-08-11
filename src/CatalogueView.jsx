@@ -3497,13 +3497,12 @@ export default function CatalogueView({
                 only the strips below it scroll, not the toolbar row. */}
             <div className="sc-gallery-scroll">
             {galleryStrips.map((strip) => (
-              <div
-                key={strip.key ?? '__flat__'}
-                // FIX512.2.6: a labelled (property-value) strip is panel-wide
-                // in a different background -- the flat no-sorting layout
-                // (FIX511.2.0.1, strip.label == null) has no such banding.
-                className={`sc-gallery-strip${strip.label != null ? ' sc-gallery-strip-labeled' : ''}`}
-              >
+              <div key={strip.key ?? '__flat__'} className="sc-gallery-strip">
+                {/* FIX512.2.6: the heading (property value) is panel-wide in
+                    a contrasted background -- the images below keep their
+                    normal background, only the label row is banded. The
+                    flat no-sorting layout (FIX511.2.0.1, strip.label ==
+                    null) has no heading at all, so no banding either. */}
                 {strip.label != null && (
                   <div className="sc-gallery-strip-label">{strip.label}</div>
                 )}

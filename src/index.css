@@ -813,19 +813,19 @@ body {
   padding-bottom: 0.75rem;
 }
 .sc-gallery-strip + .sc-gallery-strip { margin-top: 1rem; }
-/* FIX512.2.6: bleeds past .sc-gallery-panel's own padding so the strip's
-   background spans the full panel width, not just its content column. */
-.sc-gallery-strip-labeled {
+/* FIX512.2.6: only the heading is panel-wide in a contrasted background --
+   bleeds past .sc-gallery-panel's own padding so it spans the full panel
+   width, not just its content column. The images grid below (.sc-gallery-
+   images) is untouched, keeping its normal background. */
+.sc-gallery-strip-label {
   margin-left: -0.75rem;
   margin-right: -0.75rem;
-  padding: 0.5rem 0.75rem;
-  /* Contrasted blue, not the barely-different-from-the-panel bg-light. */
-  background: var(--color-bg-lighter);
-}
-.sc-gallery-strip-label {
+  padding: 0.35rem 0.75rem;
   font-weight: 600;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.25rem;
+  /* --color-accent: a real contrasted blue, not a dark navy barely
+     distinct from the panel's own background. */
+  background: var(--color-accent);
+  color: var(--color-bg);
   margin-bottom: 0.5rem;
 }
 .sc-gallery-images {

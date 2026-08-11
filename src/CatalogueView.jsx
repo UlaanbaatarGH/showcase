@@ -957,6 +957,15 @@ export default function CatalogueView({
   // FIX520.3.3: zoom slider for the in-page viewer — 1 = fit (default),
   // >1 enlarges the image past the container so scrollbars appear.
   const [zoomLevel, setZoomLevel] = useState(1);
+  // Waiting sign for the main viewer image (ShowcaseImageCanvas draws to a
+  // canvas, which is just blank while its underlying Image object is
+  // still fetching/decoding -- unlike a plain <img> there's nothing to
+  // show meanwhile without this). Separate state for the fullscreen
+  // overlay's own ShowcaseImageCanvas instance -- both can be mounted at
+  // once (fullscreen overlays the in-page viewer rather than replacing
+  // it), each loading the same url independently.
+  const [mainImgLoading, setMainImgLoading] = useState(false);
+  const [fsImgLoading, setFsImgLoading] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   // FIX523.3.5: zoom slider for the full-screen viewer — independent of
   // the in-page one (separate panel, own state), same fit/scroll/pan
@@ -4048,7 +4057,9 @@ export default function CatalogueView({
                               crop={currentImage.crop ?? null}
                               className="sc-viewer-img"
                               zoom={zoomLevel}
+                              onLoadingChange={setMainImgLoading}
                             />
+                            {mainImgLoading && <div className="sc-viewer-img-spinner" />}
                             {renderRatingIcon()}
                           </div>
                         </div>
@@ -4522,7 +4533,9 @@ export default function CatalogueView({
               crop={currentImage.crop ?? null}
               className="sc-fullscreen-img"
               zoom={fsZoomLevel}
+              onLoadingChange={setFsImgLoading}
             />
+            {fsImgLoading && <div className="sc-viewer-img-spinner" />}
             {renderRatingIcon()}
           </div>
           {/* FIX523.2: bottom strip mirrors the in-page no-sections

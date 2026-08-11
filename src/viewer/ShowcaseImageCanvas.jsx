@@ -19,6 +19,7 @@ export default function ShowcaseImageCanvas({
   onCropComplete,
   className,
   zoom = 1,
+  onLoadingChange,
 }) {
   const canvasRef = useRef(null);
   const [img, setImg] = useState(null);
@@ -38,11 +39,16 @@ export default function ShowcaseImageCanvas({
     // frame — the symptom was "old image flashes while switching".
     setImg(null);
     if (!url) return undefined;
+    // Waiting sign while the canvas has nothing to draw yet: unlike a
+    // plain <img>, an empty canvas is just blank/transparent -- against
+    // this dark theme that reads as a big blank/black area for however
+    // long the fetch+decode takes, with no feedback at all.
+    onLoadingChange?.(true);
     const i = new Image();
     i.crossOrigin = 'anonymous';
     let alive = true;
-    i.onload = () => { if (alive) setImg(i); };
-    i.onerror = () => { if (alive) setImg(null); };
+    i.onload = () => { if (alive) { setImg(i); onLoadingChange?.(false); } };
+    i.onerror = () => { if (alive) { setImg(null); onLoadingChange?.(false); } };
     i.src = url;
     return () => { alive = false; };
   }, [url]);

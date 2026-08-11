@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import ShowcaseImageCanvas, { bakeRotatedCrop, bakeRotatedCropToBlob } from './ShowcaseImageCanvas.jsx';
 import {
   updateImage, updateFolderImage, deleteFolderImage, replaceImageBytes,
-  getFolderImages,
+  getFolderImages, signUpload, confirmImage,
 } from '../data/backend.js';
 import { zoomFactor } from '../zoom.js';
 import { isLocalRow } from './publishItemImages.js';
@@ -1106,20 +1106,93 @@ export default function ShowcaseImgListEditor({
     insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
   };
 
-  // FIX610.3.10[ex-610.3.8] <cmd-local-drop-img> <panel-image-dropping>
-  // (Id per FIX521.2.1.20.0): local-app only, at the bottom of the list
-  // while in edition. FIX610.3.10.1 — dropped images are staged exactly
-  // like <command-local-add-img> instead of the website's immediate-upload
-  // default (FIX521.2.1.20.3 itself, out of scope here — website behavior
-  // isn't part of this local-app change) — reuses makeLocalRow/insertLocalRows.
+  // FIX521.2.1.20 <panel-image-dropping>: local app stages the drop like
+  // <command-local-add-img> (FIX610.3.10[ex-610.3.8], deferred to Publish);
+  // the website has no staging concept, so it does FIX521.2.1.20.3/.4's
+  // immediate-upload instead — same "after the last selected row" placement
+  // (.20.2) either way.
   const [dropAreaActive, setDropAreaActive] = useState(false);
+  const [dropUploadProgress, setDropUploadProgress] = useState(null); // { done, total } | null
+  const handleFilesDroppedWebsite = async (files) => {
+    setDropUploadProgress({ done: 0, total: files.length });
+    const selected = [...selIdxsRef.current];
+    const lastSelected = selected.length > 0 ? Math.max(...selected) : null;
+    const insertAt = lastSelected != null ? lastSelected + 1 : images.length;
+    const shiftedRows = images.slice(insertAt);
+    let done = 0;
+    const failed = [];
+    for (const file of files) {
+      try {
+        const zf = await new Promise((resolve) => {
+          const url = URL.createObjectURL(file);
+          const probe = new Image();
+          probe.onload = () => { URL.revokeObjectURL(url); resolve(zoomFactor(probe.naturalWidth, probe.naturalHeight)); };
+          probe.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+          probe.src = url;
+        });
+        const sign = await signUpload({ project_id: projectId, item_name: itemName, filename: file.name });
+        const putRes = await fetch(sign.signed_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+        if (!putRes.ok) throw new Error(`upload failed: ${putRes.status}`);
+        await confirmImage({
+          project_id: projectId,
+          item_name: itemName,
+          storage_key: sign.storage_key,
+          sort_order: insertAt + done,
+          zoom_factor: zf,
+        });
+      } catch (ex) {
+        failed.push(`${file.name}: ${ex.message || ex}`);
+      }
+      done += 1;
+      setDropUploadProgress({ done, total: files.length });
+    }
+    const numOk = done - failed.length;
+    // FIX521.2.1.20.2: push every row that was after the insertion point
+    // further down by however many uploads actually landed, so the new
+    // image(s) sit exactly there once re-fetched -- same rank-persistence
+    // convention as moveSelected above.
+    if (numOk > 0 && shiftedRows.length > 0) {
+      try {
+        await Promise.all(
+          shiftedRows
+            .filter((im) => !isLocalRow(im))
+            .map((im, k) => updateFolderImage(im.id, { sort_order: insertAt + numOk + k })),
+        );
+      } catch (ex) {
+        setError(ex.message || String(ex));
+      }
+    }
+    try {
+      const fresh = await getFolderImages(folderId);
+      setImages(fresh.map((im, idx) => ({ ...im, origSortOrder: idx })));
+      if (numOk > 0) {
+        const newIdxs = Array.from({ length: numOk }, (_, k) => insertAt + k);
+        selIdxsRef.current = new Set(newIdxs);
+        setSelIdxs(new Set(newIdxs));
+        setSelectedIdx(newIdxs[0]);
+        setAnchor(newIdxs[0]);
+      }
+    } catch (ex) {
+      setError(ex.message || String(ex));
+    }
+    setDropUploadProgress(null);
+    if (failed.length > 0) setError(`Some images failed to upload: ${failed.join('; ')}`);
+  };
   const handleFilesDropped = (e) => {
     e.preventDefault();
     setDropAreaActive(false);
     if (interactionLocked) return;
     const files = Array.from(e.dataTransfer?.files || []).filter((f) => isAcceptedImage(f.name));
     if (files.length === 0) return;
-    insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
+    if (isLocalApp) {
+      insertLocalRows(files.map((file) => makeLocalRow(file.name, file)));
+    } else {
+      handleFilesDroppedWebsite(files);
+    }
   };
 
   // FIX620 <process-automatic-img-insertion>: <button-auto-insert-img>.
@@ -1595,23 +1668,32 @@ export default function ShowcaseImgListEditor({
           </tbody>
         </table>
         </div>
-        {/* FIX610.3.10[ex-610.3.8] <cmd-local-drop-img> <panel-image-dropping>:
-            drop area at the bottom of the list, local-app only.
-            FIX610.3.10.1: dropped images are staged like
-            <command-local-add-img> (updates FIX521.2.1.20.3's
-            immediate-upload default for the local app specifically). */}
-        {isLocalApp && (
-          <div
-            className={`sc-img-list-drop-area${dropAreaActive ? ' active' : ''}`}
-            data-yagu-id="panel-image-dropping"
-            onDragOver={(e) => { e.preventDefault(); setDropAreaActive(true); }}
-            onDragLeave={() => setDropAreaActive(false)}
-            onDrop={handleFilesDropped}
-          >
-            Drop images here to add
-          </div>
-        )}
+        {/* FIX521.2.1.20 <panel-image-dropping>: drop area at the bottom of
+            the list, both local app and website. FIX610.3.10[ex-610.3.8]:
+            local app stages the drop like <command-local-add-img>; the
+            website has no staging concept, so it uploads immediately
+            (FIX521.2.1.20.3/.4) via handleFilesDroppedWebsite above. */}
+        <div
+          className={`sc-img-list-drop-area${dropAreaActive ? ' active' : ''}`}
+          data-yagu-id="panel-image-dropping"
+          onDragOver={(e) => { e.preventDefault(); setDropAreaActive(true); }}
+          onDragLeave={() => setDropAreaActive(false)}
+          onDrop={handleFilesDropped}
+        >
+          Drop images here to add
+        </div>
       </div>
+
+      {/* FIX521.2.1.20.3: progress popup while the website uploads dropped
+          images immediately (local app has nothing to show here — its drop
+          is staged instantly with no network round-trip). */}
+      {dropUploadProgress && (
+        <div className="setup-overlay">
+          <div className="sc-shrink-box">
+            <p>Uploading image{dropUploadProgress.total > 1 ? 's' : ''}… ({dropUploadProgress.done}/{dropUploadProgress.total})</p>
+          </div>
+        </div>
+      )}
 
       {/* FIX521.2.1.11 / FIX521.2.1.11.2: drag to resize; the image pane (and
           the image inside it) squeezes/expands with the splitter. */}

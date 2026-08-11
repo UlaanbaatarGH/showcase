@@ -787,20 +787,31 @@ body {
    sharing those classes -- visually close today but a different feature,
    kept independently stylable. */
 .sc-gallery-panel {
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   /* No top padding: the toolbar row (groupSelector + ddown-property-
      selector) must sit flush at the very top, level with .sc-groups-
      panel's own flush-top groupSelector row (FIX374.2.1) when that's a
      separate sidebar instead of rendered in here. */
-  padding: 0 0.75rem 0.75rem;
+  padding: 0 0.75rem;
 }
 .sc-gallery-toolbar {
+  flex: 0 0 auto;
   display: flex;
   align-items: stretch;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 .sc-gallery-toolbar > .sc-group-selector { flex: 0 0 auto; }
+/* ddown-property-selector must stay visible all the time -- only the
+   strips scroll, not the toolbar row above them. */
+.sc-gallery-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+  padding-bottom: 0.75rem;
+}
 .sc-gallery-strip + .sc-gallery-strip { margin-top: 1rem; }
 /* FIX512.2.6: bleeds past .sc-gallery-panel's own padding so the strip's
    background spans the full panel width, not just its content column. */

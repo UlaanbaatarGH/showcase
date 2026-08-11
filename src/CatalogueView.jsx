@@ -3493,6 +3493,9 @@ export default function CatalogueView({
                 </select>
               </div>
             </div>
+            {/* ddown-property-selector must stay visible all the time --
+                only the strips below it scroll, not the toolbar row. */}
+            <div className="sc-gallery-scroll">
             {galleryStrips.map((strip) => (
               <div
                 key={strip.key ?? '__flat__'}
@@ -3554,6 +3557,7 @@ export default function CatalogueView({
             {displayedFolders.length === 0 && (
               <div className="sc-empty">No items match the current filter.</div>
             )}
+            </div>
           </section>
         ) : (
           /* FIX630.0: the local app adapts this same Id rather than

@@ -1,16 +1,13 @@
 import { computePropertyValue } from './properties/formulas.js';
 
-// FIX518 <panel-item-details>: an item's property list. FIX518.2.1
-// view-mode is read-only; FIX518.2.2 edition-mode (CatalogueView.jsx
-// only — MyRatingsView.jsx has no edit affordance, FIX702 defines
-// none) swaps values to inputs (except derived properties, FIX518.4.6)
-// and adds a Cancel/Save footer. Extracted out of CatalogueView.jsx's
-// Details tab (FIX515.2.1.2) so FIX702.2.3's "Existing <panel-item-
-// details>" can genuinely reuse it rather than duplicate ~170 lines.
-//
-// Edit-mode props (editionMode/detailDraft/onDraftChange/onSave/
-// onCancelEdit) are all optional — a caller that omits them (MyRatings)
-// gets pure view-mode rendering, no wiring needed on its side.
+// FIX518 <panel-item-details>: an item's property list, always read-only.
+// FIX515.3.2.2: Properties can only be changed via <cmd-import-properties-
+// gsheet> -- clicking <cmd-edit-item-page> on the Details tab no longer
+// switches this panel into an edition mode (the old FIX515.3.2.2 did; the
+// inline Cancel/Save editor it drove never had a real backend write behind
+// it anyway). Extracted out of CatalogueView.jsx's Details tab (FIX515.2.1.2)
+// so FIX702.2.3's "Existing <panel-item-details>" can genuinely reuse it
+// rather than duplicate ~170 lines.
 export default function ItemDetailsPanel({
   folder,
   folders,
@@ -18,11 +15,6 @@ export default function ItemDetailsPanel({
   propertiesByLabel,
   deletedPropertyId,
   folderColumnName,
-  editionMode = false,
-  detailDraft = {},
-  onDraftChange,
-  onSave,
-  onCancelEdit,
 }) {
   if (!folder) {
     return <div className="sc-viewer-empty" data-yagu-id="panel-item-details">No item selected.</div>;
@@ -52,50 +44,7 @@ export default function ItemDetailsPanel({
     }
     return sawAny;
   };
-  const storedValue = (p) => {
-    const key = String(p.id);
-    if (Object.prototype.hasOwnProperty.call(detailDraft, key)) {
-      return detailDraft[key];
-    }
-    const raw = (folder.properties || {})[key];
-    return raw == null ? '' : String(raw);
-  };
   const renderValue = (p) => {
-    // FIX518.4.6: derived properties are always auto-recalculated and
-    // never editable.
-    if (editionMode && !p.formula) {
-      if (isBooleanProperty(p)) {
-        const checked = String(storedValue(p)).trim().toLowerCase() === 'x';
-        return (
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => onDraftChange?.(p, e.target.checked ? 'x' : '')}
-          />
-        );
-      }
-      const draft = storedValue(p);
-      // FIX518.4.8: a multi-line value stays multi-line when edited
-      // too, otherwise the single-line input would silently lose its
-      // newlines on save.
-      if (typeof draft === 'string' && draft.includes('\n')) {
-        const rows = Math.min(8, draft.split('\n').length + 1);
-        return (
-          <textarea
-            value={draft}
-            rows={rows}
-            onChange={(e) => onDraftChange?.(p, e.target.value)}
-          />
-        );
-      }
-      return (
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => onDraftChange?.(p, e.target.value)}
-        />
-      );
-    }
     const raw = computePropertyValue(folder, p, propertiesByLabel);
     if (isBooleanProperty(p)) {
       const checked = String(raw).trim().toLowerCase() === 'x';
@@ -116,7 +65,7 @@ export default function ItemDetailsPanel({
     // FIX518.0 / FIX702.2.3.0 <panel-item-details>: wasn't previously
     // tagged anywhere in code (CatalogueView's inline version didn't
     // carry this id either) — added here so both callers get it.
-    <div className={`sc-details${editionMode ? ' editing' : ''}`} data-yagu-id="panel-item-details">
+    <div className="sc-details" data-yagu-id="panel-item-details">
       <table className="sc-details-list">
         <tbody>
           <tr>
@@ -140,21 +89,6 @@ export default function ItemDetailsPanel({
           </tr>
         </tbody>
       </table>
-      {editionMode && (
-        <footer className="sc-viewer-edit-footer">
-          <button type="button" onClick={onCancelEdit}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="primary"
-            onClick={onSave}
-            title="Saved locally only — backend write endpoint pending"
-          >
-            Save
-          </button>
-        </footer>
-      )}
     </div>
   );
 }

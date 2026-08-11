@@ -268,11 +268,6 @@ export default function CatalogueView({
       return next;
     });
   };
-  // FIX518.4.6: local buffer of property overrides applied in edit mode.
-  // Keyed by property id → string. Saved into the in-memory folder when
-  // the user clicks Save (no cloud persistence yet — see
-  // backendCloud.setFolderProperty TODO).
-  const [detailDraft, setDetailDraft] = useState({});
   // Image edition state now lives inside <panel-showcase-img-list-editor>
   // (FIX521); the viewer itself is read-only (FIX520 after the .2.10 toolbox
   // removal).
@@ -1787,7 +1782,6 @@ export default function CatalogueView({
     if (!(stayInEdition && viewerTab === 'images')) {
       setEditionMode(false);
     }
-    setDetailDraft({});
     // FIX652 [ex-FIX375]: reuse this item's cached (possibly still-staged) images if
     // we've already visited it this session, instead of refetching and
     // silently discarding any pending local-app edits.
@@ -3660,20 +3654,19 @@ export default function CatalogueView({
                 </button>
               )}
               {/* FIX515.4.3/515.4.4 keep Edit/Quit visible to any logged-in
-                  user on Images; FIX518.4.7 narrows Details to admin-only.
-                  The local app has no login process, so this stays visible
-                  there regardless of profile. */}
-              {(viewerTab === 'details' ? profile?.profile === 'admin' : (isLocalApp || !!profile)) && (
+                  user, Images tab only -- FIX515.3.2.2: Details/Properties
+                  is always read-only now (only <cmd-import-properties-
+                  gsheet> changes it), so there's nothing left to edit on
+                  that tab. The local app has no login process, so this
+                  stays visible there regardless of profile. */}
+              {viewerTab === 'images' && (isLocalApp || !!profile) && (
                 editionMode ? (
                   <button
                     type="button"
                     className="sc-viewer-edit-btn"
                     data-yagu-id="cmd-quit-edit-item-page"
-                    onClick={() => {
-                      if (viewerTab === 'details') setDetailDraft({});
-                      setEditionMode(false);
-                    }}
-                    disabled={viewerTab === 'images' && imagesEditPending}
+                    onClick={() => setEditionMode(false)}
+                    disabled={imagesEditPending}
                     title="Quit"
                   >
                     Quit
@@ -4046,9 +4039,8 @@ export default function CatalogueView({
             // FIX518 <panel-item-details>: extracted into
             // ItemDetailsPanel.jsx so FIX702.2.3's My-ratings panel can
             // genuinely reuse it instead of duplicating this rendering.
-            // View-mode fields/behavior are unchanged; this call just
-            // wires the shared component to CatalogueView's own
-            // edit-mode state.
+            // FIX515.3.2.2: always read-only -- Properties can only be
+            // changed via <cmd-import-properties-gsheet>.
             <ItemDetailsPanel
               folder={(data?.folders || []).find((f) => f.id === selectedFolderId)}
               folders={data?.folders || []}
@@ -4056,26 +4048,6 @@ export default function CatalogueView({
               propertiesByLabel={propertiesByLabel}
               deletedPropertyId={deletedPropertyId}
               folderColumnName={folderColumnName}
-              editionMode={editionMode}
-              detailDraft={detailDraft}
-              onDraftChange={(p, v) => setDetailDraft((d) => ({ ...d, [String(p.id)]: v }))}
-              onCancelEdit={() => { setDetailDraft({}); setEditionMode(false); }}
-              onSave={() => {
-                // No cloud backend for per-folder writes yet. Merge the
-                // draft into the in-memory folder so the UI reflects the
-                // change until a reload — wire to a real endpoint once
-                // backendCloud.setFolderProperty lands.
-                setData((prev) => ({
-                  ...prev,
-                  folders: prev.folders.map((f) =>
-                    f.id === selectedFolderId
-                      ? { ...f, properties: { ...(f.properties || {}), ...detailDraft } }
-                      : f,
-                  ),
-                }));
-                setDetailDraft({});
-                setEditionMode(false);
-              }}
             />
           )}
         </section>

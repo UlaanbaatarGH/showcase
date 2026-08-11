@@ -1010,6 +1010,18 @@ body {
 }
 /* FIX520.2.1 / FIX520.2.2.2 / FIX520.2.3.2: flex column, image area grows,
    nav row pinned to the bottom regardless of image height. */
+/* FIX515.0: panel-item-img-list wraps both the edition-mode
+   ShowcaseImgListEditor and the read-only viewer, but that content's own
+   flex:1 1 auto only stretches to fill height against a flex parent --
+   without this the wrapper is a plain block div and the panel sizes to
+   its content from the top instead of filling to the bottom. */
+.sc-item-img-list-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
 .sc-viewer-body {
   flex: 1 1 auto;
   display: flex;

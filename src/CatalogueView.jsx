@@ -3696,7 +3696,7 @@ export default function CatalogueView({
             // FIX515.2.1.1 <panel-item-img-list>: the Images tab -- list of
             // this item's images and their attributes, integrating the
             // (read-only or, in edition mode, editable) img viewer itself.
-            <div data-yagu-id="panel-item-img-list">
+            <div className="sc-item-img-list-wrap" data-yagu-id="panel-item-img-list">
             {
             // FIX515.3.2.1: when the user clicks <button-edit> on the Images
             // tab, swap the read-only viewer for <panel-showcase-img-list-editor>.

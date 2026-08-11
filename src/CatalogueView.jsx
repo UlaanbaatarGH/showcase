@@ -3453,31 +3453,45 @@ export default function CatalogueView({
              (displayedFolders), as a checked-pattern grid instead of table
              rows (FIX511.3.3). */
           <section className="sc-gallery-panel" data-yagu-id="panel-item-gallery">
-            {groups.length > 0 && !activeGroup && groupSelector}
-            {/* FIX511.2.1 / FIX511.2.1.0 <ddown-property-selector>: property
-                selector for the strip-by-value layout below (FIX511.2.0.2)
-                -- 'no sorting' (FIX511.2.0.1) is one flat strip, same as
-                galleryStrips' own null-property case. FIX511.3.4: selecting
-                a property here is what drives galleryStrips -- no separate
-                wiring needed, its useMemo already keys off this state. */}
+            {/* <ddown-property-selector> must look and sit exactly like
+                <panel-item-grouping>'s own dropdown (groupSelector, reusing
+                its sc-group-selector class/ghost-placeholder styling) and
+                stay level with it -- when groupSelector is inline (no
+                active group) they share this one flush toolbar row, side
+                by side; when it moves out to the separate groups sidebar
+                (FIX374.2.1's "top left of the side panel"), this row is
+                still the first thing in the gallery panel, flush with the
+                sidebar's own flush-top row (panel padding-top removed
+                below), so both stay level even though they're not
+                touching. FIX511.2.1 / FIX511.2.1.0 <ddown-property-
+                selector>: property selector for the strip-by-value layout
+                below (FIX511.2.0.2) -- 'no sorting' (FIX511.2.0.1) is one
+                flat strip, same as galleryStrips' own null-property case.
+                FIX511.3.4: selecting a property here is what drives
+                galleryStrips -- no separate wiring needed, its useMemo
+                already keys off this state. */}
             <div className="sc-gallery-toolbar">
-              <select
-                data-yagu-id="ddown-property-selector"
-                value={galleryPropertyId ?? ''}
-                // Bug fix (FIX511.3.4): a <select>'s e.target.value is
-                // always a string, but propertiesById is keyed by p.id
-                // (a plain integer from the DB) -- Map.get("5") never
-                // matches key 5, so galleryStrips' `prop` lookup silently
-                // missed for every property, dumping every item into the
-                // '(no value)' strip regardless of which property was
-                // picked. Coerce back to a number here so it matches.
-                onChange={(e) => setGalleryPropertyId(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">No sorting</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
+              {groups.length > 0 && !activeGroup && groupSelector}
+              <div className="sc-group-selector">
+                <select
+                  data-yagu-id="ddown-property-selector"
+                  className={galleryPropertyId == null ? 'is-placeholder' : ''}
+                  value={galleryPropertyId ?? ''}
+                  // Bug fix (FIX511.3.4): a <select>'s e.target.value is
+                  // always a string, but propertiesById is keyed by p.id
+                  // (a plain integer from the DB) -- Map.get("5") never
+                  // matches key 5, so galleryStrips' `prop` lookup silently
+                  // missed for every property, dumping every item into the
+                  // '(no value)' strip regardless of which property was
+                  // picked. Coerce back to a number here so it matches.
+                  onChange={(e) => setGalleryPropertyId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">No sorting</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             {galleryStrips.map((strip) => (
               <div

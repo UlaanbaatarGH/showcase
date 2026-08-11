@@ -788,9 +788,19 @@ body {
    kept independently stylable. */
 .sc-gallery-panel {
   overflow: auto;
-  padding: 0.75rem;
+  /* No top padding: the toolbar row (groupSelector + ddown-property-
+     selector) must sit flush at the very top, level with .sc-groups-
+     panel's own flush-top groupSelector row (FIX374.2.1) when that's a
+     separate sidebar instead of rendered in here. */
+  padding: 0 0.75rem 0.75rem;
 }
-.sc-gallery-toolbar { margin-bottom: 0.5rem; }
+.sc-gallery-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.sc-gallery-toolbar > .sc-group-selector { flex: 0 0 auto; }
 .sc-gallery-strip + .sc-gallery-strip { margin-top: 1rem; }
 /* FIX512.2.6: bleeds past .sc-gallery-panel's own padding so the strip's
    background spans the full panel width, not just its content column. */

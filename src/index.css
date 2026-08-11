@@ -820,11 +820,14 @@ body {
 .sc-gallery-strip-label {
   margin-left: -0.75rem;
   margin-right: -0.75rem;
-  padding: 0.35rem 0.75rem;
+  /* Height sticks to the text -- minimal vertical padding, tight
+     line-height. Left padding is deliberately bigger than the right for
+     a visible text indent versus the images grid below. */
+  padding: 2px 0.75rem 2px 1.25rem;
+  line-height: 1.3;
   font-weight: 600;
-  /* --color-accent: a real contrasted blue, not a dark navy barely
-     distinct from the panel's own background. */
-  background: var(--color-accent);
+  /* Light grey, not blue -- the earlier accent-blue read too loud. */
+  background: var(--color-text-muted);
   color: var(--color-bg);
   margin-bottom: 0.5rem;
 }

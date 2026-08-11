@@ -74,6 +74,12 @@ export default function SetupPanel({
     // <cmd-import-properties-gsheet> (FIX370) reads from and
     // <cmd-open-properties-gsheet> (FIX375) opens.
     properties_gsheet_url: initialViewSetup?.properties_gsheet_url || '',
+    // FIX508.2.6 / <setup-initial-show-as>: defines <select-catalogue-
+    // show-as>'s value at project opening. Defaulted to 'list'
+    // (FIX508.2.6.2) -- independent of FIX503.2.11.2's own default for
+    // the runtime selector itself, which only applies when a project has
+    // no view_setup at all.
+    initial_show_as: initialViewSetup?.initial_show_as === 'gallery' ? 'gallery' : 'list',
   });
   // FIX508.2.4 <item-short-label>: stack of (property, max_length)
   // entries. The Contact panel item list (FIX420.2.2) and other
@@ -166,6 +172,8 @@ export default function SetupPanel({
           select_first_item: generalSetup.select_first_item,
           // FIX508.2.5 / <setup-properties-gsheet>.
           properties_gsheet_url: generalSetup.properties_gsheet_url.trim(),
+          // FIX508.2.6 / <setup-initial-show-as>.
+          initial_show_as: generalSetup.initial_show_as,
           // FIX508.2.4 / <item-short-label>: persist the stack only
           // with parts pointing at known properties (drop orphans
           // pointing at deleted properties). FIX508.2.4.2: optional
@@ -407,6 +415,25 @@ export default function SetupPanel({
                   }
                 />
                 Select first item by default
+              </label>
+              {/* FIX508.2.6 / <setup-initial-show-as>: defines
+                  <select-catalogue-show-as>'s value at project opening.
+                  Defaulted to 'Item list' (FIX508.2.6.2). */}
+              <label className="setup-checkbox-row">
+                Show item gallery at opening
+                <select
+                  data-yagu-id="setup-initial-show-as"
+                  value={generalSetup.initial_show_as}
+                  onChange={(e) =>
+                    setGeneralSetup({
+                      ...generalSetup,
+                      initial_show_as: e.target.value,
+                    })
+                  }
+                >
+                  <option value="list">Item list</option>
+                  <option value="gallery">Item gallery</option>
+                </select>
               </label>
               {/* FIX508.2.4 + FIX508.2.4.2 + FIX508.2.4.3 + FIX508.5.1
                   <item-short-label>: ordered stack of

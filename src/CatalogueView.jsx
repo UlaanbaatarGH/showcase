@@ -861,6 +861,19 @@ export default function CatalogueView({
   // -- <panel-item-list> or <panel-item-gallery> -- fills the same middle
   // slot below.
   const [showAs, setShowAs] = useState('gallery');
+  // FIX508.2.6 / <setup-initial-show-as>: once the project's own view_setup
+  // loads, its stored initial_show_as (defaulted to 'list' per FIX508.2.6.2)
+  // wins over the useState above -- that 'gallery' initial value only
+  // matters for the brief moment before data arrives (or a project that
+  // somehow has no view_setup at all). Seeded once per project load, not
+  // re-applied on every data refresh, so it doesn't stomp the user's own
+  // in-session toggle.
+  const showAsSeededRef = useRef(null);
+  useEffect(() => {
+    if (!data?.project || showAsSeededRef.current === data.project.id) return;
+    showAsSeededRef.current = data.project.id;
+    setShowAs(data.view_setup?.initial_show_as === 'gallery' ? 'gallery' : 'list');
+  }, [data]);
   // FIX511.2.1 <panel-item-gallery>: property selector for the gallery's
   // strip-by-value layout (FIX511.2.0.2); null = no sorting, one flat grid
   // (FIX511.2.0.1).

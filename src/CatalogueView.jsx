@@ -3464,7 +3464,14 @@ export default function CatalogueView({
               <select
                 data-yagu-id="ddown-property-selector"
                 value={galleryPropertyId ?? ''}
-                onChange={(e) => setGalleryPropertyId(e.target.value || null)}
+                // Bug fix (FIX511.3.4): a <select>'s e.target.value is
+                // always a string, but propertiesById is keyed by p.id
+                // (a plain integer from the DB) -- Map.get("5") never
+                // matches key 5, so galleryStrips' `prop` lookup silently
+                // missed for every property, dumping every item into the
+                // '(no value)' strip regardless of which property was
+                // picked. Coerce back to a number here so it matches.
+                onChange={(e) => setGalleryPropertyId(e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">No sorting</option>
                 {properties.map((p) => (

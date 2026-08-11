@@ -2137,10 +2137,16 @@ export default function CatalogueView({
   // unlabelled strip; a property selected -> one strip per distinct value,
   // ordered by increasing value (numeric-aware since values are often
   // numbers), blanks collected into their own trailing '(no value)' strip.
+  // FIX511.4.2: within each strip (or the single flat list), images are
+  // sorted by increasing item ref (folder.name) -- same comparator the
+  // local app's own always-Ref-ordered list uses (FIX631.2 above).
   // Must sit above the `if (!data) return` guard below (Rules of Hooks) --
   // same reasoning as curImgSizeInfo's effect further down.
   const galleryStrips = useMemo(() => {
-    if (!galleryPropertyId) return [{ key: null, label: null, items: displayedFolders }];
+    const byRef = (a, b) => compareValues(a.name ?? '', b.name ?? '');
+    if (!galleryPropertyId) {
+      return [{ key: null, label: null, items: [...displayedFolders].sort(byRef) }];
+    }
     const prop = propertiesById.get(galleryPropertyId);
     const byValue = new Map();
     for (const f of displayedFolders) {
@@ -2149,11 +2155,11 @@ export default function CatalogueView({
       if (!byValue.has(key)) byValue.set(key, []);
       byValue.get(key).push(f);
     }
-    const blanks = byValue.get('') ?? [];
+    const blanks = (byValue.get('') ?? []).sort(byRef);
     byValue.delete('');
     const strips = [...byValue.entries()]
       .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-      .map(([key, items]) => ({ key, label: key, items }));
+      .map(([key, items]) => ({ key, label: key, items: [...items].sort(byRef) }));
     if (blanks.length > 0) strips.push({ key: '__novalue__', label: '(no value)', items: blanks });
     return strips;
   }, [displayedFolders, galleryPropertyId, propertiesById, propertiesByLabel]);

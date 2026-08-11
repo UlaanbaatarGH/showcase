@@ -3480,7 +3480,13 @@ export default function CatalogueView({
               </select>
             </div>
             {galleryStrips.map((strip) => (
-              <div key={strip.key ?? '__flat__'} className="sc-gallery-strip">
+              <div
+                key={strip.key ?? '__flat__'}
+                // FIX512.2.6: a labelled (property-value) strip is panel-wide
+                // in a different background -- the flat no-sorting layout
+                // (FIX511.2.0.1, strip.label == null) has no such banding.
+                className={`sc-gallery-strip${strip.label != null ? ' sc-gallery-strip-labeled' : ''}`}
+              >
                 {strip.label != null && (
                   <div className="sc-gallery-strip-label">{strip.label}</div>
                 )}

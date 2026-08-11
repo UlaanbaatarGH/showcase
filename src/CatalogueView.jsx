@@ -3541,14 +3541,20 @@ export default function CatalogueView({
                             item published or imported before thumbnails
                             existed has none. */}
                         {f.main_image_url ? (
-                          <img
-                            src={f.main_image_thumb_url || f.main_image_url}
-                            alt={f.name}
-                            loading="lazy"
-                            onError={(e) => {
-                              if (e.target.src !== f.main_image_url) e.target.src = f.main_image_url;
-                            }}
-                          />
+                          // sc-gallery-thumb's spinner is a plain CSS ::after
+                          // behind the img (z-index) -- no load-state tracking
+                          // needed, the opaque decoded image just covers it
+                          // once painted, purely via stacking order.
+                          <div className="sc-gallery-thumb">
+                            <img
+                              src={f.main_image_thumb_url || f.main_image_url}
+                              alt={f.name}
+                              loading="lazy"
+                              onError={(e) => {
+                                if (e.target.src !== f.main_image_url) e.target.src = f.main_image_url;
+                              }}
+                            />
+                          </div>
                         ) : (
                           <div className="sc-gallery-cell-blank">No image</div>
                         )}

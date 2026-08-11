@@ -850,14 +850,45 @@ body {
 .sc-gallery-cell.selected {
   border-color: var(--color-selected-border, var(--color-accent));
 }
-.sc-gallery-cell img,
+.sc-gallery-thumb,
 .sc-gallery-cell-blank {
   display: block;
+  position: relative;
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
   border-radius: 4px;
   background: var(--color-bg-lighter);
+  overflow: hidden;
+}
+.sc-gallery-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+/* Waiting sign while the pic loads: a plain spinner behind the img
+   (z-index above), needs no load-state tracking in JS -- once the image
+   decodes and paints, its opaque pixels cover the spinner completely on
+   their own, purely from stacking order. Stays visible for as long as
+   the img has no pixels yet, including on a slow first fetch after the
+   FIX1000 cache-bust change made every image URL fresh (never cached). */
+.sc-gallery-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: sc-gallery-spin 0.8s linear infinite;
+  z-index: 0;
+}
+@keyframes sc-gallery-spin {
+  to { transform: rotate(360deg); }
 }
 /* FIX511.2.2 (updated): black frame + white italic 'No image' caption. */
 .sc-gallery-cell-blank {

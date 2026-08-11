@@ -819,7 +819,8 @@ body {
   margin-left: -0.75rem;
   margin-right: -0.75rem;
   padding: 0.5rem 0.75rem;
-  background: var(--color-bg-light);
+  /* Contrasted blue, not the barely-different-from-the-panel bg-light. */
+  background: var(--color-bg-lighter);
 }
 .sc-gallery-strip-label {
   font-weight: 600;

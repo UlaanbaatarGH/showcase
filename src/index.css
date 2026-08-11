@@ -852,7 +852,16 @@ body {
   border-radius: 4px;
   background: var(--color-bg-lighter);
 }
-.sc-gallery-cell-blank { background: #000; }
+/* FIX511.2.2 (updated): black frame + white italic 'No image' caption. */
+.sc-gallery-cell-blank {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-style: italic;
+  font-size: 0.8rem;
+}
 /* FIX511.2.3/.2.4/.2.5: ref, my rating icon, conflict icon on one
    centred caption line -- same literal-white wording as
    .sc-rated-image-caption (FIX702.4.4). */

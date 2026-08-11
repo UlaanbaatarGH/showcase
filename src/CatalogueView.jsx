@@ -3523,10 +3523,11 @@ export default function CatalogueView({
                             (backend: order by is_main desc, sort_order, id),
                             unchanged by this update. FIX511.4.1: the
                             thumbnail itself (FIX371.6.2.1 / FIX670.20.4), or
-                            a black frame when there's no image at all. Falls
-                            back to the full image on load error -- an item
-                            published or imported before thumbnails existed
-                            has none. */}
+                            a black frame with white italic 'No image' when
+                            there's no image at all (delta from this update).
+                            Falls back to the full image on load error -- an
+                            item published or imported before thumbnails
+                            existed has none. */}
                         {f.main_image_url ? (
                           <img
                             src={f.main_image_thumb_url || f.main_image_url}
@@ -3537,7 +3538,7 @@ export default function CatalogueView({
                             }}
                           />
                         ) : (
-                          <div className="sc-gallery-cell-blank" />
+                          <div className="sc-gallery-cell-blank">No image</div>
                         )}
                         {/* FIX511.2.3 / .2.4 / .2.5: ref, my rating icon,
                             conflict icon -- one caption line. */}

@@ -59,6 +59,7 @@ export default function ShowcaseImgListEditor({
   onPendingImageEditChange,
   onItemBytesChange, // FIX521.3.5.4: report the item's new total image bytes
   onItemZoomChange,  // FIX521.5.8.1: report the item's Zoom Factor (max ZF)
+  onMainImageChange, // report the item's new main image url/thumb_url/rotation
   folderId,   // FIX610.3.7: which item to re-fetch from on Reset changes
   projectId,  // FIX610.3.1: needed for sign-upload / confirm
   projectName, // FIX670.1: staging folder segment (tech/data/staging/{projectName}/{itemName})
@@ -791,6 +792,20 @@ export default function ShowcaseImgListEditor({
       return isLocalApp ? stageChanged(updated) : updated;
     });
     setImages(next);
+    // Bug fix: the Item Gallery panel on the left (main_image_url/
+    // main_image_thumb_url/main_rotation, sourced from a separate fetch)
+    // never got told the item's main image changed, so it kept showing the
+    // old one until the whole project reloaded. Same is-main-else-first
+    // resolution the backend uses, computed from what's already in hand
+    // locally -- no extra round-trip needed.
+    const effectiveMain = next.find((im) => im.is_main) || next[0] || null;
+    if (effectiveMain) {
+      onMainImageChange?.({
+        url: effectiveMain.url,
+        thumb_url: effectiveMain.thumb_url,
+        rotation: effectiveMain.rotation,
+      });
+    }
     if (isLocalApp) syncAfterEdit(next); // FIX610.3.6.1: manifest '(chged)' tag, create the file if needed
     // FIX610.3.1: a not-yet-published row has no real id to PATCH — applied at Publish instead.
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;

@@ -3743,6 +3743,26 @@ export default function CatalogueView({
                     setFolderZoomFactor(selectedFolderId, zf).catch(() => {});
                   }
                 }}
+                onMainImageChange={({ url, thumb_url, rotation }) => {
+                  if (selectedFolderId == null) return;
+                  setData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          folders: prev.folders.map((f) =>
+                            f.id === selectedFolderId
+                              ? {
+                                  ...f,
+                                  main_image_url: url,
+                                  main_image_thumb_url: thumb_url || url,
+                                  main_rotation: rotation,
+                                }
+                              : f,
+                          ),
+                        }
+                      : prev,
+                  );
+                }}
               />
             ) : (() => {
               // FIX520.2: Showcase Image viewer (read-only). New layout:

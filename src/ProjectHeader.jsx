@@ -104,20 +104,11 @@ export function ProjectHeaderLeft({
           )}
         </div>
       )}
-      {/* FIX503.2.11 <select-catalogue-show-as>: '(x) Item list (x)
-          Gallery list' radio pair, default Item list (FIX503.2.11.2 —
-          CatalogueView's showAs state itself defaults to 'list'). */}
+      {/* FIX503.2.11 <select-catalogue-show-as>: '(x) Gallery list (x)
+          Item list' radio pair, default Gallery list (FIX503.2.11.2 —
+          CatalogueView's showAs state itself defaults to 'gallery'). */}
       {currentView === 'catalogue' && onShowAsChange && (
         <div className="sc-show-as-selector" data-yagu-id="select-catalogue-show-as">
-          <label>
-            <input
-              type="radio"
-              name="catalogue-show-as"
-              checked={showAs === 'list'}
-              onChange={() => onShowAsChange('list')}
-            />
-            Item list
-          </label>
           <label>
             <input
               type="radio"
@@ -126,6 +117,15 @@ export function ProjectHeaderLeft({
               onChange={() => onShowAsChange('gallery')}
             />
             Gallery list
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="catalogue-show-as"
+              checked={showAs === 'list'}
+              onChange={() => onShowAsChange('list')}
+            />
+            Item list
           </label>
         </div>
       )}

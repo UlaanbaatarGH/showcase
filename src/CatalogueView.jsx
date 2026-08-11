@@ -856,11 +856,11 @@ export default function CatalogueView({
   const [showSetup, setShowSetup] = useState(false);
   const [showGrouping, setShowGrouping] = useState(false);
   // FIX503.2.11 / FIX503.2.11.0 <select-catalogue-show-as>: Item list vs
-  // Gallery list, default Item list (FIX503.2.11.2). Lives here (not in
+  // Gallery list, default Gallery list (FIX503.2.11.2). Lives here (not in
   // ProjectHeaderLeft, which just renders it) since it drives which panel
   // -- <panel-item-list> or <panel-item-gallery> -- fills the same middle
   // slot below.
-  const [showAs, setShowAs] = useState('list');
+  const [showAs, setShowAs] = useState('gallery');
   // FIX511.2.1 <panel-item-gallery>: property selector for the gallery's
   // strip-by-value layout (FIX511.2.0.2); null = no sorting, one flat grid
   // (FIX511.2.0.1).

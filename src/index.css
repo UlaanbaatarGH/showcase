@@ -823,14 +823,16 @@ body {
   /* Height sticks to the text -- minimal vertical padding, tight
      line-height. Left padding is deliberately bigger than the right for
      a visible text indent versus the images grid below. */
-  padding: 2px 0.75rem 2px 1.25rem;
+  padding: 3px 0.75rem 3px 1.25rem;
   line-height: 1.3;
   font-weight: 600;
-  /* Light grey, not blue -- the earlier accent-blue read too loud, and
-     --color-text-muted (#888) still read too dark/sad against this dark
-     theme's own background. */
-  background: #ccc;
-  color: var(--color-bg);
+  letter-spacing: 0.02em;
+  /* White-to-light-grey gradient + soft shadow reads as a subtle raised
+     tab instead of a flat colour block -- plain solid fills (blue, then
+     flat grey) both read too loud/plain per feedback. */
+  background: linear-gradient(to bottom, #fff, #e4e4e4);
+  color: var(--color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   margin-bottom: 0.5rem;
 }
 .sc-gallery-images {

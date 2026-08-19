@@ -323,8 +323,11 @@ export default function HomeView({ onOpenProject }) {
       </div>
 
       {signInOpen && (
-        <div className="modal-backdrop" onClick={() => setSignInOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="modal-backdrop"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setSignInOpen(false); }}
+        >
+          <div className="modal">
             <SignInPanel onClose={() => setSignInOpen(false)} />
           </div>
         </div>

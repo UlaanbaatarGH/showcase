@@ -323,10 +323,9 @@ export default function HomeView({ onOpenProject }) {
       </div>
 
       {signInOpen && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setSignInOpen(false); }}
-        >
+        // FIX315.1: outside clicks must NOT dismiss this popup -- only
+        // its own Sign in / Cancel buttons may close it.
+        <div className="modal-backdrop">
           <div className="modal">
             <SignInPanel onClose={() => setSignInOpen(false)} />
           </div>

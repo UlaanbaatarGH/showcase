@@ -73,7 +73,7 @@ function clearFailedSignIns() {
 //   try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch { /* ignore */ }
 // }
 
-// FIX310 + FIX300: holds the current session token and the app_user profile row.
+// FIX310: holds the current session token and the app_user profile row.
 const AuthContext = createContext(null);
 
 

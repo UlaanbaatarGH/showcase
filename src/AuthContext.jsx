@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
-import { setAuthToken, redeemAccount, signupVisitor } from './data/backend.js';
+import { setAuthToken, redeemAccount, signupVisitor, getAppStatus } from './data/backend.js';
 
 // FIX412.5.1 + FIX412.5.1.1 + FIX412.5.1.2: log a sign-in attempt.
 //   page: 'login_ok' or 'login_failed' depending on outcome
@@ -81,6 +81,20 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(supabaseConfigured);
+  // FIX410.1.1.6 <website-In-maintenance>: fetched independently of
+  // sign-in state — an anonymous visitor still needs to see the
+  // FIX410.1.1.6.2 home-page banner.
+  const [inMaintenance, setInMaintenance] = useState(false);
+
+  const refreshMaintenance = useCallback(() => {
+    getAppStatus()
+      .then((s) => setInMaintenance(!!s?.in_maintenance))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshMaintenance();
+  }, [refreshMaintenance]);
 
   useEffect(() => {
     if (!supabaseConfigured) return undefined;
@@ -279,6 +293,8 @@ export function AuthProvider({ children }) {
     redeem,
     signUpVisitor,
     signOut,
+    inMaintenance,
+    refreshMaintenance,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

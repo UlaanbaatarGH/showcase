@@ -56,6 +56,14 @@ body {
   letter-spacing: 0.02em;
   text-align: center;
 }
+/* FIX410.1.1.6.2: big letters, above the title. */
+.home-maintenance-banner {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f88;
+  text-align: center;
+}
 .home-err {
   color: #f88;
   font-size: 0.9rem;
@@ -2366,6 +2374,23 @@ body {
 .sc-menu-items button:hover { background: var(--color-bg-light); }
 .sc-menu-items button:disabled { opacity: 0.4; cursor: not-allowed; }
 .sc-menu-items button:disabled:hover { background: transparent; }
+
+/* FIX410.2 / FIX410.1.1.6 <website-In-maintenance>: sits as its own row
+   below the panel-opening buttons, per FIX410.2's layout diagram. */
+.sc-menu-checkbox-item {
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.25rem !important;
+  padding-top: 0.25rem;
+}
+.sc-menu-checkbox-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--color-text);
+}
 
 /* FIX503.2.11 <select-catalogue-show-as>: '(x) Item list (x) Gallery
    list' radio pair, sits in the left cluster right after <menu-view>

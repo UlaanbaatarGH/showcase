@@ -4,6 +4,8 @@ import UsersPanel from './UsersPanel.jsx';
 import ProjectsPanel from './ProjectsPanel.jsx';
 import MessagesPanel from './MessagesPanel.jsx';
 import VersionsPanel from './VersionsPanel.jsx';
+import { useAuth } from './AuthContext.jsx';
+import { setMaintenanceMode } from './data/backend.js';
 
 // FIX410 <menu-admin>: dropdown grouping admin-only views.
 // FIX410.2.1 Visits → <panel-visits>; FIX410.2.2 Users →
@@ -13,6 +15,8 @@ import VersionsPanel from './VersionsPanel.jsx';
 // rendered on a project page); FIX410.1.1.5 Versions →
 // <panel-app-versions>.
 export default function AdminMenu({ className = '', projectId = null }) {
+  const { profile, inMaintenance, refreshMaintenance } = useAuth();
+  const isAdmin = !!profile?.is_admin;
   const [open, setOpen] = useState(false);
   const [visitsOpen, setVisitsOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
@@ -99,6 +103,27 @@ export default function AdminMenu({ className = '', projectId = null }) {
                 App versions
               </button>
             </li>
+            {isAdmin && (
+              <li className="sc-menu-checkbox-item">
+                {/* FIX410.2 / FIX410.1.1.6 <website-In-maintenance>:
+                    admin-only toggle, not a panel opener like the rest
+                    of this menu. */}
+                <label>
+                  <input
+                    type="checkbox"
+                    data-yagu-id="website-In-maintenance"
+                    checked={inMaintenance}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setMaintenanceMode(next)
+                        .then(refreshMaintenance)
+                        .catch(() => {});
+                    }}
+                  />
+                  In maintenance
+                </label>
+              </li>
+            )}
           </ul>
         )}
       </div>

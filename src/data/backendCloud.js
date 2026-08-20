@@ -141,6 +141,10 @@ export default {
     ),
   // FIX414 <panel-app-versions>: admin-only deploy history.
   listAppVersions: () => call('/api/admin/versions'),
+  // FIX410.1.1.6 <website-In-maintenance>: public read, admin-only write.
+  getAppStatus: () => call('/api/app-status'),
+  setMaintenanceMode: (inMaintenance) =>
+    call('/api/admin/maintenance', { method: 'PATCH', body: { in_maintenance: inMaintenance } }),
   // FIX509 <panel-language-setup>: language list (public read,
   // admin-only writes).
   listLanguages: () => call('/api/languages'),

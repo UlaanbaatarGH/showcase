@@ -45,6 +45,12 @@ export const updateAdminProject = impl.updateAdminProject;
 export const clearProjectManagers = impl.clearProjectManagers;
 export const moveAdminProject = impl.moveAdminProject;
 export const listAppVersions = impl.listAppVersions;
+// FIX410.1.1.6: cloud-only (no local-app admin concept of a public
+// site to put in maintenance) — safe fallbacks mirror the FIX680
+// pattern above.
+export const getAppStatus = impl.getAppStatus || (() => Promise.resolve({ in_maintenance: false }));
+export const setMaintenanceMode =
+  impl.setMaintenanceMode || (() => Promise.reject(new Error('setMaintenanceMode: online only')));
 export const listLanguages = impl.listLanguages;
 export const createLanguage = impl.createLanguage;
 export const updateLanguage = impl.updateLanguage;

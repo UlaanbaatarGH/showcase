@@ -26,7 +26,7 @@ import {
 // FIX400.4.8 [ex-400.2.1.2] public projects visible to anyone
 // FIX400.4.9 [ex-400.2.1.3] private projects visible to admin/managers
 export default function HomeView({ onOpenProject }) {
-  const { token, profile, signOut, configured } = useAuth();
+  const { token, profile, signOut, configured, inMaintenance } = useAuth();
   const [projects, setProjects] = useState(null);
   const [error, setError] = useState(null);
   const [signInOpen, setSignInOpen] = useState(false);
@@ -270,6 +270,13 @@ export default function HomeView({ onOpenProject }) {
           the title + project grid (the topbar above is the only
           element pinned to the top edge). */}
       <div className="home-content">
+        {/* FIX410.1.1.6.2: big-letters banner, above the page title,
+            while <website-In-maintenance> is set. */}
+        {inMaintenance && (
+          <p className="home-maintenance-banner" data-yagu-id="home-maintenance-banner">
+            Website in maintenance
+          </p>
+        )}
         {/* FIX400.2.11 + FIX400.2.11.1 'Showcase' title, centred,
             big. Not translated — the app name stays 'Showcase' in
             every locale. */}

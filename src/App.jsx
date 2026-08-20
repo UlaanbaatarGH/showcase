@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import HomeView from './HomeView.jsx';
 import CatalogueView from './CatalogueView.jsx';
 import MyRatingsView from './MyRatingsView.jsx';
-import { AuthProvider } from './AuthContext.jsx';
+import { AuthProvider, useAuth } from './AuthContext.jsx';
 import { LanguageProvider } from './i18n/i18n.jsx';
 import { navigate, parseLocation, projectSlug } from './router.js';
 import { forceLocalMode, checkCloudReachable } from './data/backend.js';
@@ -55,6 +55,7 @@ function LocalStartModePopup({ onChoose }) {
 }
 
 function AppBody() {
+  const { loading: authLoading, profile, inMaintenance } = useAuth();
   const [route, setRoute] = useState(parseLocation);
   // FIX680.3: decided once per session — local-app builds start gated,
   // online (production) builds skip the popup entirely.
@@ -83,6 +84,17 @@ function AppBody() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+
+  // FIX410.1.1.6.2: "any direct link to a sub-page is redirected to the
+  // home page" while in maintenance, admin excepted. Waits for
+  // authLoading to settle so a signed-in admin isn't bounced during the
+  // brief window before their profile (and is_admin) resolves.
+  useEffect(() => {
+    if (authLoading) return;
+    if (route.view === 'project' && inMaintenance && !profile?.is_admin) {
+      navigate('/');
+    }
+  }, [authLoading, route.view, inMaintenance, profile?.is_admin]);
 
   // Reset to Catalogue whenever the project itself changes — a view
   // choice made on one project shouldn't leak into the next one opened.

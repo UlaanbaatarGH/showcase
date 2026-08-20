@@ -253,6 +253,7 @@ export default function ProjectsPanel({ onClose }) {
           <div className="visits-empty">No project yet.</div>
         )}
         {projects && projects.length > 0 && (
+          <div className="projects-table-scroll">
           <table className="visits-table users-table projects-rights-table">
             <thead>
               {/* FIX351.2.1.15 <panel-project-list> table layout: View /
@@ -354,6 +355,7 @@ export default function ProjectsPanel({ onClose }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {addOpen && (
           <AddProjectDialog

@@ -2422,7 +2422,7 @@ body {
 
 /* FIX351 <panel-project-list>: admin projects + managers modal. */
 .projects-panel {
-  width: min(640px, 100%);
+  width: min(900px, 96vw);
   max-height: min(80vh, 600px);
   max-height: min(80dvh, 600px);
   display: flex;
@@ -2549,6 +2549,15 @@ body {
 
 /* FIX351.2.1.15 <panel-project-list>: 2-level header, View/Rate/Chg
    data/Chg users/Chg setup grouped under a 'Rights' cross-header. */
+/* Widened so the 6 Rights columns' headers (Chg layout, Chg users,
+   Chg setup, ...) fit on one line without wrapping. */
+.projects-table-scroll {
+  overflow-x: auto;
+}
+.projects-rights-table {
+  width: max-content;
+  min-width: 100%;
+}
 .projects-rights-table th { text-align: left; }
 .projects-rights-table thead tr:first-child th {
   text-align: center;
@@ -2561,6 +2570,7 @@ body {
 .projects-rights-table thead tr:last-child th {
   font-size: 0.8rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 /* FIX311.2.1.5.1: <user-is-admin> ticked with a green sign. */
 .users-admin-check {

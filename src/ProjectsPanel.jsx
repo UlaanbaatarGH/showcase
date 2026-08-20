@@ -18,7 +18,7 @@ import { IconAdd, IconDelete } from './Icons.jsx';
 // delete the project.
 export default function ProjectsPanel({ onClose }) {
   const { profile } = useAuth();
-  const isAdmin = profile?.profile === 'admin';
+  const isAdmin = !!profile?.is_admin;
   const [projects, setProjects] = useState(null);
   const [users, setUsers] = useState(null);
   const [error, setError] = useState(null);

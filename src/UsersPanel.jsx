@@ -24,7 +24,7 @@ export default function UsersPanel({ onClose }) {
   // the caller being admin. The backend already enforces this; the
   // UI just hides the controls so non-admins (theoretically — they
   // can't open the panel today) see a read-only list.
-  const isAdmin = profile?.profile === 'admin';
+  const isAdmin = !!profile?.is_admin;
   // FIX311.5.6: <user-projects> is editable by admins AND project
   // managers (the latter only for projects they themselves manage).
   const managedProjectIds = useMemo(

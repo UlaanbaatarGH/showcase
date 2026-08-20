@@ -118,7 +118,16 @@ export default function ProjectsPanel({ onClose }) {
       setProjects((prev) =>
         prev?.map((p) =>
           p.id === selectedId
-            ? { ...p, managers: [], data_managers: [], user_managers: [] }
+            ? {
+              ...p,
+              managers: [],
+              viewers: [],
+              raters: [],
+              layout_mngrs: [],
+              data_managers: [],
+              user_managers: [],
+              setup_mngrs: [],
+            }
             : p,
         ),
       );
@@ -244,19 +253,31 @@ export default function ProjectsPanel({ onClose }) {
           <div className="visits-empty">No project yet.</div>
         )}
         {projects && projects.length > 0 && (
-          <table className="visits-table users-table">
+          <table className="visits-table users-table projects-rights-table">
             <thead>
+              {/* FIX351.2.1.15 <panel-project-list> table layout: View /
+                  Rate / Chg data / Chg users / Chg setup share a 2-level
+                  header, grouped under a 'Rights' cross-header. */}
               <tr>
                 {/* FIX351.2.1.1 Column 'Name'. */}
-                <th>Name</th>
-                {/* FIX351.2.1.2 Column 'Data Managers'. */}
-                <th>Data Managers</th>
-                {/* FIX351.2.1.5 Column 'User Managers'. */}
-                <th>User Managers</th>
+                <th rowSpan={2}>Name</th>
                 {/* FIX351.2.1.3 Column 'Is public'. */}
-                <th>Is public</th>
+                <th rowSpan={2}>Is public</th>
+                <th colSpan={5}>Rights</th>
                 {/* FIX351.2.1.6 Column 'Volume (Mbytes)'. */}
-                <th>Volume (Mbytes)</th>
+                <th rowSpan={2}>Volume (Mbytes)</th>
+              </tr>
+              <tr>
+                {/* FIX351.2.1.7 Column 'View'. */}
+                <th>View</th>
+                {/* FIX351.2.1.8 Column 'Rate'. */}
+                <th>Rate</th>
+                {/* FIX351.2.1.2 [ex-'Data Managers'] Column 'Chg data'. */}
+                <th>Chg data</th>
+                {/* FIX351.2.1.5 [ex-'User Managers'] Column 'Chg users'. */}
+                <th>Chg users</th>
+                {/* FIX351.2.1.10 Column 'Chg setup'. */}
+                <th>Chg setup</th>
               </tr>
             </thead>
             <tbody>
@@ -278,16 +299,6 @@ export default function ProjectsPanel({ onClose }) {
                   }}
                 >
                   <td data-yagu-id="project-name">{p.name}</td>
-                  <td data-yagu-id="project-managers">
-                    {(p.data_managers || []).length === 0
-                      ? <span className="visits-anon">(none)</span>
-                      : (p.data_managers || []).map((m) => m.name).join(', ')}
-                  </td>
-                  <td data-yagu-id="project-user-managers">
-                    {(p.user_managers || []).length === 0
-                      ? <span className="visits-anon">(none)</span>
-                      : (p.user_managers || []).map((m) => m.name).join(', ')}
-                  </td>
                   <td className="users-check">
                     {/* FIX351.2.1.3 <project-is-public>: read-only
                         display. Editing is via <panel-project>. */}
@@ -299,6 +310,31 @@ export default function ProjectsPanel({ onClose }) {
                       tabIndex={-1}
                       onClick={(e) => e.stopPropagation()}
                     />
+                  </td>
+                  <td data-yagu-id="project-viewers">
+                    {(p.viewers || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.viewers || []).map((m) => m.name).join(', ')}
+                  </td>
+                  <td data-yagu-id="project-raters">
+                    {(p.raters || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.raters || []).map((m) => m.name).join(', ')}
+                  </td>
+                  <td data-yagu-id="project-data-mngrs">
+                    {(p.data_managers || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.data_managers || []).map((m) => m.name).join(', ')}
+                  </td>
+                  <td data-yagu-id="project-user-managers">
+                    {(p.user_managers || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.user_managers || []).map((m) => m.name).join(', ')}
+                  </td>
+                  <td data-yagu-id="project-setup-mngrs">
+                    {(p.setup_mngrs || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.setup_mngrs || []).map((m) => m.name).join(', ')}
                   </td>
                   {/* FIX351.2.1.6 + FIX351.2.1.6.1 <project-img-volume>:
                       total image storage size, displayed in MB with
@@ -463,11 +499,23 @@ function ProjectPanel({
   );
   const [titleColour, setTitleColour] = useState(project?.title_colour || '#ffffff');
   const [titleIsBold, setTitleIsBold] = useState(!!project?.title_is_bold);
+  const [viewers, setViewers] = useState(
+    () => new Set((project?.viewers || []).map((m) => m.id)),
+  );
+  const [raters, setRaters] = useState(
+    () => new Set((project?.raters || []).map((m) => m.id)),
+  );
+  const [layoutMngrs, setLayoutMngrs] = useState(
+    () => new Set((project?.layout_mngrs || []).map((m) => m.id)),
+  );
   const [dataManagers, setDataManagers] = useState(
     () => new Set((project?.data_managers || []).map((m) => m.id)),
   );
   const [userManagers, setUserManagers] = useState(
     () => new Set((project?.user_managers || []).map((m) => m.id)),
+  );
+  const [setupMngrs, setSetupMngrs] = useState(
+    () => new Set((project?.setup_mngrs || []).map((m) => m.id)),
   );
   // FIX352.2.10 slug list. Backend doesn't yet return a slugs[] field;
   // fall back to a single seeded row that mirrors the implicit slug the
@@ -500,8 +548,9 @@ function ProjectPanel({
   const candidates = useMemo(() => {
     if (!project) return [];
     const seen = new Map();
-    for (const m of project.data_managers || []) seen.set(m.id, m);
-    for (const m of project.user_managers || []) seen.set(m.id, m);
+    for (const key of ['viewers', 'raters', 'layout_mngrs', 'data_managers', 'user_managers', 'setup_mngrs']) {
+      for (const m of project[key] || []) seen.set(m.id, m);
+    }
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [project]);
 
@@ -590,7 +639,14 @@ function ProjectPanel({
     const payload = {
       name: trimmed,
       is_public: isPublic,
+      // FIX300: every role except User Managers (below, admin-only)
+      // is editable by admin or Data Manager — same gate as this whole
+      // popup (canEditSelected in the parent panel).
+      viewers: [...viewers],
+      raters: [...raters],
+      layout_mngrs: [...layoutMngrs],
       data_managers: [...dataManagers],
+      setup_mngrs: [...setupMngrs],
       front_introduction: frontIntro,
       introduction: intro,
       slugs: slugs.map((s) => ({ ...s })),
@@ -657,16 +713,68 @@ function ProjectPanel({
               />
             </div>
             <div className="panel-project-row">
+              <span className="panel-project-row-label">Viewers</span>
+              <button
+                type="button"
+                className="panel-project-value"
+                data-yagu-id="project-viewers"
+                onClick={() => setPickerRole('viewer')}
+                disabled={busy}
+                title="Click to edit viewers"
+              >
+                {namesFor(viewers)}
+              </button>
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Raters</span>
+              <button
+                type="button"
+                className="panel-project-value"
+                data-yagu-id="project-raters"
+                onClick={() => setPickerRole('rater')}
+                disabled={busy}
+                title="Click to edit raters"
+              >
+                {namesFor(raters)}
+              </button>
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Layout Managers</span>
+              <button
+                type="button"
+                className="panel-project-value"
+                data-yagu-id="project-layout-mngrs"
+                onClick={() => setPickerRole('layout')}
+                disabled={busy}
+                title="Click to edit layout managers"
+              >
+                {namesFor(layoutMngrs)}
+              </button>
+            </div>
+            <div className="panel-project-row">
               <span className="panel-project-row-label">Data Managers</span>
               <button
                 type="button"
                 className="panel-project-value"
-                data-yagu-id="project-managers"
+                data-yagu-id="project-data-mngrs"
                 onClick={() => setPickerRole('data')}
                 disabled={busy}
                 title="Click to edit data managers"
               >
                 {namesFor(dataManagers)}
+              </button>
+            </div>
+            <div className="panel-project-row">
+              <span className="panel-project-row-label">Setup Managers</span>
+              <button
+                type="button"
+                className="panel-project-value"
+                data-yagu-id="project-setup-mngrs"
+                onClick={() => setPickerRole('setup')}
+                disabled={busy}
+                title="Click to edit setup managers"
+              >
+                {namesFor(setupMngrs)}
               </button>
             </div>
             <div className="panel-project-row">
@@ -921,19 +1029,29 @@ function ProjectPanel({
             {busy ? '…' : 'Save'}
           </button>
         </div>
-        {pickerRole && (
-          <ManagerPicker
-            title={pickerRole === 'data' ? 'Data Managers' : 'Users Managers'}
-            candidates={candidates}
-            selectedIds={pickerRole === 'data' ? dataManagers : userManagers}
-            onCancel={() => setPickerRole(null)}
-            onApply={(next) => {
-              if (pickerRole === 'data') setDataManagers(next);
-              else setUserManagers(next);
-              setPickerRole(null);
-            }}
-          />
-        )}
+        {pickerRole && (() => {
+          const ROLE_PICKERS = {
+            viewer: { title: 'Viewers', selected: viewers, set: setViewers },
+            rater: { title: 'Raters', selected: raters, set: setRaters },
+            layout: { title: 'Layout Managers', selected: layoutMngrs, set: setLayoutMngrs },
+            data: { title: 'Data Managers', selected: dataManagers, set: setDataManagers },
+            user: { title: 'Users Managers', selected: userManagers, set: setUserManagers },
+            setup: { title: 'Setup Managers', selected: setupMngrs, set: setSetupMngrs },
+          };
+          const { title, selected, set } = ROLE_PICKERS[pickerRole];
+          return (
+            <ManagerPicker
+              title={title}
+              candidates={candidates}
+              selectedIds={selected}
+              onCancel={() => setPickerRole(null)}
+              onApply={(next) => {
+                set(next);
+                setPickerRole(null);
+              }}
+            />
+          );
+        })()}
       </div>
     </div>
   );

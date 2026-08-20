@@ -191,10 +191,16 @@ export default function CatalogueView({
   // backend computes per-project membership and returns the flag on
   // /api/showcase.
   const isAdminOrManager = !!data?.project?.is_admin_or_manager;
+  // FIX300.3.10.3.2 / FIX300.3.10.6.2 <role-layout-mngr> /
+  // <role-setup-mngr>: <button-item-grouping>/<button-columns> and
+  // <button-setup> each gate on their own role now, not the Data
+  // Manager-driven isAdminOrManager above.
+  const isLayoutMngr = !!data?.project?.is_layout_mngr;
+  const isSetupMngr = !!data?.project?.is_setup_mngr;
   // FIX503.4.5 / FIX504.5.3: is the logged-in user themselves a
-  // registered, enabled rater on this project (<table-users-allowed-
-  // to-rate>)? Drives <menu-view>'s visibility and, further below,
-  // which user_rating columns are shown/pickable at all.
+  // registered rater on this project (<role-rater>)? Drives
+  // <menu-view>'s visibility and, further below, which user_rating
+  // columns are shown/pickable at all.
   const myRaterEntry = (data?.rating_setup?.raters ?? []).find((r) => r.user_id === profile?.id);
   const isRegisteredRater = !!myRaterEntry?.enabled;
   // FIX510.2.1.11: Ctrl-click adds rows to the selection. The order
@@ -2933,11 +2939,11 @@ export default function CatalogueView({
             {/* FIX503.2.20: spacer pushes the rest of the header to the
                 right edge. */}
             <span className="sc-topbar-spacer" />
-            {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX503.4.1.4
+            {/* FIX503.2.3 + FIX503.2.3.0 + FIX503.3.2 + FIX300.3.10.3.2
                 <button-columns>: opens the standalone
-                <panel-showcase-view-setup> popup. Now gated to admin /
-                project-manager (FIX503.4.1.4 dup). */}
-            {isAdminOrManager && (
+                <panel-showcase-view-setup> popup. Gated on
+                <role-layout-mngr> (admin-exempt). */}
+            {isLayoutMngr && (
               <button
                 type="button"
                 className="sc-menu-trigger"
@@ -2947,10 +2953,10 @@ export default function CatalogueView({
                 Columns
               </button>
             )}
-            {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX503.4.1 (.4.1.2)
+            {/* FIX503.2.4 + FIX503.2.4.0 + FIX503.3.3 + FIX300.3.10.3.2
                 <button-item-grouping>: opens <panel-item-grouping-setup> in a
-                layer popup, admin- or project-manager-only. */}
-            {isAdminOrManager && (
+                layer popup, gated on <role-layout-mngr>. */}
+            {isLayoutMngr && (
               <button
                 type="button"
                 className="sc-menu-trigger"
@@ -3344,11 +3350,12 @@ export default function CatalogueView({
                 (FIX410.4.1 / FIX410.4.2). FIX650: dropped entirely for the
                 local app — no admin menu there. */}
             {isAdminOrManager && <AdminMenu projectId={data.project?.id ?? null} />}
-            {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX503.4.1 (.4.1.3)
-                <button-setup>: Setup icon button, admin- or project-manager-only.
-                Opens the tabbed general panel (property list + file-explorer
-                settings, plus the Showcase tab as a convenience). */}
-            {isAdminOrManager && (
+            {/* FIX503.2.6 + FIX503.2.6.0 + FIX503.2.6.1 + FIX300.3.10.6.2
+                <button-setup>: Setup icon button, gated on
+                <role-setup-mngr> (admin-exempt). Opens the tabbed general
+                panel (property list + file-explorer settings, plus the
+                Showcase tab as a convenience). */}
+            {isSetupMngr && (
               <button
                 type="button"
                 className="sc-setup-btn"
@@ -4125,7 +4132,6 @@ export default function CatalogueView({
           properties={properties}
           viewSetup={viewSetup}
           ratingSetup={data?.rating_setup}
-          ratingCandidates={data?.rating_candidates}
           onCancel={() => setShowSetup(false)}
           onSave={handleSaveSetup}
         />

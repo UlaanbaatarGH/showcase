@@ -2546,6 +2546,22 @@ body {
 .users-remove:not(:disabled):hover { background: rgba(220, 38, 38, 0.12); }
 .users-table .users-check { text-align: center; }
 .users-table .users-code { font-family: monospace; letter-spacing: 0.05em; }
+
+/* FIX351.2.1.15 <panel-project-list>: 2-level header, View/Rate/Chg
+   data/Chg users/Chg setup grouped under a 'Rights' cross-header. */
+.projects-rights-table th { text-align: left; }
+.projects-rights-table thead tr:first-child th {
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+}
+.projects-rights-table thead tr:first-child th[rowspan] {
+  vertical-align: bottom;
+  text-align: left;
+}
+.projects-rights-table thead tr:last-child th {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
 /* FIX311.2.1.5.1: <user-is-admin> ticked with a green sign. */
 .users-admin-check {
   accent-color: #4ade80;

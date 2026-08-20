@@ -39,7 +39,6 @@ export default function SetupPanel({
   properties: initialProperties,
   viewSetup: initialViewSetup,
   ratingSetup: initialRatingSetup,
-  ratingCandidates,
   onSave,
   onCancel,
 }) {
@@ -95,21 +94,18 @@ export default function SetupPanel({
         }))
       : [],
   );
-  // FIX507 <panel-rating-setup>: enable flag + rating values + raters.
-  // FIX507.4.2: all three save through this same handleSave, not a
-  // separate round trip.
+  // FIX507 <panel-rating-setup>: enable flag + rating values. Raters
+  // are FIX507.2.3(removed) -- <role-rater> now lives on <panel-project>
+  // like every other role, and saves immediately, not through here.
+  // FIX507.4.2: enable flag + rating values still save through this
+  // same handleSave.
   const [ratingEnabled, setRatingEnabled] = useState(!!initialRatingSetup?.enabled);
   const [ratingValues, setRatingValues] = useState(
     () => (initialRatingSetup?.values ?? []).map((v) => ({ ...v })),
   );
   const [selectedRatingValueIdx, setSelectedRatingValueIdx] = useState(null);
   const [openIconPickerIdx, setOpenIconPickerIdx] = useState(null);
-  const [raters, setRaters] = useState(
-    () => (initialRatingSetup?.raters ?? []).map((r) => ({ ...r })),
-  );
-  const [selectedRaterIdx, setSelectedRaterIdx] = useState(null);
   const [nextTempRatingId, setNextTempRatingId] = useState(-1);
-  const [nextTempRaterId, setNextTempRaterId] = useState(-1);
   // FIX507.2.4 / FIX507.2.5: unchecked / defaulted to 2.
   const [showRatingConflict, setShowRatingConflict] = useState(!!initialRatingSetup?.show_conflict);
   const [conflictThreshold, setConflictThreshold] = useState(
@@ -202,16 +198,6 @@ export default function SetupPanel({
               icon: v.icon || null,
               sort_order: i,
             })),
-          // FIX507.2.3.1.1 <rating-user>: a row with no picked user
-          // isn't a real rater yet, same treatment.
-          raters: raters
-            .filter((r) => r.user_id)
-            .map((r) => ({
-              id: r.id,
-              user_id: r.user_id,
-              acronym: (r.acronym ?? '').trim(),
-              enabled: !!r.enabled,
-            })),
           // FIX507.2.4 / FIX507.2.5.
           show_conflict: showRatingConflict,
           conflict_threshold: Number(conflictThreshold) || 2,
@@ -288,25 +274,6 @@ export default function SetupPanel({
   };
   const updateRatingValue = (i, patch) => {
     setRatingValues((prev) => prev.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
-  };
-
-  // FIX507.2.3.1.13 <table-users-allowed-to-rate> Add: same pattern.
-  const addRater = () => {
-    setRaters((prev) => {
-      // FIX507.4.4: a freshly added row is enabled by default.
-      const next = [...prev, { id: nextTempRaterId, user_id: null, acronym: '', enabled: true }];
-      setSelectedRaterIdx(next.length - 1);
-      return next;
-    });
-    setNextTempRaterId((n) => n - 1);
-  };
-  const removeSelectedRater = () => {
-    if (selectedRaterIdx == null) return;
-    setRaters((prev) => prev.filter((_, i) => i !== selectedRaterIdx));
-    setSelectedRaterIdx(null);
-  };
-  const updateRater = (i, patch) => {
-    setRaters((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   };
 
   return (
@@ -744,89 +711,10 @@ export default function SetupPanel({
                 </tbody>
               </table>
 
-              {/* FIX507.2.3 Section 'Users allow to rate'. */}
-              <h3>Users allowed to rate</h3>
-              <div className="setup-selectable-toolbar">
-                <button
-                  type="button"
-                  className="users-remove"
-                  onClick={removeSelectedRater}
-                  disabled={selectedRaterIdx == null}
-                  aria-label="Delete rater"
-                  title="Delete selected rater"
-                >
-                  <IconDelete size={20} />
-                </button>
-                <button
-                  type="button"
-                  className="users-add"
-                  onClick={addRater}
-                  aria-label="Add rater"
-                  title="Add rater"
-                >
-                  <IconAdd size={20} />
-                </button>
-              </div>
-              <table className="setup-items" data-yagu-id="table-users-allowed-to-rate">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th style={{ width: '8rem' }}>Acronym</th>
-                    <th style={{ width: '5rem', textAlign: 'center' }}>Enabled</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {raters.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="setup-empty">No user allowed to rate yet.</td>
-                    </tr>
-                  )}
-                  {raters.map((r, i) => (
-                    <tr
-                      key={r.id ?? `new-${i}`}
-                      className={selectedRaterIdx === i ? 'selected' : ''}
-                      onClick={() => setSelectedRaterIdx(i)}
-                    >
-                      <td>
-                        {/* FIX507.2.3.1.12.1: picked from users having
-                            admin or data-manager rights on this project
-                            — already-picked candidates are hidden from
-                            every other row's dropdown to avoid a
-                            duplicate-user row. */}
-                        <select
-                          data-yagu-id="rating-user"
-                          value={r.user_id ?? ''}
-                          onChange={(e) => updateRater(i, { user_id: e.target.value || null })}
-                        >
-                          <option value="">— pick a user —</option>
-                          {(ratingCandidates ?? [])
-                            .filter((c) => c.id === r.user_id
-                              || !raters.some((rr, ri) => ri !== i && rr.user_id === c.id))
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          data-yagu-id="rating-user-acronym"
-                          type="text"
-                          value={r.acronym ?? ''}
-                          onChange={(e) => updateRater(i, { acronym: e.target.value })}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <input
-                          data-yagu-id="rating-user-enabled"
-                          type="checkbox"
-                          checked={!!r.enabled}
-                          onChange={(e) => updateRater(i, { enabled: e.target.checked })}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {/* FIX507.2.3(removed): the 'Users allowed to rate' table
+                  is gone from this panel -- <role-rater> is granted per
+                  user from <panel-project> (FIX351.2.1.8), same place
+                  as every other role. */}
 
               {/* FIX507.2.4 <field-show-rating-conflict>: unchecked by
                   default (FIX507.2.4.2). */}

@@ -226,7 +226,7 @@ export default function UsersPanel({ onClose }) {
           </button>
         </header>
         {/* FIX311.2.0 layout diagram — toolbar order:
-            [<admin-add-user>][<cmd-delete-user>][<cmd-edit-user>][<cmd-reset-pswd>]
+            [<cmd-add-user>][<cmd-delete-user>][<cmd-edit-user>][<cmd-reset-pswd>]
             FIX311.5.2 + FIX311.5.3 keep Add/Remove admin-only; FIX311.5.6
             also lets project managers open the Edit panel (only the
             projects they manage are editable inside it). */}
@@ -234,11 +234,11 @@ export default function UsersPanel({ onClose }) {
           <div className="users-toolbar">
             {isAdmin && (
               <>
-                {/* FIX311.2.2 + FIX311.2.2.0 <admin-add-user>: green '+' icon. */}
+                {/* FIX311.2.2 + FIX311.2.2.0 <cmd-add-user>: green '+' icon. */}
                 <button
                   type="button"
                   className="users-add"
-                  data-yagu-id="admin-add-user"
+                  data-yagu-id="cmd-add-user"
                   onClick={() => setAddOpen(true)}
                   disabled={busy}
                   aria-label="Add user"
@@ -246,7 +246,7 @@ export default function UsersPanel({ onClose }) {
                 >
                   <IconAdd size={20} />
                 </button>
-                {/* FIX311.2.3 + FIX311.2.3.0[ex-admin-remove-user] <cmd-delete-user>: red cross icon. */}
+                {/* FIX311.2.3 + FIX311.2.3.0 <cmd-delete-user>: red cross icon. */}
                 <button
                   type="button"
                   className="users-remove"

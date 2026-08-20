@@ -256,14 +256,15 @@ export default function ProjectsPanel({ onClose }) {
           <table className="visits-table users-table projects-rights-table">
             <thead>
               {/* FIX351.2.1.15 <panel-project-list> table layout: View /
-                  Rate / Chg data / Chg users / Chg setup share a 2-level
-                  header, grouped under a 'Rights' cross-header. */}
+                  Rate / Chg layout / Chg data / Chg users / Chg setup
+                  share a 2-level header, grouped under a 'Rights'
+                  cross-header. */}
               <tr>
                 {/* FIX351.2.1.1 Column 'Name'. */}
                 <th rowSpan={2}>Name</th>
                 {/* FIX351.2.1.3 Column 'Is public'. */}
                 <th rowSpan={2}>Is public</th>
-                <th colSpan={5}>Rights</th>
+                <th colSpan={6}>Rights</th>
                 {/* FIX351.2.1.6 Column 'Volume (Mbytes)'. */}
                 <th rowSpan={2}>Volume (Mbytes)</th>
               </tr>
@@ -272,6 +273,8 @@ export default function ProjectsPanel({ onClose }) {
                 <th>View</th>
                 {/* FIX351.2.1.8 Column 'Rate'. */}
                 <th>Rate</th>
+                {/* FIX351.2.1.9 Column 'Chg layout'. */}
+                <th>Chg layout</th>
                 {/* FIX351.2.1.2 [ex-'Data Managers'] Column 'Chg data'. */}
                 <th>Chg data</th>
                 {/* FIX351.2.1.5 [ex-'User Managers'] Column 'Chg users'. */}
@@ -320,6 +323,11 @@ export default function ProjectsPanel({ onClose }) {
                     {(p.raters || []).length === 0
                       ? <span className="visits-anon">(none)</span>
                       : (p.raters || []).map((m) => m.name).join(', ')}
+                  </td>
+                  <td data-yagu-id="project-layout-mngrs">
+                    {(p.layout_mngrs || []).length === 0
+                      ? <span className="visits-anon">(none)</span>
+                      : (p.layout_mngrs || []).map((m) => m.name).join(', ')}
                   </td>
                   <td data-yagu-id="project-data-mngrs">
                     {(p.data_managers || []).length === 0

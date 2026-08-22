@@ -479,11 +479,12 @@ function AddProjectDialog({ busy, existingNames, users, onCancel, onSubmit }) {
 //               Introduction for front page, Introduction for project page
 //   Technical — List of slugs (FIX352.2.10–.12 / FIX352.3.{2,3,4}),
 //               Image volume (read-only)
-// Each manager value is a clickable text — clicking opens a picker
-// (FIX352.3.1) sourced from <list-users> having this project in
-// their <user-projects>, i.e., the union of the project's existing
-// data + user managers. Brand-new candidates are added via
-// <panel-user> first.
+// Each role value is a clickable text — clicking opens a picker
+// (FIX352.3.1) listing every user who has <role-viewer> for this
+// project. Brand-new candidates are added via <panel-user> first,
+// which grants Viewer immediately (FIX312.4.3) -- elevating one of
+// them to another role here no longer requires them to already hold
+// some other role first.
 // FIX352.3.10.11: the User Managers value is editable only by an
 // admin; non-admin callers see it as plain non-clickable text.
 function ProjectPanel({
@@ -552,16 +553,11 @@ function ProjectPanel({
   // Which picker is open: 'data' | 'user' | null.
   const [pickerRole, setPickerRole] = useState(null);
 
-  // FIX352.3.1: picker source = users having this project in their
-  // <user-projects>, i.e., the existing project_access set (= union
-  // of current data + user managers).
+  // FIX352.3.1: picker source = users having <role-viewer> for this
+  // project.
   const candidates = useMemo(() => {
     if (!project) return [];
-    const seen = new Map();
-    for (const key of ['viewers', 'raters', 'layout_mngrs', 'data_managers', 'user_managers', 'setup_mngrs']) {
-      for (const m of project[key] || []) seen.set(m.id, m);
-    }
-    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return [...(project.viewers || [])].sort((a, b) => a.name.localeCompare(b.name));
   }, [project]);
 
   if (!project) return null;

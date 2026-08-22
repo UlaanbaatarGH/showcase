@@ -10,6 +10,7 @@ export default function ShowcaseViewSetupPanel({
   properties,
   viewSetup,
   ratingSetup,
+  isRegisteredRater = false,
   isAnonymous = false,
   onCancel,
   onSave,
@@ -48,6 +49,7 @@ export default function ShowcaseViewSetupPanel({
     if (col.type === 'img') return 'Img';
     if (col.type === 'img_size') return 'Img size'; // FIX504.2.1.2.2.4
     if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX504.2.1.2.2.5
+    if (col.type === 'my_rating') return 'My Rating'; // FIX352.3.4.5
     if (col.type === 'property') {
       const p = (properties ?? []).find((pp) => pp.id === col.property_id);
       return p?.label || '(missing property)';
@@ -77,6 +79,11 @@ export default function ShowcaseViewSetupPanel({
     // FIX504.2.1.2.2.5: predefined column = the item's max image zoom factor.
     if (!used.has('img_zoom'))
       options.push({ key: 'img_zoom', label: 'Img zoom factor', create: () => ({ type: 'img_zoom' }) });
+    // FIX352.3.4.5 <role-rater>: 'My Rating' is auto-available the moment
+    // the role is granted — not admin-configured like the per-rater
+    // <user_rating> entries below.
+    if (isRegisteredRater && !used.has('my_rating'))
+      options.push({ key: 'my_rating', label: 'My Rating', create: () => ({ type: 'my_rating' }) });
     for (const p of properties ?? []) {
       if ((p.label ?? '').trim() && !used.has(`prop_${p.id}`)) {
         options.push({
@@ -255,15 +262,21 @@ export default function ShowcaseViewSetupPanel({
                   // shown disabled (not deleted) while rating is off — it
                   // also won't render on the actual item list (CatalogueView).
                   const isDisabledRatingCol = col.type === 'user_rating' && !ratingSetup?.enabled;
+                  // FIX352.3.4.5: same disabled-not-deleted treatment for a
+                  // viewer who configured 'My Rating' but has since lost
+                  // (or, viewing someone else's saved config, never had)
+                  // <role-rater>.
+                  const isDisabledMyRatingCol = col.type === 'my_rating' && !isRegisteredRater;
                   return (
                     <tr
                       key={key}
-                      className={`${key === selectedKey ? 'selected' : ''}${isDisabledRatingCol ? ' setup-row-disabled' : ''}`}
+                      className={`${key === selectedKey ? 'selected' : ''}${(isDisabledRatingCol || isDisabledMyRatingCol) ? ' setup-row-disabled' : ''}`}
                       onClick={() => setSelectedKey(key)}
                     >
                       <td>
                         {displayedColumnName(col)}
                         {isDisabledRatingCol && ' (rating disabled)'}
+                        {isDisabledMyRatingCol && ' (not a rater)'}
                       </td>
                       <td>
                         <input

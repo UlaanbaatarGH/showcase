@@ -144,6 +144,15 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel, ratingSe
     const rv = (ratingSetup?.values ?? []).find((v) => v.id === rvId);
     return rv ? String(rv.sort_order) : '';
   }
+  // FIX352.3.4.5 <role-rater>: 'My Rating' — the caller's own rating,
+  // auto-available (not admin-configured) the moment the role is granted.
+  // Same sort_order convention as <user_rating> above.
+  if (col.type === 'my_rating') {
+    const rvId = folder.my_rating_value_id;
+    if (rvId == null) return '';
+    const rv = (ratingSetup?.values ?? []).find((v) => v.id === rvId);
+    return rv ? String(rv.sort_order) : '';
+  }
   return '';
 }
 
@@ -1957,6 +1966,10 @@ export default function CatalogueView({
     const ratingOn = !!data?.rating_setup?.enabled;
     const cols = (showcaseCfg.columns ?? []).filter((c) => {
       if (c.type === 'main_image_icon') return false;
+      // FIX352.3.4.5: 'My Rating' is per-viewer — hidden the moment the
+      // caller isn't (or is no longer) a registered rater, even though the
+      // column stays in the shared saved config for whoever else has it.
+      if (c.type === 'my_rating') return isRegisteredRater;
       if (c.type !== 'user_rating') return true;
       if (!ratingOn) return false;
       // FIX504.5.3: a column bound to another user's rating cannot be
@@ -2668,6 +2681,7 @@ export default function CatalogueView({
     if (col.type === 'img') return 'Img';
     if (col.type === 'img_size') return 'Img size'; // FIX504.2.1.2.2.4
     if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX504.2.1.2.2.5
+    if (col.type === 'my_rating') return 'My Rating'; // FIX352.3.4.5
     // FIX504.2.1.2.2.6: identified by the user's name.
     if (col.type === 'user_rating') {
       const rater = (data?.rating_setup?.raters ?? []).find((r) => r.id === col.rater_id);
@@ -2786,6 +2800,21 @@ export default function CatalogueView({
     if (col.type === 'user_rating') {
       const rater = (data?.rating_setup?.raters ?? []).find((r) => r.id === col.rater_id);
       const rvId = rater ? folder.ratings_by_user?.[rater.user_id] : null;
+      const rv = rvId != null
+        ? (data?.rating_setup?.values ?? []).find((v) => v.id === rvId)
+        : null;
+      const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
+      return (
+        <td key={key} style={cellStyle} title={rv?.text}>
+          {RatingIconComp ? <RatingIconComp size={18} /> : '—'}
+        </td>
+      );
+    }
+    // FIX352.3.4.5: 'My Rating' — same icon rendering as <user_rating>
+    // above, but always the caller's own rating (<icon-rating>'s value),
+    // not any admin-configured rater's.
+    if (col.type === 'my_rating') {
+      const rvId = folder.my_rating_value_id;
       const rv = rvId != null
         ? (data?.rating_setup?.values ?? []).find((v) => v.id === rvId)
         : null;
@@ -4150,6 +4179,7 @@ export default function CatalogueView({
           properties={properties}
           viewSetup={viewSetup}
           ratingSetup={data?.rating_setup}
+          isRegisteredRater={isRegisteredRater}
           isAnonymous={isAnonymous}
           onCancel={() => setShowColumns(false)}
           onSave={handleSaveSetup}

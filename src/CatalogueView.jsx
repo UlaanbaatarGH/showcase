@@ -201,8 +201,14 @@ export default function CatalogueView({
   // registered rater on this project (<role-rater>)? Drives
   // <menu-view>'s visibility and, further below, which user_rating
   // columns are shown/pickable at all.
+  // Bug fix: raters used to carry an `enabled` flag, but the FIX300 access-
+  // rights refactor dropped it -- project_rater rows only exist while
+  // <role-rater> is granted (see backend _sync_project_rater_for_project),
+  // so membership in `raters` alone means enabled now. Checking a
+  // nonexistent .enabled field here always evaluated to false, silently
+  // disabling <action-item-rating> for every real rater.
   const myRaterEntry = (data?.rating_setup?.raters ?? []).find((r) => r.user_id === profile?.id);
-  const isRegisteredRater = !!myRaterEntry?.enabled;
+  const isRegisteredRater = myRaterEntry != null;
   // FIX510.2.1.11: Ctrl-click adds rows to the selection. The order
   // matters because FIX510.5.3 says the *first* selected row drives
   // what the right-hand Item Panel renders.
@@ -1243,8 +1249,10 @@ export default function CatalogueView({
       .then((d) => {
         setData(d);
         // FIX503.4.5: registered (and enabled) in <table-users-allowed-to-rate>.
+        // Bug fix: see isRegisteredRater above -- raters no longer carry an
+        // `enabled` flag, membership is the enabled state.
         const registeredRater = (d.rating_setup?.raters ?? [])
-          .some((r) => r.user_id === profile?.id && r.enabled);
+          .some((r) => r.user_id === profile?.id);
         onProjectLoaded?.(d.project?.name, !!d.rating_setup?.enabled, registeredRater);
       })
       .catch((e) => setError(e.message || String(e)));

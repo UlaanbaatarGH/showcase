@@ -79,15 +79,19 @@ export default function ShowcaseImgListEditor({
   // now carries a freshly regenerated thumb_url alongside url), not just
   // the explicit toggle, so every FIX521.5.9 bullet is covered by the one
   // effect: same is-main-else-first resolution the backend uses.
+  // Bug fix: deleting an item's last remaining image left the Gallery
+  // panel showing that now-gone image's thumbnail (the effectiveMain-only
+  // guard below used to skip the call entirely when the item went empty)
+  // until a full reload. Always report, with nulls when there's nothing
+  // left -- CatalogueView's handler already falls main_image_thumb_url
+  // back to `thumb_url || url`, so all-null clears both.
   useEffect(() => {
     const effectiveMain = images.find((im) => im.is_main) || images[0] || null;
-    if (effectiveMain) {
-      onMainImageChange?.({
-        url: effectiveMain.url,
-        thumb_url: effectiveMain.thumb_url,
-        rotation: effectiveMain.rotation,
-      });
-    }
+    onMainImageChange?.({
+      url: effectiveMain?.url ?? null,
+      thumb_url: effectiveMain?.thumb_url ?? null,
+      rotation: effectiveMain?.rotation ?? null,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images]);
 

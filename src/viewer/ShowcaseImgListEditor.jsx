@@ -68,6 +68,27 @@ export default function ShowcaseImgListEditor({
 }) {
   const currentImage = images[selectedIdx] ?? null;
 
+  // FIX521.5.9 (updated): the Item Gallery panel's thumbnail
+  // (main_image_url/main_image_thumb_url/main_rotation, sourced from a
+  // separate fetch on CatalogueView) never got told when this item's
+  // effective main image changed, so it kept showing the old one -- or
+  // nothing, for a just-emptied item's first upload -- until the whole
+  // project reloaded. Runs on every `images` change (upload/drop, delete,
+  // reorder, explicit <item-main-img> toggle -- same is-main-else-first
+  // resolution the backend uses), not just the explicit toggle, so
+  // "uploading or dropping the first image of an item" is covered too.
+  useEffect(() => {
+    const effectiveMain = images.find((im) => im.is_main) || images[0] || null;
+    if (effectiveMain) {
+      onMainImageChange?.({
+        url: effectiveMain.url,
+        thumb_url: effectiveMain.thumb_url,
+        rotation: effectiveMain.rotation,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images]);
+
   // FIX610: local-app-only staging controls (Add/Remove/Unremove/Publish +
   // Status column) are visible only when running the app locally (dev),
   // matching the gating already used elsewhere for admin-only surfaces.
@@ -792,20 +813,9 @@ export default function ShowcaseImgListEditor({
       return isLocalApp ? stageChanged(updated) : updated;
     });
     setImages(next);
-    // Bug fix: the Item Gallery panel on the left (main_image_url/
-    // main_image_thumb_url/main_rotation, sourced from a separate fetch)
-    // never got told the item's main image changed, so it kept showing the
-    // old one until the whole project reloaded. Same is-main-else-first
-    // resolution the backend uses, computed from what's already in hand
-    // locally -- no extra round-trip needed.
-    const effectiveMain = next.find((im) => im.is_main) || next[0] || null;
-    if (effectiveMain) {
-      onMainImageChange?.({
-        url: effectiveMain.url,
-        thumb_url: effectiveMain.thumb_url,
-        rotation: effectiveMain.rotation,
-      });
-    }
+    // FIX521.5.9: reporting the new effective main image up to the Item
+    // Gallery panel now happens generically (see the effect below), for
+    // every images change, not just this explicit toggle.
     if (isLocalApp) syncAfterEdit(next); // FIX610.3.6.1: manifest '(chged)' tag, create the file if needed
     // FIX610.3.1: a not-yet-published row has no real id to PATCH — applied at Publish instead.
     if (typeof fiId === 'string' && fiId.startsWith('local-')) return;

@@ -105,6 +105,12 @@ export default function SetupPanel({
   );
   const [selectedRatingValueIdx, setSelectedRatingValueIdx] = useState(null);
   const [openIconPickerIdx, setOpenIconPickerIdx] = useState(null);
+  // FIX507.2.2.1.14.1: { idx, usage } while the confirmation popup is open
+  // for a rating value some items already have. usage is the slice of
+  // initialRatingSetup.value_usage for that value's id -- per-user counts,
+  // fixed at panel-open time (matches the rest of this panel: everything
+  // else here also stages against the initial snapshot until Save).
+  const [ratingDeletePopup, setRatingDeletePopup] = useState(null);
   const [nextTempRatingId, setNextTempRatingId] = useState(-1);
   // FIX507.2.4 / FIX507.2.5: unchecked / defaulted to 2.
   const [showRatingConflict, setShowRatingConflict] = useState(!!initialRatingSetup?.show_conflict);
@@ -266,11 +272,28 @@ export default function SetupPanel({
   };
   // FIX507.2.2.1.14: Del enabled only when a row is selected (button
   // itself is gated on selectedRatingValueIdx in the JSX below).
+  // FIX507.2.2.1.14.1: if items were already given this rating, confirm
+  // first instead of deleting outright.
   const removeSelectedRatingValue = () => {
     if (selectedRatingValueIdx == null) return;
+    const v = ratingValues[selectedRatingValueIdx];
+    const usage = (initialRatingSetup?.value_usage ?? [])
+      .filter((u) => u.rating_value_id === v.id);
+    if (usage.length > 0) {
+      setRatingDeletePopup({ idx: selectedRatingValueIdx, usage });
+      return;
+    }
     setRatingValues((prev) => prev.filter((_, i) => i !== selectedRatingValueIdx));
     setSelectedRatingValueIdx(null);
     setOpenIconPickerIdx(null);
+  };
+  const confirmRemoveRatingValue = () => {
+    if (!ratingDeletePopup) return;
+    const { idx } = ratingDeletePopup;
+    setRatingValues((prev) => prev.filter((_, i) => i !== idx));
+    setSelectedRatingValueIdx(null);
+    setOpenIconPickerIdx(null);
+    setRatingDeletePopup(null);
   };
   const updateRatingValue = (i, patch) => {
     setRatingValues((prev) => prev.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
@@ -892,6 +915,28 @@ export default function SetupPanel({
           </button>
         </footer>
       </div>
+      {/* FIX507.2.2.1.14.1: Title 'Rating deletion', one "{user} assigned
+          this rating to {n} items." line per rater who's used it. */}
+      {ratingDeletePopup && (
+        <div className="setup-overlay" onMouseDown={() => setRatingDeletePopup(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Rating deletion</strong></p>
+            <p style={{ whiteSpace: 'pre-line' }}>
+              {ratingDeletePopup.usage
+                .map((u) => `${u.name} assigned this rating to ${u.count} items.`)
+                .join('\n')}
+            </p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setRatingDeletePopup(null)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmRemoveRatingValue}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

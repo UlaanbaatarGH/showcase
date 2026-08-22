@@ -148,6 +148,29 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel, ratingSe
   return '';
 }
 
+// FIX520.3.4.2 / FIX520.4.7 <rating-conflict-detection>: mirrors the
+// backend's own folder-level conflict computation (main.py's _is_high /
+// high_count loop) so setting or clearing a rating reassesses the item's
+// has_rating_conflict flag immediately, from the caller's own optimistic
+// update, instead of leaving it stale until the next full reload.
+function computeHasRatingConflict(ratingsByUser, ratingSetup) {
+  if (!ratingSetup?.show_conflict) return false;
+  const threshold = ratingSetup.conflict_threshold ?? 3;
+  const comparator = ratingSetup.conflict_comparator === '>' ? '>' : '<';
+  const rankById = new Map(
+    (ratingSetup.values ?? []).map((v) => [v.id, v.sort_order + 1]),
+  );
+  let highCount = 0;
+  for (const rvId of Object.values(ratingsByUser ?? {})) {
+    if (rvId == null) continue;
+    const rank = rankById.get(rvId);
+    if (rank == null) continue;
+    const isHigh = comparator === '<' ? rank < threshold : rank > threshold;
+    if (isHigh) highCount += 1;
+  }
+  return highCount >= 2;
+}
+
 function compareValues(a, b) {
   if (a === '' && b === '') return 0;
   if (a === '') return -1;
@@ -2323,19 +2346,26 @@ export default function CatalogueView({
     const prevFolder = (data?.folders ?? []).find((f) => f.id === folderId);
     const prevRatingValueId = prevFolder?.my_rating_value_id ?? null;
     const prevRatingsByUser = prevFolder?.ratings_by_user;
+    const prevHasRatingConflict = prevFolder?.has_rating_conflict ?? false;
     setData((prev) => ({
       ...prev,
       folders: (prev.folders ?? []).map((f) => {
         if (f.id !== folderId) return f;
+        // FIX520.4.6: also update the per-rater map so a User's rating
+        // list column for the caller's own user reflects the change
+        // immediately, without waiting for a reload.
+        const nextRatingsByUser = profile?.id
+          ? { ...(f.ratings_by_user || {}), [profile.id]: ratingValueId }
+          : f.ratings_by_user;
         return {
           ...f,
           my_rating_value_id: ratingValueId,
-          // FIX520.4.6: also update the per-rater map so a User's rating
-          // list column for the caller's own user reflects the change
-          // immediately, without waiting for a reload.
-          ratings_by_user: profile?.id
-            ? { ...(f.ratings_by_user || {}), [profile.id]: ratingValueId }
-            : f.ratings_by_user,
+          ratings_by_user: nextRatingsByUser,
+          // FIX520.3.4.2: clearing (or setting) reassesses this item's
+          // conflict flag right away, from the caller's own updated
+          // rating alongside every other rater's already-known one --
+          // not left stale until the next full reload.
+          has_rating_conflict: computeHasRatingConflict(nextRatingsByUser, data?.rating_setup),
         };
       }),
     }));
@@ -2350,7 +2380,12 @@ export default function CatalogueView({
         ...prev,
         folders: (prev.folders ?? []).map((f) => (
           f.id === folderId
-            ? { ...f, my_rating_value_id: prevRatingValueId, ratings_by_user: prevRatingsByUser }
+            ? {
+                ...f,
+                my_rating_value_id: prevRatingValueId,
+                ratings_by_user: prevRatingsByUser,
+                has_rating_conflict: prevHasRatingConflict,
+              }
             : f
         )),
       }));

@@ -842,6 +842,8 @@ body {
   color: var(--color-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   margin-bottom: 0.5rem;
+  /* FIX511.2.0.2: round rectangle strip, not a plain rectangle. */
+  border-radius: 8px;
 }
 .sc-gallery-images {
   display: grid;

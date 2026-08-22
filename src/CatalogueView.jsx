@@ -18,7 +18,7 @@ import {
   RATING_ICONS,
   IconRatingConflict,
 } from './Icons.jsx';
-import { ProjectHeaderLeft, ProjectHeaderRight } from './ProjectHeader.jsx';
+import { ProjectHeaderLeft, ProjectHeaderRight, ShowAsSelector } from './ProjectHeader.jsx';
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
@@ -2597,6 +2597,9 @@ export default function CatalogueView({
     return (
       <div className="sc-layout" data-yagu-id="panel-project-home">
         <div className="sc-topbar" data-yagu-id="panel-catalogue-header">
+          {/* FIX503.2.11: shown for the local app too, same as the main
+              (post-load) header below. */}
+          {isLocalApp && <ShowAsSelector showAs={showAs} onShowAsChange={setShowAs} />}
           {!isLocalApp && (
             <ProjectHeaderLeft
               projectName={initialProjectName}
@@ -2926,6 +2929,12 @@ export default function CatalogueView({
             )}
           </div>
         )}
+        {/* FIX503.2.11: part of the Catalogue view generally (not
+            specific to the online-only header it happens to otherwise
+            live inside via ProjectHeaderLeft) -- the local app shows it
+            too, even though it skips the rest of that header (Home/
+            Title/View menu, per FIX650.1). */}
+        {isLocalApp && <ShowAsSelector showAs={showAs} onShowAsChange={setShowAs} />}
         {!isLocalApp && (
           <>
             {/* FIX503.2.1/.2/.10 + FIX503.3.1/.3.6/.3.7 <button-home> +

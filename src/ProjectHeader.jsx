@@ -104,32 +104,42 @@ export function ProjectHeaderLeft({
           )}
         </div>
       )}
-      {/* FIX503.2.11 <select-catalogue-show-as>: '(x) Gallery list (x)
-          Item list' radio pair, default Gallery list (FIX503.2.11.2 —
-          CatalogueView's showAs state itself defaults to 'gallery'). */}
       {currentView === 'catalogue' && onShowAsChange && (
-        <div className="sc-show-as-selector" data-yagu-id="select-catalogue-show-as">
-          <label>
-            <input
-              type="radio"
-              name="catalogue-show-as"
-              checked={showAs === 'gallery'}
-              onChange={() => onShowAsChange('gallery')}
-            />
-            Gallery list
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="catalogue-show-as"
-              checked={showAs === 'list'}
-              onChange={() => onShowAsChange('list')}
-            />
-            Item list
-          </label>
-        </div>
+        <ShowAsSelector showAs={showAs} onShowAsChange={onShowAsChange} />
       )}
     </>
+  );
+}
+
+// FIX503.2.11 <select-catalogue-show-as>: '(x) Gallery list (x) Item list'
+// radio pair, default Gallery list (FIX503.2.11.2 — CatalogueView's showAs
+// state itself defaults to 'gallery'). Split out from ProjectHeaderLeft so
+// the local app's own header (which skips the rest of ProjectHeaderLeft —
+// no Home/Title/View menu, per FIX650.1) can still render this one piece:
+// FIX503.2.11 is part of the Catalogue view generally, not specific to the
+// online header it happened to live inside.
+export function ShowAsSelector({ showAs, onShowAsChange }) {
+  return (
+    <div className="sc-show-as-selector" data-yagu-id="select-catalogue-show-as">
+      <label>
+        <input
+          type="radio"
+          name="catalogue-show-as"
+          checked={showAs === 'gallery'}
+          onChange={() => onShowAsChange('gallery')}
+        />
+        Gallery list
+      </label>
+      <label>
+        <input
+          type="radio"
+          name="catalogue-show-as"
+          checked={showAs === 'list'}
+          onChange={() => onShowAsChange('list')}
+        />
+        Item list
+      </label>
+    </div>
   );
 }
 

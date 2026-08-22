@@ -74,9 +74,11 @@ export default function ShowcaseImgListEditor({
   // effective main image changed, so it kept showing the old one -- or
   // nothing, for a just-emptied item's first upload -- until the whole
   // project reloaded. Runs on every `images` change (upload/drop, delete,
-  // reorder, explicit <item-main-img> toggle -- same is-main-else-first
-  // resolution the backend uses), not just the explicit toggle, so
-  // "uploading or dropping the first image of an item" is covered too.
+  // reorder, explicit <item-main-img> toggle, or an edit -- rotate/crop
+  // save, Shrink -- to the currently-displayed image itself, whose row
+  // now carries a freshly regenerated thumb_url alongside url), not just
+  // the explicit toggle, so every FIX521.5.9 bullet is covered by the one
+  // effect: same is-main-else-first resolution the backend uses.
   useEffect(() => {
     const effectiveMain = images.find((im) => im.is_main) || images[0] || null;
     if (effectiveMain) {
@@ -510,10 +512,14 @@ export default function ShowcaseImgListEditor({
         // equivalent of removing a File-Explorer-style sidecar metadata
         // file once a destructive save has been applied.
         await updateImage(currentImage.image_id, { rotation: 0, crop: null });
+        // FIX521.5.9 (updated): carry the freshly regenerated thumb_url
+        // through too -- otherwise this row's stale pre-edit thumbnail
+        // keeps showing in the Gallery panel (via the useEffect above)
+        // even though the full-size image just changed.
         setImages((prev) =>
           prev.map((im) =>
             im.image_id === currentImage.image_id
-              ? { ...im, url: uploaded.url, rotation: 0, crop: null }
+              ? { ...im, url: uploaded.url, thumb_url: uploaded.thumb_url, rotation: 0, crop: null }
               : im,
           ),
         );
@@ -1003,7 +1009,9 @@ export default function ShowcaseImgListEditor({
               // FIX521.5.8.1: store the shrunk image's recomputed ZF.
               zoom_factor: zoomFactor(w, h),
             });
-            updates[im.id] = { url: res.url, bytes: res.bytes };
+            // FIX521.5.9 (updated): carry the freshly regenerated
+            // thumb_url through too, same reasoning as saveImageEdit.
+            updates[im.id] = { url: res.url, thumb_url: res.thumb_url, bytes: res.bytes };
           }
         }
         setShrinkProgress({ done: k + 1, total: targets.length });
@@ -1016,7 +1024,7 @@ export default function ShowcaseImgListEditor({
           // scale, invalidating any pending crop rect's coordinate space —
           // disables Reset/Flatten by clearing the metadata they gate on.
           ? { ...(isLocalRow(im) ? im : stageChanged(im)), url: u.url, localFile: u.blob, stagedPath: null, rotation: 0, crop: null }
-          : { ...im, url: u.url };
+          : { ...im, url: u.url, thumb_url: u.thumb_url };
       });
       setImages(nextImages);
       if (isLocalApp) syncAfterEdit(nextImages); // bytes + manifest '(chged)' tag, same as saveImageEdit

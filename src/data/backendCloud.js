@@ -190,7 +190,7 @@ export default {
     call(`/api/images/${encodeURIComponent(imageId)}`, { method: 'PATCH', body: patch }),
   // FIX521.3.5.2: replace an image's stored bytes with a client-shrunk
   // version. Backend writes a new versioned key, repoints the row, and
-  // deletes the old object. Returns { storage_key, url, bytes }.
+  // deletes the old object. Returns { storage_key, url, thumb_url, bytes }.
   replaceImageBytes: (imageId, body) =>
     call(`/api/images/${encodeURIComponent(imageId)}/replace-bytes`, { method: 'POST', body }),
   // FIX521.5.8.0 / FIX521.5.8.1: persist an item's Zoom Factor (max ZF of its

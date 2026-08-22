@@ -61,11 +61,12 @@ export function ProjectHeaderLeft({
           <view-my-ratings> (FIX503.3.7). FIX503.4.5 (updated): only
           visible when logged in, the project has rating enabled
           (<field-enable-rating> / rating_setup.enabled), AND the caller
-          is registered (and enabled) in <table-users-allowed-to-rate> —
-          otherwise there's nothing to show in My ratings, and per the
-          backend's own set_item_rating check (FIX507.2.3.1.3) they
-          couldn't rate anything from it either. */}
-      {profile && ratingEnabled && isRegisteredRater && (
+          either has <role-rater> for this project or is an admin (the
+          old <table-users-allowed-to-rate>-membership-only gate is
+          gone) — otherwise there's nothing to show in My ratings, and
+          (for a non-admin rater) per the backend's own set_item_rating
+          check they couldn't rate anything from it either. */}
+      {profile && ratingEnabled && (isRegisteredRater || profile.is_admin) && (
         <div className="sc-menu" data-yagu-id="menu-view" ref={viewMenuRef}>
           <button
             type="button"

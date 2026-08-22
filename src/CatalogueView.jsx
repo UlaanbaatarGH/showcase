@@ -1249,9 +1249,11 @@ export default function CatalogueView({
     getShowcase(slug)
       .then((d) => {
         setData(d);
-        // FIX503.4.5: registered (and enabled) in <table-users-allowed-to-rate>.
-        // Bug fix: see isRegisteredRater above -- raters no longer carry an
-        // `enabled` flag, membership is the enabled state.
+        // FIX503.4.5: has <role-rater> for this project (or is admin --
+        // <menu-view> visibility itself also allows that, see
+        // ProjectHeader.jsx). The old <table-users-allowed-to-rate>
+        // concept is gone (FIX300 access-rights refactor); membership in
+        // `raters` is the enabled state, no separate flag to check.
         const registeredRater = (d.rating_setup?.raters ?? [])
           .some((r) => r.user_id === profile?.id);
         onProjectLoaded?.(d.project?.name, !!d.rating_setup?.enabled, registeredRater);

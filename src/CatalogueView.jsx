@@ -2326,12 +2326,25 @@ export default function CatalogueView({
   const setFilter = (key, v) => setFilters((prev) => ({ ...prev, [key]: v }));
 
   const handleSaveSetup = (result) => {
+    // FIX507.4.6: null when the Rating tab wasn't touched (nothing to
+    // reassess) -- otherwise every currently-conflicting folder_id, fresh
+    // from the save (rating values / threshold / comparator can all have
+    // just changed which items conflict).
+    const conflictSet = result.conflicting_folder_ids != null
+      ? new Set(result.conflicting_folder_ids)
+      : null;
     setData((prev) => ({
       ...prev,
       properties: result.properties ?? prev.properties,
       view_setup: result.view_setup ?? prev.view_setup,
       // FIX507.4.2: rating is saved as part of this same call.
       rating_setup: result.rating_setup ?? prev.rating_setup,
+      folders: conflictSet
+        ? (prev.folders ?? []).map((f) => ({
+            ...f,
+            has_rating_conflict: conflictSet.has(f.id),
+          }))
+        : prev.folders,
     }));
     setSortKeys([]);
     setFilters({});

@@ -9,7 +9,6 @@ export default function ShowcaseViewSetupPanel({
   projectId,
   properties,
   viewSetup,
-  ratingSetup,
   isRegisteredRater = false,
   isAnonymous = false,
   onCancel,
@@ -17,9 +16,6 @@ export default function ShowcaseViewSetupPanel({
   onLocalSave,
   onLocalReset,
 }) {
-  // FIX504.2.1.2.2.6: raters lookup, keyed by project_rater id, for the
-  // picker label and the existing-columns table.
-  const ratersById = new Map((ratingSetup?.raters ?? []).map((r) => [r.id, r]));
   const [showcase, setShowcase] = useState(() => {
     // FIX504.2.1.2.1.3: no default items in the list — start from
     // whatever was saved, even if empty.
@@ -40,8 +36,6 @@ export default function ShowcaseViewSetupPanel({
 
   const columnKey = (col) => {
     if (col.type === 'property') return `prop_${col.property_id}`;
-    // FIX504.2.1.2.2.6: one pickable entry per configured rater.
-    if (col.type === 'user_rating') return `rater_${col.rater_id}`;
     return col.type;
   };
   const displayedColumnName = (col) => {
@@ -54,10 +48,6 @@ export default function ShowcaseViewSetupPanel({
       const p = (properties ?? []).find((pp) => pp.id === col.property_id);
       return p?.label || '(missing property)';
     }
-    // FIX504.2.1.2.2.6: identified by the user's name.
-    if (col.type === 'user_rating') {
-      return ratersById.get(col.rater_id)?.name || '(missing user)';
-    }
     return col.type;
   };
   const availableToAdd = () => {
@@ -66,8 +56,8 @@ export default function ShowcaseViewSetupPanel({
     // FIX504.2.1.2.2 (updated): picker aggregates the predefined
     // '#' (item id), the project's properties (<list-properties>), the
     // 'With image' derived property (rendered as 'Img' once added —
-    // <derived-property-img>), and (FIX504.2.1.2.2.6) one entry per
-    // configured rater, each identified by the user's name.
+    // <derived-property-img>), and (FIX504.2.1.2.2.6) the predefined
+    // 'My Rating' entry (FIX352.3.4.5) when the caller is a rater.
     if (!used.has('folder_name'))
       options.push({ key: 'folder_name', label: '#', create: () => ({ type: 'folder_name' }) });
     if (!used.has('img'))
@@ -80,8 +70,9 @@ export default function ShowcaseViewSetupPanel({
     if (!used.has('img_zoom'))
       options.push({ key: 'img_zoom', label: 'Img zoom factor', create: () => ({ type: 'img_zoom' }) });
     // FIX352.3.4.5 <role-rater>: 'My Rating' is auto-available the moment
-    // the role is granted — not admin-configured like the per-rater
-    // <user_rating> entries below.
+    // the role is granted — not admin-configured like the retired
+    // per-arbitrary-rater column type this replaces (FIX504.2.1.2.2.6
+    // (deep-old)).
     if (isRegisteredRater && !used.has('my_rating'))
       options.push({ key: 'my_rating', label: 'My Rating', create: () => ({ type: 'my_rating' }) });
     for (const p of properties ?? []) {
@@ -91,21 +82,6 @@ export default function ShowcaseViewSetupPanel({
           label: p.label,
           create: () => ({ type: 'property', property_id: p.id }),
         });
-      }
-    }
-    // FIX504.2.1.2.2.6.1: while <field-enable-rating> is OFF, user's
-    // ratings are not offered as new columns (already-added ones are
-    // handled separately below, per FIX504.2.1.2.2.6.2).
-    if (ratingSetup?.enabled) {
-      for (const r of ratingSetup?.raters ?? []) {
-        const key = `rater_${r.id}`;
-        if (!used.has(key)) {
-          options.push({
-            key,
-            label: r.name,
-            create: () => ({ type: 'user_rating', rater_id: r.id }),
-          });
-        }
       }
     }
     return options;
@@ -258,24 +234,20 @@ export default function ShowcaseViewSetupPanel({
                 )}
                 {showcase.columns.map((col, i) => {
                   const key = columnKey(col);
-                  // FIX504.2.1.2.2.6.2: an already-added rating column is
-                  // shown disabled (not deleted) while rating is off — it
-                  // also won't render on the actual item list (CatalogueView).
-                  const isDisabledRatingCol = col.type === 'user_rating' && !ratingSetup?.enabled;
-                  // FIX352.3.4.5: same disabled-not-deleted treatment for a
-                  // viewer who configured 'My Rating' but has since lost
+                  // FIX352.3.4.5: an already-added 'My Rating' column is
+                  // shown disabled (not deleted) for a viewer who's lost
                   // (or, viewing someone else's saved config, never had)
-                  // <role-rater>.
+                  // <role-rater> — it also won't render on the actual item
+                  // list (CatalogueView).
                   const isDisabledMyRatingCol = col.type === 'my_rating' && !isRegisteredRater;
                   return (
                     <tr
                       key={key}
-                      className={`${key === selectedKey ? 'selected' : ''}${(isDisabledRatingCol || isDisabledMyRatingCol) ? ' setup-row-disabled' : ''}`}
+                      className={`${key === selectedKey ? 'selected' : ''}${isDisabledMyRatingCol ? ' setup-row-disabled' : ''}`}
                       onClick={() => setSelectedKey(key)}
                     >
                       <td>
                         {displayedColumnName(col)}
-                        {isDisabledRatingCol && ' (rating disabled)'}
                         {isDisabledMyRatingCol && ' (not a rater)'}
                       </td>
                       <td>
@@ -329,6 +301,7 @@ export default function ShowcaseViewSetupPanel({
                 <label>
                   Add column:&nbsp;
                   <select
+                    data-yagu-id="ddown-column-selector"
                     onChange={(e) => {
                       if (!e.target.value) return;
                       const opt = addOptions.find((o) => o.key === e.target.value);

@@ -96,8 +96,6 @@ function formatYearValue(value, propertyLabel, enabled) {
 
 function columnKey(col) {
   if (col.type === 'property') return `prop_${col.property_id}`;
-  // FIX504.2.1.2.2.6: one column per configured rater.
-  if (col.type === 'user_rating') return `rater_${col.rater_id}`;
   return col.type;
 }
 
@@ -134,19 +132,13 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel, ratingSe
     if (prop) return computePropertyValue(folder, prop, propertiesByLabel);
     return folder.properties?.[String(col.property_id)] ?? '';
   }
-  // FIX504.2.1.2.2.6: sort/filter on the rating's configured sort_order
-  // (its rank in <table-rating-values>), not its text — a rating scale
-  // has an inherent order the admin already defined.
-  if (col.type === 'user_rating') {
-    const rater = (ratingSetup?.raters ?? []).find((r) => r.id === col.rater_id);
-    const rvId = rater ? folder.ratings_by_user?.[rater.user_id] : null;
-    if (rvId == null) return '';
-    const rv = (ratingSetup?.values ?? []).find((v) => v.id === rvId);
-    return rv ? String(rv.sort_order) : '';
-  }
   // FIX352.3.4.5 <role-rater>: 'My Rating' — the caller's own rating,
   // auto-available (not admin-configured) the moment the role is granted.
-  // Same sort_order convention as <user_rating> above.
+  // FIX504.2.1.2.2.6 (deep-old): replaces the old per-arbitrary-rater
+  // <user_rating> column type this branch used to handle. Sort/filter on
+  // the rating's configured sort_order (its rank in <table-rating-values>),
+  // not its text — a rating scale has an inherent order the admin already
+  // defined.
   if (col.type === 'my_rating') {
     const rvId = folder.my_rating_value_id;
     if (rvId == null) return '';
@@ -208,8 +200,8 @@ export default function CatalogueView({
   const isSetupMngr = !!data?.project?.is_setup_mngr;
   // FIX503.4.5 / FIX504.5.3: is the logged-in user themselves a
   // registered rater on this project (<role-rater>)? Drives
-  // <menu-view>'s visibility and, further below, which user_rating
-  // columns are shown/pickable at all.
+  // <menu-view>'s visibility and, further below, the 'My Rating' column's
+  // (FIX352.3.4.5) visibility/pickability.
   // Bug fix: raters used to carry an `enabled` flag, but the FIX300 access-
   // rights refactor dropped it -- project_rater rows only exist while
   // <role-rater> is granted (see backend _sync_project_rater_for_project),
@@ -1961,21 +1953,17 @@ export default function CatalogueView({
   // column was removed. Filter any leftover entries from previously
   // saved view_setup so existing projects don't render orphan columns.
   const configuredColumns = (() => {
-    // FIX504.2.1.2.2.6.2: a rating column stays in the saved config but
-    // is hidden from the actual item list while rating is disabled.
-    const ratingOn = !!data?.rating_setup?.enabled;
     const cols = (showcaseCfg.columns ?? []).filter((c) => {
       if (c.type === 'main_image_icon') return false;
+      // FIX504.2.1.2.2.6 (deep-old): the per-arbitrary-rater column type
+      // is retired — silently drop any leftover row from a previously
+      // saved config, same treatment as main_image_icon above.
+      if (c.type === 'user_rating') return false;
       // FIX352.3.4.5: 'My Rating' is per-viewer — hidden the moment the
       // caller isn't (or is no longer) a registered rater, even though the
       // column stays in the shared saved config for whoever else has it.
       if (c.type === 'my_rating') return isRegisteredRater;
-      if (c.type !== 'user_rating') return true;
-      if (!ratingOn) return false;
-      // FIX504.5.3: a column bound to another user's rating cannot be
-      // shown, even if it was configured (by an admin, or back when the
-      // caller was someone else) — only the caller's own rater entry.
-      return myRaterEntry != null && c.rater_id === myRaterEntry.id;
+      return true;
     });
     // FIX510.5.4: when no column is defined, fall back to the # column.
     // _hash forces the header to '#' regardless of folder_column_name.
@@ -2196,10 +2184,23 @@ export default function CatalogueView({
     if (!galleryPropertyId) {
       return [{ key: null, label: null, items: [...displayedFolders].sort(byRef) }];
     }
-    const prop = propertiesById.get(galleryPropertyId);
+    // FIX352.3.4.5.1: 'My Rating' is a synthetic property (not a real
+    // <list-properties> row), so it isn't in propertiesById -- resolve its
+    // value directly from the caller's own rating text.
+    const isMyRating = galleryPropertyId === 'my_rating';
+    const prop = isMyRating ? null : propertiesById.get(galleryPropertyId);
     const byValue = new Map();
     for (const f of displayedFolders) {
-      const raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
+      let raw;
+      if (isMyRating) {
+        const rvId = f.my_rating_value_id;
+        const rv = rvId != null
+          ? (data?.rating_setup?.values ?? []).find((v) => v.id === rvId)
+          : null;
+        raw = rv?.text;
+      } else {
+        raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
+      }
       const key = raw == null ? '' : String(raw).trim();
       if (!byValue.has(key)) byValue.set(key, []);
       byValue.get(key).push(f);
@@ -2211,7 +2212,7 @@ export default function CatalogueView({
       .map(([key, items]) => ({ key, label: key, items: [...items].sort(byRef) }));
     if (blanks.length > 0) strips.push({ key: '__novalue__', label: '(no value)', items: blanks });
     return strips;
-  }, [displayedFolders, galleryPropertyId, propertiesById, propertiesByLabel]);
+  }, [displayedFolders, galleryPropertyId, propertiesById, propertiesByLabel, data?.rating_setup]);
 
   // FIX508.2.3 / <setup-select-first-item>: when the option is on, keep
   // the first *displayed* item selected. Runs against displayedFolders
@@ -2682,11 +2683,6 @@ export default function CatalogueView({
     if (col.type === 'img_size') return 'Img size'; // FIX504.2.1.2.2.4
     if (col.type === 'img_zoom') return 'Img zoom factor'; // FIX504.2.1.2.2.5
     if (col.type === 'my_rating') return 'My Rating'; // FIX352.3.4.5
-    // FIX504.2.1.2.2.6: identified by the user's name.
-    if (col.type === 'user_rating') {
-      const rater = (data?.rating_setup?.raters ?? []).find((r) => r.id === col.rater_id);
-      return rater?.name || '(missing user)';
-    }
     const prop = properties.find((p) => p.id === col.property_id);
     if (!prop) return '(missing)';
     return (prop.short_label && prop.short_label.trim()) || prop.label;
@@ -2794,25 +2790,9 @@ export default function CatalogueView({
         </td>
       );
     }
-    // FIX504.2.1.2.2.6: this rater's rating icon for this item — any
-    // configured rater, not just the logged-in caller (unlike
-    // <icon-rating> / FIX520.4.3).
-    if (col.type === 'user_rating') {
-      const rater = (data?.rating_setup?.raters ?? []).find((r) => r.id === col.rater_id);
-      const rvId = rater ? folder.ratings_by_user?.[rater.user_id] : null;
-      const rv = rvId != null
-        ? (data?.rating_setup?.values ?? []).find((v) => v.id === rvId)
-        : null;
-      const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
-      return (
-        <td key={key} style={cellStyle} title={rv?.text}>
-          {RatingIconComp ? <RatingIconComp size={18} /> : '—'}
-        </td>
-      );
-    }
-    // FIX352.3.4.5: 'My Rating' — same icon rendering as <user_rating>
-    // above, but always the caller's own rating (<icon-rating>'s value),
-    // not any admin-configured rater's.
+    // FIX352.3.4.5: 'My Rating' icon — always the caller's own rating
+    // (<icon-rating>'s value). FIX504.2.1.2.2.6 (deep-old): replaces the
+    // old per-arbitrary-rater <user_rating> column this used to be.
     if (col.type === 'my_rating') {
       const rvId = folder.my_rating_value_id;
       const rv = rvId != null
@@ -3549,10 +3529,20 @@ export default function CatalogueView({
                   // matches key 5, so galleryStrips' `prop` lookup silently
                   // missed for every property, dumping every item into the
                   // '(no value)' strip regardless of which property was
-                  // picked. Coerce back to a number here so it matches.
-                  onChange={(e) => setGalleryPropertyId(e.target.value ? Number(e.target.value) : null)}
+                  // picked. Coerce back to a number here so it matches --
+                  // except the synthetic 'my_rating' id (FIX352.3.4.5.1),
+                  // which stays a string, same as galleryStrips expects.
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!raw) return setGalleryPropertyId(null);
+                    setGalleryPropertyId(raw === 'my_rating' ? raw : Number(raw));
+                  }}
                 >
                   <option value="">No sorting</option>
+                  {/* FIX352.3.4.5.1: 'My Rating' is added to/removed from
+                      this selector the same way it is from the Columns
+                      picker -- present only while the caller is a rater. */}
+                  {isRegisteredRater && <option value="my_rating">My Rating</option>}
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
@@ -4178,7 +4168,6 @@ export default function CatalogueView({
           projectId={data?.project?.id ?? null}
           properties={properties}
           viewSetup={viewSetup}
-          ratingSetup={data?.rating_setup}
           isRegisteredRater={isRegisteredRater}
           isAnonymous={isAnonymous}
           onCancel={() => setShowColumns(false)}

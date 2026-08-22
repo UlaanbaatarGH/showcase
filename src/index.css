@@ -842,8 +842,15 @@ body {
   color: var(--color-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   margin-bottom: 0.5rem;
-  /* FIX511.2.0.2: round rectangle strip, not a plain rectangle. */
-  border-radius: 8px;
+  /* FIX511.2.0.2: pill-shaped (round-rectangle) ends, same "semi-circle
+     ends" language as the grouping side panel's own value pills
+     (.sc-buckets li, FIX374.2.6) -- 999px auto-caps to half the bar's own
+     height, so the two square ends round into full semi-circles no matter
+     how tall the label ends up (font size, wrapping, etc). The previous
+     8px here rounded the corners but didn't read as "pill" at this bar's
+     height -- a real semi-circle end needs the radius capped by height,
+     not a small fixed px value. */
+  border-radius: 999px;
 }
 .sc-gallery-images {
   display: grid;

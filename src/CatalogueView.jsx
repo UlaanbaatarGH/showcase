@@ -3578,8 +3578,9 @@ export default function CatalogueView({
             <div className="sc-gallery-scroll">
             {galleryStrips.map((strip) => (
               <div key={strip.key ?? '__flat__'} className="sc-gallery-strip">
-                {/* FIX512.2.6: the heading (property value) is panel-wide in
-                    a contrasted background -- the images below keep their
+                {/* FIX512.2.6 / FIX511.2.0.2: the heading (property value) is
+                    panel-wide in a contrasted background, with pill-shaped
+                    (round-rectangle) ends -- the images below keep their
                     normal background, only the label row is banded. The
                     flat no-sorting layout (FIX511.2.0.1, strip.label ==
                     null) has no heading at all, so no banding either. */}

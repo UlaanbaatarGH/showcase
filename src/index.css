@@ -918,6 +918,13 @@ body {
   margin-top: 0.2rem;
 }
 .sc-gallery-rating-icon, .sc-gallery-conflict { vertical-align: middle; }
+/* FIX511.4.3: "{rating-icon} {rating-value}" strip label for the
+   <property-my-rating> gallery grouping. */
+.sc-gallery-strip-rating-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
 .sc-splitter {
   cursor: col-resize;
   background: var(--color-border);

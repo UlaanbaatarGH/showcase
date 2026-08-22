@@ -2184,23 +2184,45 @@ export default function CatalogueView({
     if (!galleryPropertyId) {
       return [{ key: null, label: null, items: [...displayedFolders].sort(byRef) }];
     }
-    // FIX352.3.4.5.1: 'My Rating' is a synthetic property (not a real
-    // <list-properties> row), so it isn't in propertiesById -- resolve its
-    // value directly from the caller's own rating text.
-    const isMyRating = galleryPropertyId === 'my_rating';
-    const prop = isMyRating ? null : propertiesById.get(galleryPropertyId);
+    // FIX511.4.3 / <property-my-rating>: 'My Rating' strips sort by the
+    // rating's configured index (its rank in <table-rating-values>), not
+    // its text, and label as "{rating-icon} {rating-value}" -- distinct
+    // enough from the generic increasing-value-text path below that it's
+    // simplest kept as its own branch.
+    if (galleryPropertyId === 'my_rating') {
+      const rvValues = data?.rating_setup?.values ?? [];
+      const byRatingValue = new Map();
+      const blanks = [];
+      for (const f of displayedFolders) {
+        const rvId = f.my_rating_value_id;
+        if (rvId == null) { blanks.push(f); continue; }
+        if (!byRatingValue.has(rvId)) byRatingValue.set(rvId, []);
+        byRatingValue.get(rvId).push(f);
+      }
+      const strips = [...byRatingValue.entries()]
+        .map(([rvId, items]) => ({ rv: rvValues.find((v) => v.id === rvId), items }))
+        .sort((a, b) => (a.rv?.sort_order ?? 0) - (b.rv?.sort_order ?? 0))
+        .map(({ rv, items }) => {
+          const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
+          return {
+            key: String(rv?.id ?? ''),
+            label: (
+              <span className="sc-gallery-strip-rating-label">
+                {RatingIconComp && <RatingIconComp size={16} />} {rv?.text}
+              </span>
+            ),
+            items: [...items].sort(byRef),
+          };
+        });
+      if (blanks.length > 0) {
+        strips.push({ key: '__novalue__', label: '(no value)', items: [...blanks].sort(byRef) });
+      }
+      return strips;
+    }
+    const prop = propertiesById.get(galleryPropertyId);
     const byValue = new Map();
     for (const f of displayedFolders) {
-      let raw;
-      if (isMyRating) {
-        const rvId = f.my_rating_value_id;
-        const rv = rvId != null
-          ? (data?.rating_setup?.values ?? []).find((v) => v.id === rvId)
-          : null;
-        raw = rv?.text;
-      } else {
-        raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
-      }
+      const raw = prop ? computePropertyValue(f, prop, propertiesByLabel) : undefined;
       const key = raw == null ? '' : String(raw).trim();
       if (!byValue.has(key)) byValue.set(key, []);
       byValue.get(key).push(f);
@@ -2800,7 +2822,7 @@ export default function CatalogueView({
         : null;
       const RatingIconComp = rv ? RATING_ICONS[rv.icon] : null;
       return (
-        <td key={key} style={cellStyle} title={rv?.text}>
+        <td key={key} data-yagu-id="property-my-rating" style={cellStyle} title={rv?.text}>
           {RatingIconComp ? <RatingIconComp size={18} /> : '—'}
         </td>
       );
@@ -3542,7 +3564,9 @@ export default function CatalogueView({
                   {/* FIX352.3.4.5.1: 'My Rating' is added to/removed from
                       this selector the same way it is from the Columns
                       picker -- present only while the caller is a rater. */}
-                  {isRegisteredRater && <option value="my_rating">My Rating</option>}
+                  {isRegisteredRater && (
+                    <option data-yagu-id="property-my-rating" value="my_rating">My Rating</option>
+                  )}
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}

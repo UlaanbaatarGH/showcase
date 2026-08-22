@@ -112,10 +112,15 @@ export default function SetupPanel({
   // else here also stages against the initial snapshot until Save).
   const [ratingDeletePopup, setRatingDeletePopup] = useState(null);
   const [nextTempRatingId, setNextTempRatingId] = useState(-1);
-  // FIX507.2.4 / FIX507.2.5: unchecked / defaulted to 2.
+  // FIX507.2.4 / FIX507.2.5: unchecked / defaulted to 3.
   const [showRatingConflict, setShowRatingConflict] = useState(!!initialRatingSetup?.show_conflict);
   const [conflictThreshold, setConflictThreshold] = useState(
-    initialRatingSetup?.conflict_threshold ?? 2,
+    initialRatingSetup?.conflict_threshold ?? 3,
+  );
+  // FIX507.2.6 <field-rating-conflict-comparator>: dropdown {'<', '>'},
+  // defaulted to '<'.
+  const [conflictComparator, setConflictComparator] = useState(
+    initialRatingSetup?.conflict_comparator === '>' ? '>' : '<',
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -206,7 +211,9 @@ export default function SetupPanel({
             })),
           // FIX507.2.4 / FIX507.2.5.
           show_conflict: showRatingConflict,
-          conflict_threshold: Number(conflictThreshold) || 2,
+          conflict_threshold: Number(conflictThreshold) || 3,
+          // FIX507.2.6.
+          conflict_comparator: conflictComparator,
         },
       });
       onSave(data);
@@ -662,6 +669,8 @@ export default function SetupPanel({
               <table className="setup-items" data-yagu-id="table-rating-values">
                 <thead>
                   <tr>
+                    {/* FIX507.2.2.1.10: Rank first, then Text, then Icon. */}
+                    <th style={{ width: '4rem', textAlign: 'center' }}>Rank</th>
                     <th>Text</th>
                     <th style={{ width: '5rem', textAlign: 'center' }}>Icon</th>
                   </tr>
@@ -669,7 +678,7 @@ export default function SetupPanel({
                 <tbody>
                   {ratingValues.length === 0 && (
                     <tr>
-                      <td colSpan={2} className="setup-empty">No rating value defined.</td>
+                      <td colSpan={3} className="setup-empty">No rating value defined.</td>
                     </tr>
                   )}
                   {ratingValues.map((v, i) => {
@@ -680,6 +689,12 @@ export default function SetupPanel({
                         className={selectedRatingValueIdx === i ? 'selected' : ''}
                         onClick={() => setSelectedRatingValueIdx(i)}
                       >
+                        {/* FIX507.2.2.1.3 <rating-rank>: automatically
+                            assigned, 1-based -- this row's position in
+                            the list, not editable. */}
+                        <td data-yagu-id="rating-rank" style={{ textAlign: 'center' }}>
+                          {i + 1}
+                        </td>
                         {/* FIX507.2.2.1.12 Row edition: Inline. */}
                         <td>
                           <input
@@ -750,11 +765,24 @@ export default function SetupPanel({
                 />
                 Show conflicts
               </label>
-              {/* FIX507.2.5 <field-rating-conflict-threshold>: mandatory,
-                  defaulted to 2 (FIX507.2.5.1). Blank/invalid falls back
-                  to 2 on blur rather than blocking Save. */}
+              {/* FIX507.2.0 (updated) layout: 'Conflict when rank
+                  {comparator} {threshold}' -- FIX507.2.6
+                  <field-rating-conflict-comparator> (dropdown '<'/'>',
+                  defaulted to '<') and FIX507.2.5
+                  <field-rating-conflict-threshold> (mandatory, defaulted
+                  to 3 -- FIX507.2.5.1) share one sentence-style row.
+                  Blank/invalid threshold falls back to 3 on blur rather
+                  than blocking Save. */}
               <label className="setup-inline-row">
-                <span>Conflict threshold</span>
+                <span>Conflict when rank</span>
+                <select
+                  data-yagu-id="field-rating-conflict-comparator"
+                  value={conflictComparator}
+                  onChange={(e) => setConflictComparator(e.target.value === '>' ? '>' : '<')}
+                >
+                  <option value="<">&lt;</option>
+                  <option value=">">&gt;</option>
+                </select>
                 <input
                   data-yagu-id="field-rating-conflict-threshold"
                   type="text"
@@ -763,7 +791,7 @@ export default function SetupPanel({
                   onChange={(e) => setConflictThreshold(e.target.value)}
                   onBlur={() => {
                     const n = Number(conflictThreshold);
-                    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) setConflictThreshold(2);
+                    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) setConflictThreshold(3);
                   }}
                 />
               </label>

@@ -847,7 +847,12 @@ export default function SetupPanel({
                     <th style={{ width: '10rem' }}>Category</th>
                     <th style={{ width: '10rem' }}>Shape</th>
                     <th style={{ width: '8rem' }}>Op</th>
-                    <th>Caption rule</th>
+                    {/* FIX512.2.2.2 (updated): header label shortened
+                        'Caption rule' -> 'Caption' (id <img-caption-rule>
+                        unchanged). Spec has a stray unclosed quote around
+                        the new label -- read as 'Caption', matching the
+                        FIX512.2.0 diagram's header text. */}
+                    <th>Caption</th>
                   </tr>
                 </thead>
                 <tbody>

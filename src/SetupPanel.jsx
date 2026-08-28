@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { saveSetup } from './data/backend.js';
 import LanguageSetupPanel from './LanguageSetupPanel.jsx';
-import { IconAdd, IconDelete, RATING_ICONS } from './Icons.jsx';
+import { IconAdd, IconDelete, IconMoveUp, IconMoveDown, RATING_ICONS } from './Icons.jsx';
 import { computePropertyValue } from './properties/formulas.js';
 
 // FIX507.4.5 <rating-icon>: exactly three fixed rating symbols -- green
@@ -841,16 +841,18 @@ export default function SetupPanel({
                     isn't already at that edge (FIX512.3.3 / FIX512.3.4). */}
                 <button
                   type="button"
+                  className="setup-move-btn"
                   data-yagu-id="cmd-move-up"
                   onClick={() => moveSelectedRuleBy(-1)}
                   disabled={selectedRuleIdxs.size !== 1 || [...selectedRuleIdxs][0] === 0}
                   aria-label="Move rule up"
                   title="Move rule up"
                 >
-                  ↑
+                  <IconMoveUp size={20} />
                 </button>
                 <button
                   type="button"
+                  className="setup-move-btn"
                   data-yagu-id="cmd-move-down"
                   onClick={() => moveSelectedRuleBy(1)}
                   disabled={
@@ -859,7 +861,7 @@ export default function SetupPanel({
                   aria-label="Move rule down"
                   title="Move rule down"
                 >
-                  ↓
+                  <IconMoveDown size={20} />
                 </button>
               </div>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">

@@ -2577,6 +2577,21 @@ body {
    adding a permanent box. */
 .users-add:not(:disabled):hover { background: rgba(22, 163, 74, 0.12); }
 .users-remove:not(:disabled):hover { background: rgba(220, 38, 38, 0.12); }
+/* FIX512.2.12 / FIX512.2.13 <cmd-move-up> / <cmd-move-down>: same
+   no-chrome icon-button treatment as .users-add / .users-remove above,
+   just a neutral grey halo instead of green/red. */
+.setup-move-btn {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+.setup-move-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.setup-move-btn:not(:disabled):hover { background: rgba(255, 255, 255, 0.08); }
 .users-table .users-check { text-align: center; }
 .users-table .users-code { font-family: monospace; letter-spacing: 0.05em; }
 

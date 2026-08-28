@@ -156,6 +156,52 @@ export function IconDelete({ size = 24, color = '#dc2626', ...rest }) {
   );
 }
 
+// FIX512.2.12 / FIX512.2.13 <cmd-move-up> / <cmd-move-down>: same
+// thick-stroke / round-cap treatment as IconAdd / IconDelete, but neutral
+// grey since reordering isn't a positive/negative action like those two.
+// Bug fix: the toolbar buttons previously rendered as plain unstyled
+// <button> elements (default browser chrome) with a bare "^"/"v" glyph --
+// looked like broken/empty boxes next to the colored icon buttons.
+export function IconMoveUp({ size = 24, color = '#94a3b8', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <polyline points="5,11 12,4 19,11" />
+      <line x1="12" y1="4" x2="12" y2="20" />
+    </svg>
+  );
+}
+
+export function IconMoveDown({ size = 24, color = '#94a3b8', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <polyline points="5,13 12,20 19,13" />
+      <line x1="12" y1="4" x2="12" y2="20" />
+    </svg>
+  );
+}
+
 // FIX507.4.5 <rating-icon>: the three fixed rating symbols (green bold
 // tick / orange bold question mark / red bold cross) -- same
 // thick-stroke / round-cap / hardcoded-colour treatment as IconAdd /

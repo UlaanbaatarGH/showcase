@@ -346,17 +346,22 @@ export default function SetupPanel({
               prefix: p.prefix || '',
               suffix: p.suffix || '',
             })),
-          // FIX512.2.2 <setup-table-caption-rules>: persist only rules
-          // with actual caption text, same "drop the blank ones" rule as
-          // properties/ratingValues above.
+          // FIX512.2.2 <setup-table-caption-rules>: persist every row with
+          // *any* content -- only drop a row nothing was ever entered
+          // into. Bug fix: this used to require Caption-rule text
+          // specifically (mirroring properties/ratingValues' "drop blank
+          // ones" convention, whose primary field IS the text), which
+          // silently discarded every row on save if Category/Shape were
+          // picked but the Caption text hadn't been typed yet -- looked
+          // like the whole table wasn't saving at all.
           img_caption_rules: imgCaptionRules
-            .filter((r) => (r.rule ?? '').trim())
+            .filter((r) => (r.category ?? '').trim() || (r.shape ?? '').trim() || (r.rule ?? '').trim())
             .map((r) => ({
               id: r.id,
               category: r.category || '',
               shape: r.shape || '',
               op: r.op || 'is',
-              rule: r.rule.trim(),
+              rule: (r.rule || '').trim(),
             })),
         },
         // FIX507.4.2 <panel-rating-setup>: saved as part of this same

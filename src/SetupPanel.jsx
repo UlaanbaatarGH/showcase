@@ -73,6 +73,11 @@ export default function SetupPanel({
     // Category column (FIX512.2.2.1) with the distinct values that
     // property takes across the project's items. null = no such property.
     category_property_id: initialViewSetup?.item_filters?.category_property_id ?? null,
+    // FIX506.2.6 / <setup-shape-property>: id of the property that holds
+    // the item's shape. Feeds the Image Caption rules table's Shape
+    // column (FIX512.2.2.3), further filtered by the row's selected
+    // Category per FIX512.4.1. null = no such property.
+    shape_property_id: initialViewSetup?.item_filters?.shape_property_id ?? null,
   });
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
   // view_setup directly (not under item_filters) since they affect the
@@ -173,6 +178,30 @@ export default function SetupPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryProperty?.id, categoryProperty?.formula, folders, propertiesByLabel]);
 
+  // FIX512.2.2.3 <img-caption-shape> / FIX512.4.1: the Shape column's
+  // options "fully depend on the selected <img-caption-category>" -- map
+  // each category value to the distinct shape values seen on folders
+  // that have that category (a folder missing either value contributes
+  // nothing). A row with no category picked yet has no shape options.
+  const shapeProperty = properties.find((p) => p.id === itemFilters.shape_property_id) ?? null;
+  const shapeOptionsByCategory = useMemo(() => {
+    const map = new Map();
+    if (!categoryProperty || !shapeProperty) return map;
+    for (const f of folders ?? []) {
+      const cat = String(computePropertyValue(f, categoryProperty, propertiesByLabel) ?? '').trim();
+      const shape = String(computePropertyValue(f, shapeProperty, propertiesByLabel) ?? '').trim();
+      if (!cat || !shape) continue;
+      if (!map.has(cat)) map.set(cat, new Set());
+      map.get(cat).add(shape);
+    }
+    for (const [k, set] of map) {
+      map.set(k, [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryProperty?.id, categoryProperty?.formula, shapeProperty?.id, shapeProperty?.formula, folders, propertiesByLabel]);
+  const shapeOptionsFor = (categoryValue) => shapeOptionsByCategory.get(categoryValue) ?? [];
+
   // FIX512.2.2.10: plain click selects only that row; Ctrl/Cmd-click
   // toggles it into/out of the selection; Shift-click selects the
   // anchor..clicked range. Same conventions as the Image List editor's
@@ -203,7 +232,7 @@ export default function SetupPanel({
   // of the table, selected so it's immediately editable.
   const addCaptionRule = () => {
     setImgCaptionRules((prev) => {
-      const next = [...prev, { id: nextTempRuleId, category: '', rule: '' }];
+      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', rule: '' }];
       setSelectedRuleIdxs(new Set([next.length - 1]));
       setRuleAnchor(next.length - 1);
       return next;
@@ -220,6 +249,22 @@ export default function SetupPanel({
   };
   const updateCaptionRule = (i, patch) => {
     setImgCaptionRules((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  };
+  // FIX512.3.3 / FIX512.3.4 <cmd-move-up> / <cmd-move-down>: swap the
+  // single selected row with its neighbor. FIX512.2.12 / FIX512.2.13 gate
+  // the buttons to exactly one row selected and not already at that edge.
+  const moveSelectedRuleBy = (dir) => {
+    if (selectedRuleIdxs.size !== 1) return;
+    const idx = [...selectedRuleIdxs][0];
+    const target = idx + dir;
+    if (target < 0 || target >= imgCaptionRules.length) return;
+    setImgCaptionRules((prev) => {
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+    setSelectedRuleIdxs(new Set([target]));
+    setRuleAnchor(target);
   };
 
   const handleSave = async () => {
@@ -743,8 +788,9 @@ export default function SetupPanel({
               <p className="setup-hint">
                 Create automatic image captions based on item properties.
               </p>
-              {/* FIX512.2.1 diagram order is Add then Del (left to right),
-                  unlike the Rating tab's Del-then-Add toolbar above. */}
+              {/* FIX512.2.1 (updated) diagram order: Add, Del, Up, Down
+                  (left to right), unlike the Rating tab's Del-then-Add
+                  toolbar above. */}
               <div className="setup-selectable-toolbar">
                 <button
                   type="button"
@@ -767,18 +813,44 @@ export default function SetupPanel({
                 >
                   <IconDelete size={20} />
                 </button>
+                {/* FIX512.2.12 <cmd-move-up> / FIX512.2.13 <cmd-move-down>:
+                    enabled only when exactly one row is selected and it
+                    isn't already at that edge (FIX512.3.3 / FIX512.3.4). */}
+                <button
+                  type="button"
+                  data-yagu-id="cmd-move-up"
+                  onClick={() => moveSelectedRuleBy(-1)}
+                  disabled={selectedRuleIdxs.size !== 1 || [...selectedRuleIdxs][0] === 0}
+                  aria-label="Move rule up"
+                  title="Move rule up"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  data-yagu-id="cmd-move-down"
+                  onClick={() => moveSelectedRuleBy(1)}
+                  disabled={
+                    selectedRuleIdxs.size !== 1 || [...selectedRuleIdxs][0] === imgCaptionRules.length - 1
+                  }
+                  aria-label="Move rule down"
+                  title="Move rule down"
+                >
+                  ↓
+                </button>
               </div>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>
                   <tr>
                     <th style={{ width: '10rem' }}>Category</th>
+                    <th style={{ width: '10rem' }}>Shape</th>
                     <th>Caption rule</th>
                   </tr>
                 </thead>
                 <tbody>
                   {imgCaptionRules.length === 0 && (
                     <tr>
-                      <td colSpan={2} className="setup-empty">No caption rule defined.</td>
+                      <td colSpan={3} className="setup-empty">No caption rule defined.</td>
                     </tr>
                   )}
                   {imgCaptionRules.map((r, i) => (
@@ -794,10 +866,34 @@ export default function SetupPanel({
                         <select
                           data-yagu-id="img-caption-category"
                           value={r.category ?? ''}
-                          onChange={(e) => updateCaptionRule(i, { category: e.target.value })}
+                          onChange={(e) => {
+                            const category = e.target.value;
+                            // FIX512.4.1: Shape fully depends on Category --
+                            // drop a shape value that doesn't apply anymore.
+                            const validShapes = shapeOptionsFor(category);
+                            updateCaptionRule(i, {
+                              category,
+                              shape: validShapes.includes(r.shape) ? r.shape : '',
+                            });
+                          }}
                         >
                           <option value="">— none —</option>
                           {categoryValueOptions.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </td>
+                      {/* FIX512.2.2.3 <img-caption-shape>: dropdown of
+                          <setup-shape-property>'s values for the row's
+                          Category (FIX512.4.1). Inline edition. */}
+                      <td>
+                        <select
+                          data-yagu-id="img-caption-shape"
+                          value={r.shape ?? ''}
+                          onChange={(e) => updateCaptionRule(i, { shape: e.target.value })}
+                        >
+                          <option value="">— none —</option>
+                          {shapeOptionsFor(r.category ?? '').map((v) => (
                             <option key={v} value={v}>{v}</option>
                           ))}
                         </select>
@@ -1132,6 +1228,29 @@ export default function SetupPanel({
                 setItemFilters({
                   ...itemFilters,
                   category_property_id: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
+            >
+              <option value="">— none —</option>
+              {properties
+                .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+            </select>
+
+            {/* FIX506.2.6 / <setup-shape-property>: pick the property
+                whose value gives an item's shape. Feeds the Image Caption
+                rules table's Shape column (FIX512.2.2.3), further scoped
+                to the row's Category (FIX512.4.1). */}
+            <h3>Property providing item shape</h3>
+            <select
+              data-yagu-id="setup-shape-property"
+              value={itemFilters.shape_property_id ?? ''}
+              onChange={(e) =>
+                setItemFilters({
+                  ...itemFilters,
+                  shape_property_id: e.target.value === '' ? null : Number(e.target.value),
                 })
               }
             >

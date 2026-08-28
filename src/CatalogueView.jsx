@@ -3677,6 +3677,15 @@ export default function CatalogueView({
                               src={f.main_image_thumb_url || f.main_image_url}
                               alt={f.name}
                               loading="lazy"
+                              // Bug fix (FIX521.5.9): main_rotation was already
+                              // tracked (onMainImageChange below) but never
+                              // applied to the thumbnail -- a local-app rotate
+                              // (non-destructive until Flatten/Publish, see
+                              // FIX611) left this thumb looking un-rotated
+                              // until the image was flattened/republished.
+                              // object-fit: cover inside the square thumb
+                              // frame keeps a 90°-multiple rotation gap-free.
+                              style={f.main_rotation ? { transform: `rotate(${f.main_rotation}deg)` } : undefined}
                               onError={(e) => {
                                 if (e.target.src !== f.main_image_url) e.target.src = f.main_image_url;
                               }}

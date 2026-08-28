@@ -153,7 +153,13 @@ export default function SetupPanel({
   // multiple rows can be selected at once (Click / Ctrl-click /
   // Shift-click), unlike <table-rating-values>'s single-row selection.
   const [imgCaptionRules, setImgCaptionRules] = useState(
-    () => (initialViewSetup?.img_caption_rules ?? []).map((r) => ({ ...r })),
+    () => (initialViewSetup?.img_caption_rules ?? []).map((r) => ({
+      ...r,
+      // FIX512.2.2.2 (updated): the column's id (and this field) renamed
+      // rule -> text -- read a pre-rename row's old key so nothing
+      // saved before this update goes missing.
+      text: r.text ?? r.rule ?? '',
+    })),
   );
   const [selectedRuleIdxs, setSelectedRuleIdxs] = useState(() => new Set());
   const [ruleAnchor, setRuleAnchor] = useState(null);
@@ -243,7 +249,7 @@ export default function SetupPanel({
   // of the table, selected so it's immediately editable.
   const addCaptionRule = () => {
     setImgCaptionRules((prev) => {
-      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', op: 'is', rule: '' }];
+      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', op: 'is', text: '' }];
       setSelectedRuleIdxs(new Set([next.length - 1]));
       setRuleAnchor(next.length - 1);
       return next;
@@ -355,13 +361,14 @@ export default function SetupPanel({
           // picked but the Caption text hadn't been typed yet -- looked
           // like the whole table wasn't saving at all.
           img_caption_rules: imgCaptionRules
-            .filter((r) => (r.category ?? '').trim() || (r.shape ?? '').trim() || (r.rule ?? '').trim())
+            .filter((r) => (r.category ?? '').trim() || (r.shape ?? '').trim() || (r.text ?? '').trim())
             .map((r) => ({
               id: r.id,
               category: r.category || '',
               shape: r.shape || '',
               op: r.op || 'is',
-              rule: (r.rule || '').trim(),
+              // FIX512.2.2.2 (updated) / FIX512.4.2: id <img-caption-text>.
+              text: (r.text || '').trim(),
             })),
         },
         // FIX507.4.2 <panel-rating-setup>: saved as part of this same
@@ -877,11 +884,12 @@ export default function SetupPanel({
                     <th style={{ width: '8rem' }}>Op</th>
                     <th style={{ width: '10rem' }}>Category</th>
                     <th style={{ width: '10rem' }}>Shape</th>
-                    {/* FIX512.2.2.2 (updated): header label shortened
-                        'Caption rule' -> 'Caption' (id <img-caption-rule>
-                        unchanged). Spec has a stray unclosed quote around
-                        the new label -- read as 'Caption', matching the
-                        FIX512.2.0 diagram's header text. */}
+                    {/* FIX512.2.2.2 (updated, twice): header label
+                        shortened 'Caption rule' -> 'Caption', and the id
+                        renamed <img-caption-rule> -> <img-caption-text>
+                        (FIX512.4.2 calls it caption text). Spec has a
+                        stray unclosed quote around the label -- read as
+                        'Caption', matching the FIX512.2.0 diagram. */}
                     <th>Caption</th>
                   </tr>
                 </thead>
@@ -948,14 +956,18 @@ export default function SetupPanel({
                           ))}
                         </select>
                       </td>
-                      {/* FIX512.2.2.2 <img-caption-rule>: several-line
-                          input text. Inline edition. */}
+                      {/* FIX512.2.2.2 (updated) <img-caption-text>:
+                          several-line input text. Inline edition.
+                          FIX512.4.2: {PropertyLabel} placeholders get
+                          substituted with the item's property values when
+                          the caption is actually computed (imgCaption.js,
+                          not wired into any display yet). */}
                       <td>
                         <textarea
-                          data-yagu-id="img-caption-rule"
+                          data-yagu-id="img-caption-text"
                           rows={2}
-                          value={r.rule ?? ''}
-                          onChange={(e) => updateCaptionRule(i, { rule: e.target.value })}
+                          value={r.text ?? ''}
+                          onChange={(e) => updateCaptionRule(i, { text: e.target.value })}
                         />
                       </td>
                     </tr>

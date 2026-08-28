@@ -30,6 +30,7 @@ import {
 import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
+import { computeImageCaption } from './properties/imgCaption.js';
 import { isAcceptedImage } from './images/importImages.js';
 import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, clearDeletedTag, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
 
@@ -2676,6 +2677,31 @@ export default function CatalogueView({
 
   const currentImage = images[currentImageIdx];
 
+  // FIX520.4.9: when the image has no user-defined caption, fall back to
+  // the first matching rule from <setup-table-caption-rules>
+  // (FIX512.2.2 / FIX512.4.2 / FIX512.4.3). Rules are evaluated against
+  // the ITEM's category/shape properties (<setup-category-property> /
+  // <setup-shape-property> are item-level, FIX506.2.5/.2.6), not the
+  // image, same as every other Setup-driven per-item computation here.
+  const categoryPropertyForCaption = properties.find(
+    (p) => p.id === viewSetup.item_filters?.category_property_id,
+  ) ?? null;
+  const shapePropertyForCaption = properties.find(
+    (p) => p.id === viewSetup.item_filters?.shape_property_id,
+  ) ?? null;
+  const selectedFolderForCaption = (data?.folders || []).find((f) => f.id === selectedFolderId) ?? null;
+  const effectiveImageCaption = currentImage?.caption || (
+    selectedFolderForCaption
+      ? computeImageCaption(
+          viewSetup.img_caption_rules,
+          selectedFolderForCaption,
+          categoryPropertyForCaption,
+          shapePropertyForCaption,
+          propertiesByLabel,
+        )
+      : null
+  );
+
   // FIX374.1: dropdown of all defined Groupings. Labelled by the
   // Grouping Name (FIX373.2.1.1); falls back to the property label
   // for legacy entries that were migrated from the pre-FIX373-update
@@ -4191,14 +4217,17 @@ export default function CatalogueView({
                           </div>
                         </div>
                         <div
-                          className={`sc-viewer-bottom${currentImage.caption ? ' has-caption' : ''}`}
+                          className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
                         >
-                          {currentImage.caption && (
+                          {/* FIX520.4.9: falls back to the automatic
+                              caption (effectiveImageCaption) only when
+                              this image has no manually-entered one. */}
+                          {effectiveImageCaption && (
                             <div
                               className="sc-viewer-caption"
                               data-yagu-id="label-img-caption"
                             >
-                              {currentImage.caption}
+                              {effectiveImageCaption}
                             </div>
                           )}
                           {/* Experimental spike (uncommitted, no spec item):
@@ -4675,15 +4704,17 @@ export default function CatalogueView({
               swallowed so the backdrop dismiss only fires on a real
               outside tap. */}
           <div
-            className={`sc-viewer-bottom${currentImage.caption ? ' has-caption' : ''}`}
+            className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
             onClick={(e) => e.stopPropagation()}
           >
-            {currentImage.caption && (
+            {/* FIX520.4.9: same manual-caption-first fallback as the
+                in-page viewer above. */}
+            {effectiveImageCaption && (
               <div
                 className="sc-viewer-caption"
                 data-yagu-id="label-img-caption"
               >
-                {currentImage.caption}
+                {effectiveImageCaption}
               </div>
             )}
             {/* Experimental spike (uncommitted, no spec item): same

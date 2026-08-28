@@ -145,16 +145,27 @@ export default function SetupPanel({
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
 
-  // FIX512.2.2 <setup-table-caption-rules>: local-only for now -- no FIX
-  // yet defines where these rules persist (unlike properties/view_setup/
-  // rating, which all round-trip through handleSave below), so Add/Del/
-  // edit here don't survive a Cancel or reopen. FIX512.2.2.10: multiple
-  // rows can be selected at once (Click / Ctrl-click / Shift-click),
-  // unlike <table-rating-values>'s single-row selection.
-  const [imgCaptionRules, setImgCaptionRules] = useState([]);
+  // FIX512.2.2 <setup-table-caption-rules>: persisted under
+  // view_setup.img_caption_rules -- no dedicated FIX defines the storage
+  // shape yet, so it rides the same opaque-JSONB view_setup column every
+  // other Setup field already round-trips through (handleSave below),
+  // same as e.g. FIX508.2.4's item_short_label stack. FIX512.2.2.10:
+  // multiple rows can be selected at once (Click / Ctrl-click /
+  // Shift-click), unlike <table-rating-values>'s single-row selection.
+  const [imgCaptionRules, setImgCaptionRules] = useState(
+    () => (initialViewSetup?.img_caption_rules ?? []).map((r) => ({ ...r })),
+  );
   const [selectedRuleIdxs, setSelectedRuleIdxs] = useState(() => new Set());
   const [ruleAnchor, setRuleAnchor] = useState(null);
-  const [nextTempRuleId, setNextTempRuleId] = useState(-1);
+  // Unlike properties/ratingValues (server-assigned positive ids, so a
+  // fresh -1 counter each session never collides), these ids are never
+  // remapped by the backend -- a loaded row keeps whatever negative id it
+  // was saved with. Start below the lowest loaded id so a new row's id
+  // can't collide with one already on disk.
+  const [nextTempRuleId, setNextTempRuleId] = useState(() => {
+    const loadedIds = (initialViewSetup?.img_caption_rules ?? []).map((r) => Number(r.id) || 0);
+    return Math.min(0, ...loadedIds) - 1;
+  });
   // FIX512.3.1 (2nd bullet, del) confirmation popup: spec labels both the
   // Add and Del action bullets "FIX512.3.1" -- likely a typo for the Del
   // one (probably meant .3.2); flagging here rather than silently
@@ -334,6 +345,18 @@ export default function SetupPanel({
               max_length: Number(p.max_length) || 0,
               prefix: p.prefix || '',
               suffix: p.suffix || '',
+            })),
+          // FIX512.2.2 <setup-table-caption-rules>: persist only rules
+          // with actual caption text, same "drop the blank ones" rule as
+          // properties/ratingValues above.
+          img_caption_rules: imgCaptionRules
+            .filter((r) => (r.rule ?? '').trim())
+            .map((r) => ({
+              id: r.id,
+              category: r.category || '',
+              shape: r.shape || '',
+              op: r.op || 'is',
+              rule: r.rule.trim(),
             })),
         },
         // FIX507.4.2 <panel-rating-setup>: saved as part of this same

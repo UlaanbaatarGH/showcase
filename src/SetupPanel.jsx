@@ -42,11 +42,12 @@ export default function SetupPanel({
   onSave,
   onCancel,
 }) {
-  // FIX505.2 (updated): the Setup popup hosts four tabs.
-  //   - 'General'    → <panel-general-info-setup>  (FIX508)
-  //   - 'Properties' → <tab-properties-setup>      (FIX506)
-  //   - 'Rating'     → <panel-rating-setup>         (FIX507 — content still being defined)
-  //   - 'Language'   → <panel-language-setup>      (FIX509)
+  // FIX505.2.0 (updated): the Setup popup hosts five tabs.
+  //   - 'General'        → <panel-general-info-setup>  (FIX508)
+  //   - 'Properties'     → <tab-properties-setup>      (FIX506)
+  //   - 'Image Captions' → <panel-img-caption-setup>   (FIX512 — content still being defined)
+  //   - 'Rating'         → <panel-rating-setup>         (FIX507 — content still being defined)
+  //   - 'Language'       → <panel-language-setup>      (FIX509)
   const [activeTab, setActiveTab] = useState('general');
   const [properties, setProperties] = useState(() =>
     (initialProperties ?? []).map((p) => ({ ...p })),
@@ -338,6 +339,17 @@ export default function SetupPanel({
           >
             Properties
           </button>
+          {/* FIX505.2.5 / FIX505.2.5.0 <tab-img-caption-setup>: opens
+              <panel-img-caption-setup> per FIX505.3.6. Sits between
+              Properties and Rating per FIX505.2.0's updated tab order. */}
+          <button
+            type="button"
+            className={activeTab === 'imgCaption' ? 'active' : ''}
+            data-yagu-id="tab-img-caption-setup"
+            onClick={() => setActiveTab('imgCaption')}
+          >
+            Image Captions
+          </button>
           {/* FIX505.2.3 <tab-rating-setup>: opens <panel-rating-setup>
               per FIX505.3.4. */}
           <button
@@ -623,6 +635,20 @@ export default function SetupPanel({
                   placeholder="https://docs.google.com/spreadsheets/d/…"
                 />
               </label>
+            </section>
+          )}
+          {activeTab === 'imgCaption' && (
+            /* FIX512 / FIX512.0 <panel-img-caption-setup>: opened via
+               FIX505.3.6. FIX512.1 defines only the panel's purpose so
+               far (create automatic image caption based on item
+               properties) -- no fields/layout are spec'd yet (NFNI), so
+               this is a placeholder shell until a follow-up FIX defines
+               <panel-img-caption-setup>'s actual UI. */
+            <section className="setup-section" data-yagu-id="panel-img-caption-setup">
+              <h3>Image Captions</h3>
+              <p className="setup-empty">
+                Create automatic image captions based on item properties — configuration coming soon.
+              </p>
             </section>
           )}
           {activeTab === 'rating' && (

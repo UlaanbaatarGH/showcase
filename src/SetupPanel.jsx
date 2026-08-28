@@ -232,7 +232,7 @@ export default function SetupPanel({
   // of the table, selected so it's immediately editable.
   const addCaptionRule = () => {
     setImgCaptionRules((prev) => {
-      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', rule: '' }];
+      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', op: 'is', rule: '' }];
       setSelectedRuleIdxs(new Set([next.length - 1]));
       setRuleAnchor(next.length - 1);
       return next;
@@ -781,16 +781,18 @@ export default function SetupPanel({
             /* FIX512 / FIX512.0 <panel-img-caption-setup>: opened via
                FIX505.3.6. FIX512.1 Purpose: create automatic image
                caption based on item properties. FIX512.2 UI Layout /
-               FIX512.2.1 diagram: an Add/Del toolbar above
+               FIX512.2.0[ex-512.2.1] diagram: an Add/Del toolbar above
                <setup-table-caption-rules>. */
             <section className="setup-section" data-yagu-id="panel-img-caption-setup">
               <h3>Image Captions</h3>
               <p className="setup-hint">
                 Create automatic image captions based on item properties.
               </p>
-              {/* FIX512.2.1 (updated) diagram order: Add, Del, Up, Down
+              {/* FIX512.2.0[ex-512.2.1] diagram order: Add, Del, Up, Down
                   (left to right), unlike the Rating tab's Del-then-Add
-                  toolbar above. */}
+                  toolbar above. Diagram wasn't updated to show the new Op
+                  column (FIX512.2.2.4) -- placed via the itemized entry,
+                  see the table below. */}
               <div className="setup-selectable-toolbar">
                 <button
                   type="button"
@@ -844,13 +846,14 @@ export default function SetupPanel({
                   <tr>
                     <th style={{ width: '10rem' }}>Category</th>
                     <th style={{ width: '10rem' }}>Shape</th>
+                    <th style={{ width: '8rem' }}>Op</th>
                     <th>Caption rule</th>
                   </tr>
                 </thead>
                 <tbody>
                   {imgCaptionRules.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="setup-empty">No caption rule defined.</td>
+                      <td colSpan={4} className="setup-empty">No caption rule defined.</td>
                     </tr>
                   )}
                   {imgCaptionRules.map((r, i) => (
@@ -896,6 +899,21 @@ export default function SetupPanel({
                           {shapeOptionsFor(r.category ?? '').map((v) => (
                             <option key={v} value={v}>{v}</option>
                           ))}
+                        </select>
+                      </td>
+                      {/* FIX512.2.2.4 <img-caption-op>: dropdown, fixed
+                          {'is', 'starts with'} values. Inline edition.
+                          Not in the FIX512.2.0 diagram (flagged above) --
+                          placed between the match columns (Category,
+                          Shape) and the resulting Caption rule text. */}
+                      <td>
+                        <select
+                          data-yagu-id="img-caption-op"
+                          value={r.op ?? 'is'}
+                          onChange={(e) => updateCaptionRule(i, { op: e.target.value })}
+                        >
+                          <option value="is">is</option>
+                          <option value="starts with">starts with</option>
                         </select>
                       </td>
                       {/* FIX512.2.2.2 <img-caption-rule>: several-line

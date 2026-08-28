@@ -75,8 +75,8 @@ export default function SetupPanel({
     category_property_id: initialViewSetup?.item_filters?.category_property_id ?? null,
     // FIX506.2.6 / <setup-shape-property>: id of the property that holds
     // the item's shape. Feeds the Image Caption rules table's Shape
-    // column (FIX512.2.2.3), further filtered by the row's selected
-    // Category per FIX512.4.1. null = no such property.
+    // column (FIX512.2.2.3) -- independent of Category (FIX512.4.1
+    // updated). null = no such property.
     shape_property_id: initialViewSetup?.item_filters?.shape_property_id ?? null,
   });
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
@@ -195,29 +195,21 @@ export default function SetupPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryProperty?.id, categoryProperty?.formula, folders, propertiesByLabel]);
 
-  // FIX512.2.2.3 <img-caption-shape> / FIX512.4.1: the Shape column's
-  // options "fully depend on the selected <img-caption-category>" -- map
-  // each category value to the distinct shape values seen on folders
-  // that have that category (a folder missing either value contributes
-  // nothing). A row with no category picked yet has no shape options.
+  // FIX512.2.2.3 <img-caption-shape> / FIX512.4.1 (updated): shape values
+  // do NOT depend on the selected category (reversed from the original
+  // FIX512.4.1(old)/.4.3.1 rule) -- same flat distinct-values lookup as
+  // categoryValueOptions above, just against <setup-shape-property>.
   const shapeProperty = properties.find((p) => p.id === itemFilters.shape_property_id) ?? null;
-  const shapeOptionsByCategory = useMemo(() => {
-    const map = new Map();
-    if (!categoryProperty || !shapeProperty) return map;
+  const shapeValueOptions = useMemo(() => {
+    if (!shapeProperty) return [];
+    const set = new Set();
     for (const f of folders ?? []) {
-      const cat = String(computePropertyValue(f, categoryProperty, propertiesByLabel) ?? '').trim();
-      const shape = String(computePropertyValue(f, shapeProperty, propertiesByLabel) ?? '').trim();
-      if (!cat || !shape) continue;
-      if (!map.has(cat)) map.set(cat, new Set());
-      map.get(cat).add(shape);
+      const s = String(computePropertyValue(f, shapeProperty, propertiesByLabel) ?? '').trim();
+      if (s) set.add(s);
     }
-    for (const [k, set] of map) {
-      map.set(k, [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
-    }
-    return map;
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryProperty?.id, categoryProperty?.formula, shapeProperty?.id, shapeProperty?.formula, folders, propertiesByLabel]);
-  const shapeOptionsFor = (categoryValue) => shapeOptionsByCategory.get(categoryValue) ?? [];
+  }, [shapeProperty?.id, shapeProperty?.formula, folders, propertiesByLabel]);
 
   // FIX512.2.2.10: plain click selects only that row; Ctrl/Cmd-click
   // toggles it into/out of the selection; Shift-click selects the
@@ -919,21 +911,14 @@ export default function SetupPanel({
                       </td>
                       {/* FIX512.2.2.1 <img-caption-category>: dropdown of
                           <setup-category-property>'s distinct values.
-                          Inline edition. */}
+                          Inline edition. FIX512.4.1 (updated): no longer
+                          clears Shape on change -- shape no longer
+                          depends on category. */}
                       <td>
                         <select
                           data-yagu-id="img-caption-category"
                           value={r.category ?? ''}
-                          onChange={(e) => {
-                            const category = e.target.value;
-                            // FIX512.4.1: Shape fully depends on Category --
-                            // drop a shape value that doesn't apply anymore.
-                            const validShapes = shapeOptionsFor(category);
-                            updateCaptionRule(i, {
-                              category,
-                              shape: validShapes.includes(r.shape) ? r.shape : '',
-                            });
-                          }}
+                          onChange={(e) => updateCaptionRule(i, { category: e.target.value })}
                         >
                           <option value="">— none —</option>
                           {categoryValueOptions.map((v) => (
@@ -942,8 +927,9 @@ export default function SetupPanel({
                         </select>
                       </td>
                       {/* FIX512.2.2.3 <img-caption-shape>: dropdown of
-                          <setup-shape-property>'s values for the row's
-                          Category (FIX512.4.1). Inline edition. */}
+                          <setup-shape-property>'s distinct values.
+                          FIX512.4.1 (updated): independent of Category
+                          now, not scoped to it. Inline edition. */}
                       <td>
                         <select
                           data-yagu-id="img-caption-shape"
@@ -951,7 +937,7 @@ export default function SetupPanel({
                           onChange={(e) => updateCaptionRule(i, { shape: e.target.value })}
                         >
                           <option value="">— none —</option>
-                          {shapeOptionsFor(r.category ?? '').map((v) => (
+                          {shapeValueOptions.map((v) => (
                             <option key={v} value={v}>{v}</option>
                           ))}
                         </select>
@@ -1303,8 +1289,8 @@ export default function SetupPanel({
 
             {/* FIX506.2.6 / <setup-shape-property>: pick the property
                 whose value gives an item's shape. Feeds the Image Caption
-                rules table's Shape column (FIX512.2.2.3), further scoped
-                to the row's Category (FIX512.4.1). */}
+                rules table's Shape column (FIX512.2.2.3), independent of
+                Category (FIX512.4.1 updated). */}
             <h3>Property providing item shape</h3>
             <select
               data-yagu-id="setup-shape-property"

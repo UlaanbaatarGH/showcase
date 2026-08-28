@@ -1283,7 +1283,14 @@ body {
   min-height: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* FIX520.2.6.1 (updated) "Always stuck under the image": was `center`
+     -- for an image shorter than the available height, that left a
+     visible gap of dead space between the image's actual bottom edge
+     and .sc-viewer-bottom (the caption strip) below it, a separate flex
+     sibling. flex-end pins the image flush against that sibling (the
+     .sc-viewer-img-wrap flex gap is the only spacing left), pushing any
+     slack space above the image instead. */
+  justify-content: flex-end;
   overflow: hidden;
 }
 /* Waiting sign for the main viewer image -- a canvas has nothing to
@@ -1451,7 +1458,11 @@ body {
    FIX520.2.6.1: caption (when shown) sits as plain text, centred
    under the image — block layout with text-align:center centres the
    inline-block caption at the row's true centre, which lines up with
-   the image's centre above. */
+   the image's centre above. FIX520.2.6.1 (updated) "Always stuck under
+   the image": see .sc-viewer-img-scroll / .sc-fullscreen-img-wrap's
+   justify-content: flex-end -- this strip's own position (a plain flex
+   sibling right after the image container) hasn't moved, the image is
+   now flush against it instead of floating centred above a gap. */
 .sc-viewer-bottom {
   flex: 0 0 auto;
   position: relative;
@@ -1560,7 +1571,11 @@ body {
   min-height: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* FIX520.2.6.1 (updated), same fix as .sc-viewer-img-scroll: flush the
+     image against the caption strip below instead of centering it with
+     dead space underneath. The touch-capture area itself (this
+     container) still fills the full height either way. */
+  justify-content: flex-end;
   overflow: hidden;
   /* Disable browser pan-x so horizontal drags become swipes, not page
      scrolls. The overlay has no other horizontal scroll content. */

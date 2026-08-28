@@ -4252,6 +4252,12 @@ export default function CatalogueView({
           properties={properties}
           viewSetup={viewSetup}
           ratingSetup={data?.rating_setup}
+          // FIX512.2.2.1: same (folders, propertiesByLabel) pair
+          // ItemDetailsPanel gets, so the Image Caption rules table's
+          // Category dropdown can compute <setup-category-property>'s
+          // distinct values.
+          folders={data?.folders || []}
+          propertiesByLabel={propertiesByLabel}
           onCancel={() => setShowSetup(false)}
           onSave={handleSaveSetup}
         />

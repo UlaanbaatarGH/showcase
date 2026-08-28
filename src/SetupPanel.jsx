@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { saveSetup } from './data/backend.js';
 import LanguageSetupPanel from './LanguageSetupPanel.jsx';
 import { IconAdd, IconDelete, RATING_ICONS } from './Icons.jsx';
+import { computePropertyValue } from './properties/formulas.js';
 
 // FIX507.4.5 <rating-icon>: exactly three fixed rating symbols -- green
 // tick (interested), orange question mark (not sure yet), red cross
@@ -39,6 +40,13 @@ export default function SetupPanel({
   properties: initialProperties,
   viewSetup: initialViewSetup,
   ratingSetup: initialRatingSetup,
+  // FIX512.2.2.1: the Image Caption rules table's Category column is a
+  // dropdown of <setup-category-property>'s distinct values across the
+  // project's items -- needs the same (folders, propertiesByLabel) pair
+  // ItemDetailsPanel already receives from CatalogueView for the same
+  // kind of per-property value lookup (computePropertyValue).
+  folders,
+  propertiesByLabel,
   onSave,
   onCancel,
 }) {
@@ -60,6 +68,11 @@ export default function SetupPanel({
     // the item's date. Used by FIX510.5.2 / FIX374.2.16 to optionally
     // hide items missing a date. null = no such property.
     date_property_id: initialViewSetup?.item_filters?.date_property_id ?? null,
+    // FIX506.2.5 / <setup-category-property>: id of the property that
+    // holds the item's category. Feeds the Image Caption rules table's
+    // Category column (FIX512.2.2.1) with the distinct values that
+    // property takes across the project's items. null = no such property.
+    category_property_id: initialViewSetup?.item_filters?.category_property_id ?? null,
   });
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
   // view_setup directly (not under item_filters) since they affect the
@@ -126,6 +139,88 @@ export default function SetupPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
+
+  // FIX512.2.2 <setup-table-caption-rules>: local-only for now -- no FIX
+  // yet defines where these rules persist (unlike properties/view_setup/
+  // rating, which all round-trip through handleSave below), so Add/Del/
+  // edit here don't survive a Cancel or reopen. FIX512.2.2.10: multiple
+  // rows can be selected at once (Click / Ctrl-click / Shift-click),
+  // unlike <table-rating-values>'s single-row selection.
+  const [imgCaptionRules, setImgCaptionRules] = useState([]);
+  const [selectedRuleIdxs, setSelectedRuleIdxs] = useState(() => new Set());
+  const [ruleAnchor, setRuleAnchor] = useState(null);
+  const [nextTempRuleId, setNextTempRuleId] = useState(-1);
+  // FIX512.3.1 (2nd bullet, del) confirmation popup: spec labels both the
+  // Add and Del action bullets "FIX512.3.1" -- likely a typo for the Del
+  // one (probably meant .3.2); flagging here rather than silently
+  // renumbering the spec (NCF).
+  const [ruleDeleteConfirm, setRuleDeleteConfirm] = useState(false);
+
+  // FIX512.2.2.1 <img-caption-category>: the Category column's dropdown
+  // lists the distinct non-blank values <setup-category-property> takes
+  // across the project's items -- same per-property value lookup
+  // ItemDetailsPanel already does (computePropertyValue), just collected
+  // across every folder instead of rendered for one.
+  const categoryProperty = properties.find((p) => p.id === itemFilters.category_property_id) ?? null;
+  const categoryValueOptions = useMemo(() => {
+    if (!categoryProperty) return [];
+    const set = new Set();
+    for (const f of folders ?? []) {
+      const s = String(computePropertyValue(f, categoryProperty, propertiesByLabel) ?? '').trim();
+      if (s) set.add(s);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryProperty?.id, categoryProperty?.formula, folders, propertiesByLabel]);
+
+  // FIX512.2.2.10: plain click selects only that row; Ctrl/Cmd-click
+  // toggles it into/out of the selection; Shift-click selects the
+  // anchor..clicked range. Same conventions as the Image List editor's
+  // row multi-select (FIX521.2.1.9), scaled down to what FIX512 asks for.
+  const handleRuleRowClick = (e, idx) => {
+    if (e.shiftKey && ruleAnchor != null) {
+      const lo = Math.min(ruleAnchor, idx);
+      const hi = Math.max(ruleAnchor, idx);
+      const range = new Set();
+      for (let i = lo; i <= hi; i++) range.add(i);
+      setSelectedRuleIdxs(range);
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedRuleIdxs((prev) => {
+        const next = new Set(prev);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        return next;
+      });
+      setRuleAnchor(idx);
+      return;
+    }
+    setSelectedRuleIdxs(new Set([idx]));
+    setRuleAnchor(idx);
+  };
+  // FIX512.3.1 (1st bullet) <cmd-add-rule>: adds a new rule at the bottom
+  // of the table, selected so it's immediately editable.
+  const addCaptionRule = () => {
+    setImgCaptionRules((prev) => {
+      const next = [...prev, { id: nextTempRuleId, category: '', rule: '' }];
+      setSelectedRuleIdxs(new Set([next.length - 1]));
+      setRuleAnchor(next.length - 1);
+      return next;
+    });
+    setNextTempRuleId((n) => n - 1);
+  };
+  // FIX512.2.11 <cmd-del-rule>: enabled only when 1+ rows selected (gated
+  // in the JSX below). FIX512.3.1 (2nd bullet): confirm before removing.
+  const confirmRemoveCaptionRules = () => {
+    setImgCaptionRules((prev) => prev.filter((_, i) => !selectedRuleIdxs.has(i)));
+    setSelectedRuleIdxs(new Set());
+    setRuleAnchor(null);
+    setRuleDeleteConfirm(false);
+  };
+  const updateCaptionRule = (i, patch) => {
+    setImgCaptionRules((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  };
 
   const handleSave = async () => {
     // FIX509: every label cell on the Language tab autosaves on
@@ -639,16 +734,88 @@ export default function SetupPanel({
           )}
           {activeTab === 'imgCaption' && (
             /* FIX512 / FIX512.0 <panel-img-caption-setup>: opened via
-               FIX505.3.6. FIX512.1 defines only the panel's purpose so
-               far (create automatic image caption based on item
-               properties) -- no fields/layout are spec'd yet (NFNI), so
-               this is a placeholder shell until a follow-up FIX defines
-               <panel-img-caption-setup>'s actual UI. */
+               FIX505.3.6. FIX512.1 Purpose: create automatic image
+               caption based on item properties. FIX512.2 UI Layout /
+               FIX512.2.1 diagram: an Add/Del toolbar above
+               <setup-table-caption-rules>. */
             <section className="setup-section" data-yagu-id="panel-img-caption-setup">
               <h3>Image Captions</h3>
-              <p className="setup-empty">
-                Create automatic image captions based on item properties — configuration coming soon.
+              <p className="setup-hint">
+                Create automatic image captions based on item properties.
               </p>
+              {/* FIX512.2.1 diagram order is Add then Del (left to right),
+                  unlike the Rating tab's Del-then-Add toolbar above. */}
+              <div className="setup-selectable-toolbar">
+                <button
+                  type="button"
+                  className="users-add"
+                  data-yagu-id="cmd-add-rule"
+                  onClick={addCaptionRule}
+                  aria-label="Add rule"
+                  title="Add rule"
+                >
+                  <IconAdd size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="users-remove"
+                  data-yagu-id="cmd-del-rule"
+                  onClick={() => setRuleDeleteConfirm(true)}
+                  disabled={selectedRuleIdxs.size === 0}
+                  aria-label="Delete rule"
+                  title="Delete selected rule(s)"
+                >
+                  <IconDelete size={20} />
+                </button>
+              </div>
+              <table className="setup-items" data-yagu-id="setup-table-caption-rules">
+                <thead>
+                  <tr>
+                    <th style={{ width: '10rem' }}>Category</th>
+                    <th>Caption rule</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {imgCaptionRules.length === 0 && (
+                    <tr>
+                      <td colSpan={2} className="setup-empty">No caption rule defined.</td>
+                    </tr>
+                  )}
+                  {imgCaptionRules.map((r, i) => (
+                    <tr
+                      key={r.id ?? `new-${i}`}
+                      className={selectedRuleIdxs.has(i) ? 'selected' : ''}
+                      onClick={(e) => handleRuleRowClick(e, i)}
+                    >
+                      {/* FIX512.2.2.1 <img-caption-category>: dropdown of
+                          <setup-category-property>'s distinct values.
+                          Inline edition. */}
+                      <td>
+                        <select
+                          data-yagu-id="img-caption-category"
+                          value={r.category ?? ''}
+                          onChange={(e) => updateCaptionRule(i, { category: e.target.value })}
+                        >
+                          <option value="">— none —</option>
+                          {categoryValueOptions.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </td>
+                      {/* FIX512.2.2.2 <img-caption-rule>: several-line
+                          input text. Inline edition. */}
+                      <td>
+                        <textarea
+                          data-yagu-id="img-caption-rule"
+                          rows={2}
+                          value={r.rule ?? ''}
+                          onChange={(e) => updateCaptionRule(i, { rule: e.target.value })}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </section>
           )}
           {activeTab === 'rating' && (
@@ -952,6 +1119,29 @@ export default function SetupPanel({
                   <option key={p.id} value={p.id}>{p.label}</option>
                 ))}
             </select>
+
+            {/* FIX506.2.5 / <setup-category-property>: pick the property
+                whose value categorizes an item. Feeds the Image Caption
+                rules table's Category column (FIX512.2.2.1) with that
+                property's distinct values. */}
+            <h3>Property providing item category</h3>
+            <select
+              data-yagu-id="setup-category-property"
+              value={itemFilters.category_property_id ?? ''}
+              onChange={(e) =>
+                setItemFilters({
+                  ...itemFilters,
+                  category_property_id: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
+            >
+              <option value="">— none —</option>
+              {properties
+                .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+            </select>
           </section>
           )}
         </div>
@@ -985,6 +1175,24 @@ export default function SetupPanel({
                 Cancel
               </button>
               <button type="button" className="primary" onClick={confirmRemoveRatingValue}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX512.3.1 (2nd bullet): Title 'Rule deletion', message 'Confirm
+          rule deletion', buttons Cancel/Delete. */}
+      {ruleDeleteConfirm && (
+        <div className="setup-overlay" onMouseDown={() => setRuleDeleteConfirm(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Rule deletion</strong></p>
+            <p>Confirm rule deletion</p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setRuleDeleteConfirm(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmRemoveCaptionRules}>
                 Delete
               </button>
             </div>

@@ -369,6 +369,23 @@ body {
   outline: none;
   border-color: #667;
 }
+/* FIX512.2.2.2 <img-caption-rule>: several-line input text, inline
+   edition -- same look as the text/number inputs above. */
+.setup-items textarea {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+  font-size: 0.875rem;
+  background: #232338;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 3px;
+  resize: vertical;
+}
+.setup-items textarea:focus {
+  outline: none;
+  border-color: #667;
+}
 .setup-items select {
   width: 100%;
   padding: 0.3rem 0.4rem;

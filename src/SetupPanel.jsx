@@ -790,9 +790,7 @@ export default function SetupPanel({
               </p>
               {/* FIX512.2.0[ex-512.2.1] diagram order: Add, Del, Up, Down
                   (left to right), unlike the Rating tab's Del-then-Add
-                  toolbar above. Diagram wasn't updated to show the new Op
-                  column (FIX512.2.2.4) -- placed via the itemized entry,
-                  see the table below. */}
+                  toolbar above. */}
               <div className="setup-selectable-toolbar">
                 <button
                   type="button"
@@ -843,10 +841,12 @@ export default function SetupPanel({
               </div>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>
+                  {/* FIX512.2.0[ex-512.2.1]: column order is Op, Category,
+                      Shape, Caption. */}
                   <tr>
+                    <th style={{ width: '8rem' }}>Op</th>
                     <th style={{ width: '10rem' }}>Category</th>
                     <th style={{ width: '10rem' }}>Shape</th>
-                    <th style={{ width: '8rem' }}>Op</th>
                     {/* FIX512.2.2.2 (updated): header label shortened
                         'Caption rule' -> 'Caption' (id <img-caption-rule>
                         unchanged). Spec has a stray unclosed quote around
@@ -867,6 +867,18 @@ export default function SetupPanel({
                       className={selectedRuleIdxs.has(i) ? 'selected' : ''}
                       onClick={(e) => handleRuleRowClick(e, i)}
                     >
+                      {/* FIX512.2.2.4 <img-caption-op>: dropdown, fixed
+                          {'is', 'starts with'} values. Inline edition. */}
+                      <td>
+                        <select
+                          data-yagu-id="img-caption-op"
+                          value={r.op ?? 'is'}
+                          onChange={(e) => updateCaptionRule(i, { op: e.target.value })}
+                        >
+                          <option value="is">is</option>
+                          <option value="starts with">starts with</option>
+                        </select>
+                      </td>
                       {/* FIX512.2.2.1 <img-caption-category>: dropdown of
                           <setup-category-property>'s distinct values.
                           Inline edition. */}
@@ -904,21 +916,6 @@ export default function SetupPanel({
                           {shapeOptionsFor(r.category ?? '').map((v) => (
                             <option key={v} value={v}>{v}</option>
                           ))}
-                        </select>
-                      </td>
-                      {/* FIX512.2.2.4 <img-caption-op>: dropdown, fixed
-                          {'is', 'starts with'} values. Inline edition.
-                          Not in the FIX512.2.0 diagram (flagged above) --
-                          placed between the match columns (Category,
-                          Shape) and the resulting Caption rule text. */}
-                      <td>
-                        <select
-                          data-yagu-id="img-caption-op"
-                          value={r.op ?? 'is'}
-                          onChange={(e) => updateCaptionRule(i, { op: e.target.value })}
-                        >
-                          <option value="is">is</option>
-                          <option value="starts with">starts with</option>
                         </select>
                       </td>
                       {/* FIX512.2.2.2 <img-caption-rule>: several-line

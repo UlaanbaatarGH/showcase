@@ -1360,6 +1360,21 @@ body {
 .sc-viewer-img-scroll.zoomed.panning {
   cursor: grabbing;
 }
+/* FIX526.3 (updated): zoomed, .sc-viewer-bottom would otherwise scroll
+   off with the rest of the (now-scrollable) column -- position:sticky
+   keeps it pinned to panel-img's own bottom edge regardless of scroll
+   position ("cannot disappear"). Only while zoomed: unzoomed there's no
+   scrolling to stick within, so this is a no-op there and doesn't
+   disturb FIX525.2.10's normal-flow centering. The background is an
+   implementation necessity, not a separate spec item -- without it the
+   caption is unreadable over whatever part of the (still scrolling
+   underneath) image happens to sit behind it. */
+.sc-viewer-img-scroll.zoomed .sc-viewer-bottom {
+  position: sticky;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+}
 /* FIX520.2.10 Toolbox (edition mode). */
 .sc-viewer-toolbox {
   flex: 0 0 auto;
@@ -1604,6 +1619,13 @@ body {
 }
 .sc-fullscreen-img-wrap.zoomed.panning {
   cursor: grabbing;
+}
+/* FIX526.3 (updated), same as .sc-viewer-img-scroll.zoomed above. */
+.sc-fullscreen-img-wrap.zoomed .sc-viewer-bottom {
+  position: sticky;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
 }
 .sc-fullscreen-img {
   max-width: 100%;

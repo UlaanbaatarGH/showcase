@@ -893,6 +893,11 @@ export default function SetupPanel({
                   value={imgCaptionHeight}
                   onChange={(e) => setImgCaptionHeight(e.target.value)}
                   required
+                  // FIX512.2.0 diagram shows a small [ ] box -- override
+                  // .setup-inline-row's shared flex:1 stretch (fine for
+                  // the Rating tab's threshold field, wrong here since
+                  // this only ever holds 2-3 digits).
+                  style={{ flex: '0 0 auto', width: '4rem' }}
                 />
                 <span>px</span>
               </label>

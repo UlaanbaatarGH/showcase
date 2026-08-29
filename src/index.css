@@ -1461,6 +1461,14 @@ body {
 .sc-viewer-img {
   max-width: 100%;
   max-height: 100%;
+  /* FIX525.2.10 bug fix: a flex item's default min-height is `auto`,
+     which for a replaced element with an intrinsic ratio resolves to
+     something close to its own max-height:100% size -- so it refused
+     to shrink for the .sc-viewer-bottom sibling now sharing this flex
+     column (a tall portrait photo could claim the whole column,
+     clipping the caption under overflow:hidden). min-height:0 lets the
+     default flex-shrink actually engage. */
+  min-height: 0;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -1630,6 +1638,8 @@ body {
 .sc-fullscreen-img {
   max-width: 100%;
   max-height: 100%;
+  /* FIX525.2.10 bug fix, same as .sc-viewer-img. */
+  min-height: 0;
   object-fit: contain;
 }
 /* FIX523.3.5 / FIX526.0 <panel-img-viewer-tools>: zoom slider row,

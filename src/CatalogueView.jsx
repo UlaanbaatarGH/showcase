@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useReducer } from 'react';
+﻿import { useEffect, useMemo, useState, useRef, useReducer } from 'react';
 import AdminMenu from './AdminMenu.jsx';
 import SetupPanel from './SetupPanel.jsx';
 import ShowcaseViewSetupPanel from './ShowcaseViewSetupPanel.jsx';
@@ -149,7 +149,7 @@ function getColumnValue(folder, col, propertiesById, propertiesByLabel, ratingSe
   return '';
 }
 
-// FIX520.3.4.2 / FIX520.4.7 <rating-conflict-detection>: mirrors the
+// FIX525.3.4.2 / FIX525.4.7 <rating-conflict-detection>: mirrors the
 // backend's own folder-level conflict computation (main.py's _is_high /
 // high_count loop) so setting or clearing a rating reassesses the item's
 // has_rating_conflict flag immediately, from the caller's own optimistic
@@ -988,10 +988,10 @@ export default function CatalogueView({
     const saved = Number(localStorage.getItem('sc-list-width'));
     return Number.isFinite(saved) && saved > 200 ? saved : 640;
   });
-  // FIX520.3.2: clicking the viewer image opens it in a full-screen
+  // FIX525.3.2: clicking the viewer image opens it in a full-screen
   // overlay; ESC (or clicking the backdrop) exits.
   const [fullScreen, setFullScreen] = useState(false);
-  // FIX520.3.3: zoom slider for the in-page viewer — 1 = fit (default),
+  // FIX526.3: zoom slider for the in-page viewer — 1 = fit (default),
   // >1 enlarges the image past the container so scrollbars appear.
   const [zoomLevel, setZoomLevel] = useState(1);
   // Waiting sign for the main viewer image (ShowcaseImageCanvas draws to a
@@ -1025,7 +1025,7 @@ export default function CatalogueView({
   const touchStartXRef = useRef(null);
   const touchStartYRef = useRef(null);
   const wasSwipeRef = useRef(false);
-  // FIX520.3.3: drag-to-pan while zoomed. viewerScrollRef is the scrolling
+  // FIX526.3: drag-to-pan while zoomed. viewerScrollRef is the scrolling
   // element itself (scrollLeft/scrollTop are moved directly on drag);
   // draggedRef tells the click handler a pan just happened so it doesn't
   // also open fullscreen.
@@ -1063,13 +1063,13 @@ export default function CatalogueView({
     );
   };
   const onImageClick = () => {
-    // FIX520.3.2: click opens fullscreen, but a horizontal swipe must
+    // FIX525.3.2: click opens fullscreen, but a horizontal swipe must
     // not also fire fullscreen (the touch sequence ends with a click).
     if (wasSwipeRef.current) {
       wasSwipeRef.current = false;
       return;
     }
-    // FIX520.3.3: a drag-to-pan gesture also ends with a click — don't
+    // FIX526.3: a drag-to-pan gesture also ends with a click — don't
     // let it also open fullscreen.
     if (draggedRef.current) {
       draggedRef.current = false;
@@ -1078,7 +1078,7 @@ export default function CatalogueView({
     setFullScreen(true);
   };
 
-  // FIX520.3.3: zoom slider — once zoomed, dragging on the image pans it
+  // FIX526.3: zoom slider — once zoomed, dragging on the image pans it
   // (hand-shape cursor), mirroring the scrollbars that appear alongside.
   const onZoomPointerDown = (e) => {
     if (zoomLevel <= 1) return;
@@ -1094,7 +1094,7 @@ export default function CatalogueView({
     };
     setIsPanning(true);
   };
-  // FIX520.3.3 (enhancement, not in the literal spec text — requested
+  // FIX526.3 (enhancement, not in the literal spec text — requested
   // directly in session): mouse wheel also drives the zoom slider.
   const onZoomWheel = (e) => {
     e.preventDefault();
@@ -1125,7 +1125,7 @@ export default function CatalogueView({
   }, [isPanning]);
 
   // FIX523.3.5: zoom slider — independent full-screen copy of the
-  // FIX520.3.3 drag-to-pan mechanics. fsDraggedRef also suppresses the
+  // FIX526.3 drag-to-pan mechanics. fsDraggedRef also suppresses the
   // backdrop's click-to-close so a pan gesture doesn't exit fullscreen.
   const onFsZoomPointerDown = (e) => {
     if (fsZoomLevel <= 1) return;
@@ -1919,7 +1919,7 @@ export default function CatalogueView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFolderId]);
 
-  // FIX520.3.3: zoom is per-image — reset to fit whenever the displayed
+  // FIX526.3: zoom is per-image — reset to fit whenever the displayed
   // image changes (folder switch or prev/next navigation).
   useEffect(() => {
     setZoomLevel(1);
@@ -2353,9 +2353,9 @@ export default function CatalogueView({
     setShowColumns(false);
   };
 
-  // FIX520.3.4 / FIX520.4.5: set (ratingValueId) or clear (null, the '0'
+  // FIX525.3.4 / FIX525.4.5: set (ratingValueId) or clear (null, the '0'
   // key) the logged-in user's own rating for an item. Optimistic update —
-  // FIX520.4.3 means this only ever touches the caller's own value.
+  // FIX525.4.3 means this only ever touches the caller's own value.
   const handleSetMyRating = (folderId, ratingValueId) => {
     const prevFolder = (data?.folders ?? []).find((f) => f.id === folderId);
     const prevRatingValueId = prevFolder?.my_rating_value_id ?? null;
@@ -2365,7 +2365,7 @@ export default function CatalogueView({
       ...prev,
       folders: (prev.folders ?? []).map((f) => {
         if (f.id !== folderId) return f;
-        // FIX520.4.6: also update the per-rater map so a User's rating
+        // FIX525.4.6: also update the per-rater map so a User's rating
         // list column for the caller's own user reflects the change
         // immediately, without waiting for a reload.
         const nextRatingsByUser = profile?.id
@@ -2375,7 +2375,7 @@ export default function CatalogueView({
           ...f,
           my_rating_value_id: ratingValueId,
           ratings_by_user: nextRatingsByUser,
-          // FIX520.3.4.2: clearing (or setting) reassesses this item's
+          // FIX525.3.4.2: clearing (or setting) reassesses this item's
           // conflict flag right away, from the caller's own updated
           // rating alongside every other rater's already-known one --
           // not left stale until the next full reload.
@@ -2406,7 +2406,7 @@ export default function CatalogueView({
     });
   };
 
-  // FIX520.2.7 / FIX520.4.4 <icon-rating>: null whenever rating is off or
+  // FIX520.2.4 / FIX525.4.4 <icon-rating>: null whenever rating is off or
   // the caller has no rating entered for the current item.
   const renderRatingIcon = () => {
     if (!data?.rating_setup?.enabled) return null;
@@ -2419,7 +2419,7 @@ export default function CatalogueView({
     return (
       <div className="sc-viewer-rating-icon" data-yagu-id="icon-rating" title={rv.text}>
         <RatingIconComp size={22} />
-        {/* FIX520.4.8 <item-with-conflicting-rating>: smaller, right
+        {/* FIX525.4.8 <item-with-conflicting-rating>: smaller, right
             after the rating icon. */}
         {folder?.has_rating_conflict && (
           <IconRatingConflict size={14} className="sc-viewer-rating-conflict" />
@@ -2456,7 +2456,7 @@ export default function CatalogueView({
   // Skipped when a modal is open, when focus is in an editable field (so
   // filter / dialog inputs still behave natively), and mid-crop (the user
   // is selecting corners and shouldn't lose the image under them).
-  // FIX520.3.2: ESC exits full-screen image view. Runs before the main
+  // FIX525.3.2: ESC exits full-screen image view. Runs before the main
   // keyboard handler below so it's active even when the viewer is in
   // edition mode.
   useEffect(() => {
@@ -2468,7 +2468,7 @@ export default function CatalogueView({
     return () => document.removeEventListener('keydown', onKey);
   }, [fullScreen]);
 
-  // FIX520.3.2.1: also wire the system "back" navigation (smartphone
+  // FIX525.3.2.1: also wire the system "back" navigation (smartphone
   // back gesture / browser back button) to leave fullscreen, instead of
   // letting it pop the page off the project entirely. Push a history
   // entry on open so the next "back" lands on our popstate handler;
@@ -2495,15 +2495,15 @@ export default function CatalogueView({
       const tag = ae?.tagName;
       const editable =
         tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
-      // FIX520.3.4 / FIX520.3.4.0 <action-item-rating>: '0' clears the
+      // FIX525.3.4 / FIX525.3.4.0 <action-item-rating>: '0' clears the
       // rating; any other single digit N sets the Nth <table-rating-values>
       // row (not capped at 2 — the spec's '1'/'2'/'...' pattern generalizes
-      // to however many rows are configured). FIX520.3.4.1: gated on both
+      // to however many rows are configured). FIX525.3.4.1: gated on both
       // field-enable-rating AND the caller being a registered+enabled rater
       // (isRegisteredRater) -- previously only the former was checked here,
       // so a logged-in non-rater's keypress would optimistically flash a
       // rating before the backend's own check (FIX507.2.3.1.3) silently
-      // reverted it (FIX520.4.5); this stops it before that round-trip.
+      // reverted it (FIX525.4.5); this stops it before that round-trip.
       // FIX510.3.5: same in and out of fullscreen, and whether or not an
       // item is open in the image viewer -- this runs before the
       // fullscreen branch splits off, so <action-item-rating> is just as
@@ -2519,7 +2519,7 @@ export default function CatalogueView({
         }
         return;
       }
-      // FIX520.3.2.2: in fullscreen, ←/→ still navigate images (Prev/Next),
+      // FIX525.3.2.2: in fullscreen, ←/→ still navigate images (Prev/Next),
       // but ↑/↓ are ignored (no item table to walk through).
       if (fullScreen) {
         if (e.key === 'ArrowLeft') {
@@ -2677,7 +2677,7 @@ export default function CatalogueView({
 
   const currentImage = images[currentImageIdx];
 
-  // FIX520.4.9: when the image has no user-defined caption, fall back to
+  // FIX525.4.9: when the image has no user-defined caption, fall back to
   // the first matching rule from <setup-table-caption-rules>
   // (FIX512.2.2 / FIX512.4.2 / FIX512.4.3). Rules are evaluated against
   // the ITEM's category/shape properties (<setup-category-property> /
@@ -2701,7 +2701,7 @@ export default function CatalogueView({
         )
       : null
   );
-  // FIX520.2.6 (updated): caption font size comes from
+  // FIX525.2.2 (updated): caption font size comes from
   // <setup-img-caption-height> (FIX512.2.1) when set; undefined leaves
   // .sc-viewer-caption's existing 1rem CSS default (no value stored yet
   // for a project that hasn't visited the new Setup field).
@@ -3911,9 +3911,12 @@ export default function CatalogueView({
             </div>
           </div>
           {viewerTab === 'images' ? (
-            // FIX515.2.1.1 <panel-item-img-list>: the Images tab -- list of
-            // this item's images and their attributes, integrating the
-            // (read-only or, in edition mode, editable) img viewer itself.
+            // FIX515.2.1.1 / FIX520.0 <panel-item-img-list>: the Images
+            // tab -- list of this item's images and their attributes,
+            // integrating the (read-only or, in edition mode, editable)
+            // img viewer itself. FIX520(deep-old) rephrase reuses this
+            // same id (previously unattached to any element) rather than
+            // the old, never-implemented <panel-showcase-img-viewer>.
             <div className="sc-item-img-list-wrap" data-yagu-id="panel-item-img-list">
             {
             // FIX515.3.2.1: when the user clicks <button-edit> on the Images
@@ -4057,15 +4060,15 @@ export default function CatalogueView({
                 r.count > 1 ? `${r.section} (${r.count})` : r.section;
               const subLabel = (it) =>
                 it.run.count > 1 ? `${it.sub} (${it.run.count})` : it.sub;
-              // FIX520.2.10 (updated, deep-old retires the earlier
+              // FIX520.2.5.0 (updated, deep-old retires the earlier
               // sections-panel-vs-caption-strip split): {index-block} is
               // now always overlaid on the image's own bottom-left corner
               // (rendered next to renderRatingIcon() below), regardless of
               // whether the sections panel is shown.
               const navPill = currentImage ? (
                 <div className="sc-viewer-nav">
-                  {/* FIX520.2.4.1 <cmd-prev-img> (button-prev, retired by
-                      the FIX520.2(deep-old) cascade, is renamed here). */}
+                  {/* FIX520.2.5.1 <cmd-prev-img> (button-prev, retired by
+                      the FIX520(deep-old) cascade, is renamed here). */}
                   <button
                     type="button"
                     data-yagu-id="cmd-prev-img"
@@ -4075,15 +4078,15 @@ export default function CatalogueView({
                   >
                     ‹
                   </button>
-                  {/* FIX520.2.4.2 / FIX520.2.4.0 <label-image-index>. */}
+                  {/* FIX520.2.5.2 / FIX520.2.5.0 <label-image-index>. */}
                   <span
                     className="sc-viewer-pos"
                     data-yagu-id="label-image-index"
                   >
                     {currentImageIdx + 1} / {images.length}
                   </span>
-                  {/* FIX520.2.4.3 <cmd-next-img> (button-next, retired by
-                      the FIX520.2(deep-old) cascade, is renamed here). */}
+                  {/* FIX520.2.5.3 <cmd-next-img> (button-next, retired by
+                      the FIX520(deep-old) cascade, is renamed here). */}
                   <button
                     type="button"
                     data-yagu-id="cmd-next-img"
@@ -4172,23 +4175,29 @@ export default function CatalogueView({
                   <div className="sc-viewer-main">
                     {currentImage ? (
                       <>
-                        {/* FIX520.2 (updated): image fills the column;
-                            {index-block} overlays its bottom-left corner
-                            (FIX520.2.10) and <icon-rating> its top-right
-                            (FIX520.2.7.1); the caption strip (FIX520.2.6)
-                            sits below, on its own row. */}
+                        {/* FIX520.2 (updated): <panel-img-viewer-tools>
+                            (FIX526) pinned above; <panel-img> (FIX525)
+                            fills the rest -- <icon-rating> overlays its
+                            top-right corner (FIX520.2.4), {index-block}
+                            its bottom-left (FIX520.2.5.0), and the
+                            {image}+{caption} block (FIX525.2.10) is
+                            vertically centred within it, the caption
+                            always docked to the image's own bottom edge. */}
                         <div className="sc-viewer-img-wrap">
-                          {/* FIX520.3.3: zoom slider — displays the image
-                              bigger; past 1x the scroll region below grows
+                          {/* FIX526 <panel-img-viewer-tools> / FIX526.2.1
+                              <cmd-zoom-slider>: displays the image bigger;
+                              past 1x the scroll region below grows
                               scrollbars and switches to a hand cursor for
-                              drag-to-pan. */}
+                              drag-to-pan (FIX526.3). */}
                           <div
                             className="sc-viewer-zoom"
+                            data-yagu-id="panel-img-viewer-tools"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <span className="sc-viewer-zoom-label">Zoom</span>
                             <input
                               type="range"
+                              data-yagu-id="cmd-zoom-slider"
                               min={1}
                               max={3}
                               step={0.1}
@@ -4203,6 +4212,7 @@ export default function CatalogueView({
                             className={`sc-viewer-img-scroll sc-viewer-img-clickable${
                               zoomLevel > 1 ? ' zoomed' : ''
                             }${isPanning ? ' panning' : ''}`}
+                            data-yagu-id="panel-img"
                             onClick={onImageClick}
                             onTouchStart={onImageTouchStart}
                             onTouchEnd={onImageTouchEnd}
@@ -4222,34 +4232,40 @@ export default function CatalogueView({
                               zoom={zoomLevel}
                               onLoadingChange={setMainImgLoading}
                             />
+                            {/* FIX525.2.2 / FIX525.2.10: the caption is now
+                                a sibling of the image WITHIN <panel-img>
+                                (not a sibling of the whole panel), so
+                                justify-content:center on .sc-viewer-img-scroll
+                                (index.css) centers the (image + caption)
+                                block as one unit, docked together. */}
+                            <div
+                              className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
+                            >
+                              {/* FIX525.4.9: falls back to the automatic
+                                  caption (effectiveImageCaption) only when
+                                  this image has no manually-entered one. */}
+                              {effectiveImageCaption && (
+                                <div
+                                  className="sc-viewer-caption"
+                                  data-yagu-id="label-img-caption"
+                                  style={captionFontStyle}
+                                >
+                                  {effectiveImageCaption}
+                                </div>
+                              )}
+                              {/* Experimental spike (uncommitted, no spec
+                                  item): size-info line, toggled by the
+                                  layers button / Space bar. */}
+                              {showImgSizeInfo && (
+                                <div className="sc-viewer-caption">
+                                  {formatImgSizeInfo(curImgSizeInfo)}
+                                </div>
+                              )}
+                            </div>
                             {mainImgLoading && <div className="sc-viewer-img-spinner" />}
                             {renderRatingIcon()}
                             {navPill}
                           </div>
-                        </div>
-                        <div
-                          className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
-                        >
-                          {/* FIX520.4.9: falls back to the automatic
-                              caption (effectiveImageCaption) only when
-                              this image has no manually-entered one. */}
-                          {effectiveImageCaption && (
-                            <div
-                              className="sc-viewer-caption"
-                              data-yagu-id="label-img-caption"
-                              style={captionFontStyle}
-                            >
-                              {effectiveImageCaption}
-                            </div>
-                          )}
-                          {/* Experimental spike (uncommitted, no spec item):
-                              size-info line, toggled by the layers button /
-                              Space bar. */}
-                          {showImgSizeInfo && (
-                            <div className="sc-viewer-caption">
-                              {formatImgSizeInfo(curImgSizeInfo)}
-                            </div>
-                          )}
                         </div>
                       </>
                     ) : (
@@ -4647,27 +4663,34 @@ export default function CatalogueView({
           popup) is gone per direct instruction — <project-introduction>
           had no other visible entry point, so it's effectively dormant
           data now (still stored/editable in Setup, just not surfaced). */}
-      {/* FIX520.3.2 + FIX523 <panel-showcase-img-viewer-fullscreen>:
+      {/* FIX525.3.2 + FIX523 <panel-showcase-img-viewer-fullscreen>:
           full-screen image overlay. FIX523.2: same layout as the
-          in-page viewer with no sections panel — image fills the
-          column, then a bottom strip carries the caption (centred)
-          and the nav pill (bottom-right). FIX523.3.1 ESC + FIX523.3.2
-          system back close the overlay (no in-overlay Back button —
-          rely on the navigator). FIX523.3.4 swipe handlers wired on
-          the image wrap. */}
+          in-page viewer with no sections panel — <panel-img-viewer-tools>
+          (FIX526) pinned above, then <panel-img> (FIX525) with the
+          (image + caption) block centred inside it (FIX525.2.10) and
+          <icon-rating> / {index-block} overlaid on its corners.
+          FIX523.3.1 ESC + FIX523.3.2 system back close the overlay (no
+          in-overlay Back button — rely on the navigator). FIX523.3.4
+          swipe handlers wired on the image wrap. */}
       {fullScreen && currentImage && (
         <div
           className="sc-fullscreen"
           data-yagu-id="panel-showcase-img-viewer-fullscreen"
           onClick={() => setFullScreen(false)}
         >
-          {/* FIX523.3.5: zoom slider — same mechanics as FIX520.3.3, own
-              state. Click swallowed so dragging the slider doesn't close
-              the overlay. */}
-          <div className="sc-fullscreen-zoom" onClick={(e) => e.stopPropagation()}>
+          {/* FIX526 <panel-img-viewer-tools> / FIX526.2.1
+              <cmd-zoom-slider>: same mechanics as the in-page one
+              (FIX526.3), own state. Click swallowed so dragging the
+              slider doesn't close the overlay. */}
+          <div
+            className="sc-fullscreen-zoom"
+            data-yagu-id="panel-img-viewer-tools"
+            onClick={(e) => e.stopPropagation()}
+          >
             <span className="sc-viewer-zoom-label">Zoom</span>
             <input
               type="range"
+              data-yagu-id="cmd-zoom-slider"
               min={1}
               max={3}
               step={0.1}
@@ -4680,6 +4703,7 @@ export default function CatalogueView({
           <div
             ref={fsViewerScrollRef}
             className={`sc-fullscreen-img-wrap${fsZoomLevel > 1 ? ' zoomed' : ''}${fsIsPanning ? ' panning' : ''}`}
+            data-yagu-id="panel-img"
             onTouchStart={onImageTouchStart}
             onTouchEnd={onImageTouchEnd}
             onMouseDown={onFsZoomPointerDown}
@@ -4703,9 +4727,38 @@ export default function CatalogueView({
               zoom={fsZoomLevel}
               onLoadingChange={setFsImgLoading}
             />
+            {/* FIX525.2.2 / FIX525.2.10: caption is a sibling of the image
+                WITHIN <panel-img> now (FIX523.2: same layout as the
+                in-page viewer), so justify-content:center on
+                .sc-fullscreen-img-wrap (index.css) centers the
+                (image + caption) block as one unit. Click swallowed so
+                the backdrop dismiss only fires on a real outside tap. */}
+            <div
+              className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* FIX525.4.9: same manual-caption-first fallback as the
+                  in-page viewer above. */}
+              {effectiveImageCaption && (
+                <div
+                  className="sc-viewer-caption"
+                  data-yagu-id="label-img-caption"
+                  style={captionFontStyle}
+                >
+                  {effectiveImageCaption}
+                </div>
+              )}
+              {/* Experimental spike (uncommitted, no spec item): same
+                  size-info line as the in-page viewer. */}
+              {showImgSizeInfo && (
+                <div className="sc-viewer-caption">
+                  {formatImgSizeInfo(curImgSizeInfo)}
+                </div>
+              )}
+            </div>
             {fsImgLoading && <div className="sc-viewer-img-spinner" />}
             {renderRatingIcon()}
-            {/* FIX523.3.3 / FIX520.2.10: prev / i-n / next pill, overlaid
+            {/* FIX523.3.3 / FIX520.2.5.0: prev / i-n / next pill, overlaid
                 on the image's bottom-left corner, identical to the
                 in-page nav (FIX523.2: "exactly the same layout"). Click
                 swallowed so the backdrop dismiss only fires on a real
@@ -4738,32 +4791,6 @@ export default function CatalogueView({
                 ›
               </button>
             </div>
-          </div>
-          {/* FIX523.2 / FIX520.2.6.1: caption strip below the image, own
-              row. Click here is swallowed so the backdrop dismiss only
-              fires on a real outside tap. */}
-          <div
-            className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* FIX520.4.9: same manual-caption-first fallback as the
-                in-page viewer above. */}
-            {effectiveImageCaption && (
-              <div
-                className="sc-viewer-caption"
-                data-yagu-id="label-img-caption"
-                style={captionFontStyle}
-              >
-                {effectiveImageCaption}
-              </div>
-            )}
-            {/* Experimental spike (uncommitted, no spec item): same
-                size-info line as the in-page viewer. */}
-            {showImgSizeInfo && (
-              <div className="sc-viewer-caption">
-                {formatImgSizeInfo(curImgSizeInfo)}
-              </div>
-            )}
           </div>
         </div>
       )}

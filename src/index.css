@@ -241,7 +241,7 @@ body {
   margin-top: 0.2rem;
 }
 /* FIX702.4.3 (updated) <item-with-conflicting-rating>: same icon as
-   <icon-rating>'s inline use (FIX520.4.8), inline after the ref now
+   <icon-rating>'s inline use (FIX525.4.8), inline after the ref now
    instead of overlaying the image. */
 .sc-rated-image-conflict {
   vertical-align: middle;
@@ -1252,7 +1252,8 @@ body {
   gap: 0.35rem;
   overflow: hidden;
 }
-/* FIX520.3.3: zoom slider, pinned above the (possibly scrolling) image. */
+/* FIX526.0 <panel-img-viewer-tools> / FIX526.2.1 <cmd-zoom-slider>:
+   pinned above the (possibly scrolling) <panel-img>. */
 .sc-viewer-zoom {
   flex: 0 0 auto;
   display: flex;
@@ -1267,34 +1268,36 @@ body {
   width: 100%;
   max-width: 220px;
 }
-/* FIX520.3.3: the actual scroll/pan region. At zoom 1 it behaves exactly
+/* FIX526.3: the actual scroll/pan region. At zoom 1 it behaves exactly
    like the old .sc-viewer-img-wrap (centered, no overflow). Past 1x,
    .zoomed switches to top-left alignment so the enlarged image grows into
    reachable scroll range (centering it would push half the extra size
    into unreachable negative overflow) and shows a hand cursor. */
+/* FIX525.0 <panel-img>: the full available area for the image, its
+   caption, and the <icon-rating> / {index-block} overlays anchored to
+   its corners. */
 .sc-viewer-img-scroll {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  /* FIX520.2.6.1 (updated) "Always stuck under the image", bug fix:
-     column was missing here, so this container defaulted to row --
-     justify-content (the main axis in row mode) was pushing the image
-     *horizontally*, doing nothing for the vertical gap the comment
-     below describes; align-items:center (row's cross axis) was the one
-     actually centering it vertically, leaving equal dead space above
-     AND below the image (visible as the caption/nav sitting far below
-     the image's real bottom edge, docked to the panel instead -- image
-     vs. panel confusion). With flex-direction:column declared, main
-     axis is vertical and justify-content:flex-end now does what the
-     comment always claimed: pins the image flush against
-     .sc-viewer-bottom (a separate flex sibling; the .sc-viewer-img-wrap
-     flex gap is the only spacing left), pushing all slack above the
-     image instead. align-items:center becomes the (correct, unchanged)
-     horizontal centering. */
+  /* FIX525.2.10 (deep-old rephrase of FIX520.2.6.1's earlier "always
+     stuck under the image"): the caption moved to be a sibling of the
+     image INSIDE this same box (CatalogueView.jsx), so centering both
+     as a column-direction flex group centers the (image + caption)
+     block as one unit -- flex-direction:column was already needed here
+     (bug-fix history: it was missing entirely at first, defaulting to
+     row and putting justify-content on the wrong axis; align-items was
+     doing the vertical centering by accident, splitting the same total
+     dead space evenly above/below and looking "close enough" until the
+     caption was pulled out to a separate sibling, which made the gap
+     between the image and the panel's true edge visible). Docking the
+     caption flush under the image is automatic (no gap, no absolute
+     positioning) since it's now a plain following flex child, not a
+     sibling of the whole panel. */
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   overflow: hidden;
 }
 /* Waiting sign for the main viewer image -- a canvas has nothing to
@@ -1313,7 +1316,8 @@ body {
   border-radius: 50%;
   animation: sc-gallery-spin 0.8s linear infinite;
 }
-/* FIX520.2.7.1 <icon-rating>: top right of the image. */
+/* FIX520.2.4 <icon-rating>: layer over the top right corner of
+   <panel-img>. */
 .sc-viewer-rating-icon {
   position: absolute;
   top: 0.5rem;
@@ -1329,16 +1333,16 @@ body {
   border-radius: 1rem;
   pointer-events: none;
 }
-/* FIX520.4.8 <item-with-conflicting-rating>: smaller than the rating
+/* FIX525.4.8 <item-with-conflicting-rating>: smaller than the rating
    icon it follows. */
 .sc-viewer-rating-conflict {
   flex-shrink: 0;
 }
-/* FIX520.2.10 (updated, deep-old retires the earlier right-aligned /
-   sections-column placement): {index-block} is a layer over the image's
+/* FIX520.2.5.0 (deep-old rephrase, further renumbered from the earlier
+   FIX520.2.10 pass): {index-block} is a layer over <panel-img>'s
    bottom-left corner, in both the in-page (.sc-viewer-img-scroll) and
-   fullscreen (.sc-fullscreen-img-wrap) viewers -- always, regardless of
-   whether the sections panel is shown. Both parents are already
+   fullscreen (.sc-fullscreen-img-wrap) instances -- always, regardless
+   of whether the sections panel is shown. Both parents are already
    position:relative. */
 .sc-viewer-img-scroll .sc-viewer-nav,
 .sc-fullscreen-img-wrap .sc-viewer-nav {
@@ -1466,17 +1470,17 @@ body {
   font-size: 1rem;
   text-align: center;
 }
-/* FIX520.2 (updated): bottom strip below the image — holds only
-   <label-img-caption> now (FIX520.2.10 (updated) moved the prev/i-n/next
-   nav pill onto the image itself, see .sc-viewer-img-scroll
-   .sc-viewer-nav above).
-   FIX520.2.6.1 (updated): caption (when shown) sits as plain text,
-   centred under the image, always stuck against it -- block layout with
-   text-align:center centres the inline-block caption at the row's true
-   centre, which lines up with the image's centre above; see
-   .sc-viewer-img-scroll / .sc-fullscreen-img-wrap's justify-content:
-   flex-end for the "stuck against" half (the image is flush against
-   this strip instead of floating centred above a gap). */
+/* FIX525.2.2 / FIX525.2.2.1 <label-img-caption>: holds only the caption
+   now -- {index-block} lives as a corner overlay of <panel-img> (see
+   .sc-viewer-img-scroll .sc-viewer-nav above), not in this strip.
+   FIX525.2.10: this is now a plain flex child of .sc-viewer-img-scroll /
+   .sc-fullscreen-img-wrap (CatalogueView.jsx), immediately after the
+   image, rather than a sibling of the whole panel -- so it's
+   automatically docked flush under the image with no gap and no
+   absolute positioning, and the two together get centred as one group
+   by the parent's justify-content:center. Caption text itself: block
+   layout with text-align:center centres the inline-block caption at the
+   row's true centre, lining up with the image's centre above. */
 .sc-viewer-bottom {
   flex: 0 0 auto;
   min-height: 1.6rem;
@@ -1494,10 +1498,10 @@ body {
 }
 .sc-viewer-nav {
   flex: 0 0 auto;
-  /* FIX520.2.10 (updated): compact rounded-pill nav, sized to its
-     content ("Stick to the minimum width"). Same font-size as the
-     caption so both read at the same scale. Tight gap + padding so
-     the pill doesn't dominate the image it's overlaid on. Theme-driven
+  /* FIX520.2.5.0: compact rounded-pill nav, sized to its content
+     ("Stick to the minimum width"). Same font-size as the caption so
+     both read at the same scale. Tight gap + padding so the pill
+     doesn't dominate the image it's overlaid on. Theme-driven
      background (no hardcoded black) so it reads cleanly over any
      image. nowrap so it can't be forced onto two lines. */
   display: inline-flex;
@@ -1545,15 +1549,16 @@ body {
   font-size: 1rem;
   opacity: 0.6;
 }
-/* FIX520.3.2: click-to-full-screen affordance on the viewer image. */
+/* FIX525.3.2: click-to-full-screen affordance on the viewer image. */
 .sc-viewer-img-clickable {
   cursor: zoom-in;
 }
 /* FIX523 <panel-showcase-img-viewer-fullscreen>: flex column — the
-   image area takes all available height; the caption strip (sharing
-   .sc-viewer-bottom with the in-page viewer) sits at the bottom. The
-   nav pill overlays the image itself (.sc-fullscreen-img-wrap
-   .sc-viewer-nav above), same as the in-page viewer. */
+   zoom tools row (FIX526) is pinned to the top; <panel-img> (FIX525,
+   sharing .sc-fullscreen-img-wrap with the caption strip nested inside
+   it) takes the rest. The nav pill and rating icon overlay panel-img's
+   corners (.sc-fullscreen-img-wrap .sc-viewer-nav above), same as the
+   in-page viewer. */
 .sc-fullscreen {
   position: fixed;
   inset: 0;
@@ -1565,8 +1570,10 @@ body {
   padding: 0.75rem;
   gap: 0.5rem;
 }
+/* FIX525.0 <panel-img>, fullscreen instance -- same role as
+   .sc-viewer-img-scroll. */
 .sc-fullscreen-img-wrap {
-  /* FIX523.3.4 / FIX520.3.2.3: dedicated touch surface for swipe-to-
+  /* FIX523.3.4 / FIX525.3.2.3: dedicated touch surface for swipe-to-
      navigate. Fills the available height so a swipe anywhere over
      the image area is captured, regardless of the image's actual
      rendered size. */
@@ -1574,17 +1581,15 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  /* FIX520.2.6.1 (updated), same bug fix as .sc-viewer-img-scroll: this
-     was missing flex-direction:column, so justify-content:flex-end was
-     acting on the wrong (horizontal) axis and the image just stayed
-     vertically centered -- gap above and below alike, docked to the
-     panel rather than the image. column makes justify-content:flex-end
-     flush the image against the caption strip below instead of leaving
-     dead space underneath. The touch-capture area itself (this
-     container) still fills the full height either way. */
+  /* FIX525.2.10, same as .sc-viewer-img-scroll: the caption is now a
+     sibling of the image inside this box, so centering the column
+     group centers the (image + caption) block as one unit, caption
+     flush under the image with no extra positioning needed. The
+     touch-capture area itself (this container) still fills the full
+     height either way. */
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   overflow: hidden;
   /* Disable browser pan-x so horizontal drags become swipes, not page
      scrolls. The overlay has no other horizontal scroll content. */
@@ -1605,7 +1610,8 @@ body {
   max-height: 100%;
   object-fit: contain;
 }
-/* FIX523.3.5: zoom slider row, pinned to the top of the overlay. */
+/* FIX523.3.5 / FIX526.0 <panel-img-viewer-tools>: zoom slider row,
+   pinned to the top of the overlay. */
 .sc-fullscreen-zoom {
   flex: 0 0 auto;
   display: flex;
@@ -1619,7 +1625,7 @@ body {
 }
 /* FIX523.3.2: closing fullscreen relies on the navigator's back
    button + ESC + backdrop tap. No in-overlay Back button is rendered.
-   FIX520.3.2.2 + FIX523.3.3: nav reuses the in-page .sc-viewer-nav
+   FIX525.3.2.2 + FIX523.3.3: nav reuses the in-page .sc-viewer-nav
    styling and positioning (.sc-fullscreen-img-wrap .sc-viewer-nav
    above), overlaid on the image like the in-page viewer. */
 

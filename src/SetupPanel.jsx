@@ -178,8 +178,9 @@ export default function SetupPanel({
   // renumbering the spec (NCF).
   const [ruleDeleteConfirm, setRuleDeleteConfirm] = useState(false);
 
-  // FIX512.2.2.1 <img-caption-category>: the Category column's dropdown
-  // lists the distinct non-blank values <setup-category-property> takes
+  // FIX512.2.2.1.2[ex-512.2.2.1] <img-caption-category>: the Category
+  // sub-column's dropdown lists the distinct non-blank values
+  // <setup-category-property> takes
   // across the project's items -- same per-property value lookup
   // ItemDetailsPanel already does (computePropertyValue), just collected
   // across every folder instead of rendered for one.
@@ -870,11 +871,11 @@ export default function SetupPanel({
               </div>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>
-                  {/* FIX512.2.0[ex-512.2.1]: column order is Op, Category,
-                      Shape, Caption. */}
+                  {/* FIX512.2.0 (updated): column order is Category (a
+                      merged header over the Op/Category sub-columns,
+                      FIX512.2.2.1), Shape, Caption. */}
                   <tr>
-                    <th style={{ width: '8rem' }}>Op</th>
-                    <th style={{ width: '10rem' }}>Category</th>
+                    <th style={{ width: '14rem' }} colSpan={2}>Category</th>
                     <th style={{ width: '10rem' }}>Shape</th>
                     {/* FIX512.2.2.2 (updated, twice): header label
                         shortened 'Caption rule' -> 'Caption', and the id
@@ -897,8 +898,10 @@ export default function SetupPanel({
                       className={selectedRuleIdxs.has(i) ? 'selected' : ''}
                       onClick={(e) => handleRuleRowClick(e, i)}
                     >
-                      {/* FIX512.2.2.4 <img-caption-op>: dropdown, fixed
-                          {'is', 'starts with'} values. Inline edition. */}
+                      {/* FIX512.2.2.1.1[ex-512.2.2.4] <img-caption-op>:
+                          dropdown, fixed {'is', 'starts with'} values.
+                          Inline edition. Unnamed sub-column of the merged
+                          'Category' header (FIX512.2.2.1 updated). */}
                       <td>
                         <select
                           data-yagu-id="img-caption-op"
@@ -909,11 +912,12 @@ export default function SetupPanel({
                           <option value="starts with">starts with</option>
                         </select>
                       </td>
-                      {/* FIX512.2.2.1 <img-caption-category>: dropdown of
-                          <setup-category-property>'s distinct values.
-                          Inline edition. FIX512.4.1 (updated): no longer
-                          clears Shape on change -- shape no longer
-                          depends on category. */}
+                      {/* FIX512.2.2.1.2[ex-512.2.2.1] <img-caption-category>:
+                          dropdown of <setup-category-property>'s distinct
+                          values. Inline edition. Unnamed sub-column of the
+                          merged 'Category' header (FIX512.2.2.1 updated).
+                          FIX512.4.1 (updated): no longer clears Shape on
+                          change -- shape no longer depends on category. */}
                       <td>
                         <select
                           data-yagu-id="img-caption-category"

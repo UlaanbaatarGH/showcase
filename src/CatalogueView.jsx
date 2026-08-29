@@ -2701,6 +2701,13 @@ export default function CatalogueView({
         )
       : null
   );
+  // FIX520.2.6 (updated): caption font size comes from
+  // <setup-img-caption-height> (FIX512.2.1) when set; undefined leaves
+  // .sc-viewer-caption's existing 1rem CSS default (no value stored yet
+  // for a project that hasn't visited the new Setup field).
+  const captionFontStyle = viewSetup.img_caption_height
+    ? { fontSize: `${viewSetup.img_caption_height}px` }
+    : undefined;
 
   // FIX374.1: dropdown of all defined Groupings. Labelled by the
   // Grouping Name (FIX373.2.1.1); falls back to the property label
@@ -4230,6 +4237,7 @@ export default function CatalogueView({
                             <div
                               className="sc-viewer-caption"
                               data-yagu-id="label-img-caption"
+                              style={captionFontStyle}
                             >
                               {effectiveImageCaption}
                             </div>
@@ -4744,6 +4752,7 @@ export default function CatalogueView({
               <div
                 className="sc-viewer-caption"
                 data-yagu-id="label-img-caption"
+                style={captionFontStyle}
               >
                 {effectiveImageCaption}
               </div>

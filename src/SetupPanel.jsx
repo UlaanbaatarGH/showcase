@@ -161,6 +161,15 @@ export default function SetupPanel({
       text: r.text ?? r.rule ?? '',
     })),
   );
+  // FIX512.2.1 <setup-img-caption-height>: pixel height for the caption's
+  // rendered font size (FIX520.2.6 updated). Mandatory per spec, but no
+  // default value is given -- unlike FIX507.2.5.1's rating-threshold
+  // field, there's no onBlur fallback to a magic number here; a blank
+  // value just means the caption keeps rendering at the pre-existing
+  // 1rem CSS default (CatalogueView's captionFontStyle).
+  const [imgCaptionHeight, setImgCaptionHeight] = useState(
+    () => initialViewSetup?.img_caption_height ?? '',
+  );
   const [selectedRuleIdxs, setSelectedRuleIdxs] = useState(() => new Set());
   const [ruleAnchor, setRuleAnchor] = useState(null);
   // Unlike properties/ratingValues (server-assigned positive ids, so a
@@ -363,6 +372,8 @@ export default function SetupPanel({
               // FIX512.2.2.2 (updated) / FIX512.4.2: id <img-caption-text>.
               text: (r.text || '').trim(),
             })),
+          // FIX512.2.1 <setup-img-caption-height>.
+          img_caption_height: imgCaptionHeight.trim(),
         },
         // FIX507.4.2 <panel-rating-setup>: saved as part of this same
         // general setup save function.
@@ -869,6 +880,22 @@ export default function SetupPanel({
                   <IconMoveDown size={20} />
                 </button>
               </div>
+              {/* FIX512.2.0 (updated) / FIX512.2.1 <setup-img-caption-height>:
+                  mandatory pixel height, between the toolbar and the
+                  rules table per the diagram. Drives the rendered
+                  caption's font size (FIX520.2.6 updated). */}
+              <label className="setup-inline-row">
+                <span>Caption font height</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  data-yagu-id="setup-img-caption-height"
+                  value={imgCaptionHeight}
+                  onChange={(e) => setImgCaptionHeight(e.target.value)}
+                  required
+                />
+                <span>px</span>
+              </label>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>
                   {/* FIX512.2.0 (updated): column order is Category (a

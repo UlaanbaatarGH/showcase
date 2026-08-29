@@ -1277,14 +1277,23 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  /* FIX520.2.6.1 (updated) "Always stuck under the image", bug fix:
+     column was missing here, so this container defaulted to row --
+     justify-content (the main axis in row mode) was pushing the image
+     *horizontally*, doing nothing for the vertical gap the comment
+     below describes; align-items:center (row's cross axis) was the one
+     actually centering it vertically, leaving equal dead space above
+     AND below the image (visible as the caption/nav sitting far below
+     the image's real bottom edge, docked to the panel instead -- image
+     vs. panel confusion). With flex-direction:column declared, main
+     axis is vertical and justify-content:flex-end now does what the
+     comment always claimed: pins the image flush against
+     .sc-viewer-bottom (a separate flex sibling; the .sc-viewer-img-wrap
+     flex gap is the only spacing left), pushing all slack above the
+     image instead. align-items:center becomes the (correct, unchanged)
+     horizontal centering. */
+  flex-direction: column;
   align-items: center;
-  /* FIX520.2.6.1 (updated) "Always stuck under the image": was `center`
-     -- for an image shorter than the available height, that left a
-     visible gap of dead space between the image's actual bottom edge
-     and .sc-viewer-bottom (the caption strip) below it, a separate flex
-     sibling. flex-end pins the image flush against that sibling (the
-     .sc-viewer-img-wrap flex gap is the only spacing left), pushing any
-     slack space above the image instead. */
   justify-content: flex-end;
   overflow: hidden;
 }
@@ -1565,11 +1574,16 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  align-items: center;
-  /* FIX520.2.6.1 (updated), same fix as .sc-viewer-img-scroll: flush the
-     image against the caption strip below instead of centering it with
+  /* FIX520.2.6.1 (updated), same bug fix as .sc-viewer-img-scroll: this
+     was missing flex-direction:column, so justify-content:flex-end was
+     acting on the wrong (horizontal) axis and the image just stayed
+     vertically centered -- gap above and below alike, docked to the
+     panel rather than the image. column makes justify-content:flex-end
+     flush the image against the caption strip below instead of leaving
      dead space underneath. The touch-capture area itself (this
      container) still fills the full height either way. */
+  flex-direction: column;
+  align-items: center;
   justify-content: flex-end;
   overflow: hidden;
   /* Disable browser pan-x so horizontal drags become swipes, not page

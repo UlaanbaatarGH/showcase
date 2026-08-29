@@ -1830,8 +1830,17 @@ export default function ShowcaseImgListEditor({
                   className="sc-viewer-img"
                 />
               )}
+              {/* Bug fix (user-reported, 2026-08-29): this preview's
+                  caption rendered plain/left-aligned while the read-only
+                  viewer's <label-img-caption> (CatalogueView.jsx) is
+                  always centered (FIX525.2.2.1) regardless of whether
+                  the caption is manual or auto-computed -- no reason for
+                  this editor's manually-typed one to look different.
+                  Reuse .sc-viewer-bottom for the same centering. */}
               {currentImage.caption && (
-                <div className="sc-viewer-caption">{currentImage.caption}</div>
+                <div className="sc-viewer-bottom has-caption">
+                  <div className="sc-viewer-caption">{currentImage.caption}</div>
+                </div>
               )}
             </div>
             {/* FIX611.1: no Save/no Cancel button for the local app — image

@@ -492,7 +492,15 @@ export default function SetupPanel({
     // autosave) and dropping data. Only the Cancel / Save buttons
     // close the popup.
     <div className="setup-overlay">
-      <div className="setup-panel" onClick={(e) => e.stopPropagation()}>
+      <div
+        // FIX512.2.2.2: <img-caption-text> is meant to fit a caption
+        // formula on one line most of the time -- the fixed default
+        // panel width leaves it too narrow for that (user-reported,
+        // 2026-08-29). Widen the panel specifically on this tab rather
+        // than for every tab, most of which are much sparser content.
+        className={`setup-panel${activeTab === 'imgCaption' ? ' setup-panel-wide' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* FIX505.2.5: title is 'Setup'. */}
         <header className="setup-header">
           <h2>Setup</h2>
@@ -914,8 +922,11 @@ export default function SetupPanel({
                         renamed <img-caption-rule> -> <img-caption-text>
                         (FIX512.4.2 calls it caption text). Spec has a
                         stray unclosed quote around the label -- read as
-                        'Caption', matching the FIX512.2.0 diagram. */}
-                    <th>Caption</th>
+                        'Caption', matching the FIX512.2.0 diagram.
+                        Explicit min-width (paired with setup-panel-wide
+                        above) so most {Prop} formulas fit on one line
+                        instead of wrapping in the rows=2 textarea. */}
+                    <th style={{ minWidth: '40rem' }}>Caption</th>
                   </tr>
                 </thead>
                 <tbody>

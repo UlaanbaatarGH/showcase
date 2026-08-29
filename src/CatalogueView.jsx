@@ -4050,31 +4050,36 @@ export default function CatalogueView({
                 r.count > 1 ? `${r.section} (${r.count})` : r.section;
               const subLabel = (it) =>
                 it.run.count > 1 ? `${it.sub} (${it.run.count})` : it.sub;
-              // FIX520.2.1 vs FIX520.2.2: when the sections panel is
-              // visible, the nav pill is rendered at its bottom (left
-              // column). Otherwise the pill lives in the image's
-              // bottom strip alongside the caption (right column).
+              // FIX520.2.10 (updated, deep-old retires the earlier
+              // sections-panel-vs-caption-strip split): {index-block} is
+              // now always overlaid on the image's own bottom-left corner
+              // (rendered next to renderRatingIcon() below), regardless of
+              // whether the sections panel is shown.
               const navPill = currentImage ? (
                 <div className="sc-viewer-nav">
+                  {/* FIX520.2.4.1 <cmd-prev-img> (button-prev, retired by
+                      the FIX520.2(deep-old) cascade, is renamed here). */}
                   <button
                     type="button"
-                    data-yagu-id="button-prev"
+                    data-yagu-id="cmd-prev-img"
                     onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
                     disabled={currentImageIdx === 0}
                     aria-label="Previous image"
                   >
                     ‹
                   </button>
-                  {/* FIX520.2.4 / FIX520.2.4.0 <label-image-index>. */}
+                  {/* FIX520.2.4.2 / FIX520.2.4.0 <label-image-index>. */}
                   <span
                     className="sc-viewer-pos"
                     data-yagu-id="label-image-index"
                   >
                     {currentImageIdx + 1} / {images.length}
                   </span>
+                  {/* FIX520.2.4.3 <cmd-next-img> (button-next, retired by
+                      the FIX520.2(deep-old) cascade, is renamed here). */}
                   <button
                     type="button"
-                    data-yagu-id="button-next"
+                    data-yagu-id="cmd-next-img"
                     onClick={() =>
                       setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
                     }
@@ -4155,18 +4160,16 @@ export default function CatalogueView({
                           );
                         })}
                       </ul>
-                      {/* FIX520.2.1: nav pill anchored to the bottom of
-                          the sections column when one is shown. */}
-                      {navPill}
                     </div>
                   )}
                   <div className="sc-viewer-main">
                     {currentImage ? (
                       <>
                         {/* FIX520.2 (updated): image fills the column;
-                            caption (left, FIX520.2.6) and nav pill
-                            (right when caption present, centred when
-                            not — FIX520.2.10) share the bottom row. */}
+                            {index-block} overlays its bottom-left corner
+                            (FIX520.2.10) and <icon-rating> its top-right
+                            (FIX520.2.7.1); the caption strip (FIX520.2.6)
+                            sits below, on its own row. */}
                         <div className="sc-viewer-img-wrap">
                           {/* FIX520.3.3: zoom slider — displays the image
                               bigger; past 1x the scroll region below grows
@@ -4214,6 +4217,7 @@ export default function CatalogueView({
                             />
                             {mainImgLoading && <div className="sc-viewer-img-spinner" />}
                             {renderRatingIcon()}
+                            {navPill}
                           </div>
                         </div>
                         <div
@@ -4238,11 +4242,6 @@ export default function CatalogueView({
                               {formatImgSizeInfo(curImgSizeInfo)}
                             </div>
                           )}
-                          {/* FIX520.2.2: when there's no sections panel,
-                              the nav pill sits in the image's bottom
-                              strip. Otherwise it lives in the sections
-                              column above. */}
-                          {sectionRuns.length === 0 && navPill}
                         </div>
                       </>
                     ) : (
@@ -4698,11 +4697,43 @@ export default function CatalogueView({
             />
             {fsImgLoading && <div className="sc-viewer-img-spinner" />}
             {renderRatingIcon()}
+            {/* FIX523.3.3 / FIX520.2.10: prev / i-n / next pill, overlaid
+                on the image's bottom-left corner, identical to the
+                in-page nav (FIX523.2: "exactly the same layout"). Click
+                swallowed so the backdrop dismiss only fires on a real
+                outside tap. */}
+            <div className="sc-viewer-nav" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                data-yagu-id="cmd-prev-img"
+                onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
+                disabled={currentImageIdx === 0}
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+              <span
+                className="sc-viewer-pos"
+                data-yagu-id="label-image-index"
+              >
+                {currentImageIdx + 1} / {images.length}
+              </span>
+              <button
+                type="button"
+                data-yagu-id="cmd-next-img"
+                onClick={() =>
+                  setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
+                }
+                disabled={currentImageIdx >= images.length - 1}
+                aria-label="Next image"
+              >
+                ›
+              </button>
+            </div>
           </div>
-          {/* FIX523.2: bottom strip mirrors the in-page no-sections
-              layout via the shared .sc-viewer-bottom. Click here is
-              swallowed so the backdrop dismiss only fires on a real
-              outside tap. */}
+          {/* FIX523.2 / FIX520.2.6.1: caption strip below the image, own
+              row. Click here is swallowed so the backdrop dismiss only
+              fires on a real outside tap. */}
           <div
             className={`sc-viewer-bottom${effectiveImageCaption ? ' has-caption' : ''}`}
             onClick={(e) => e.stopPropagation()}
@@ -4724,36 +4755,6 @@ export default function CatalogueView({
                 {formatImgSizeInfo(curImgSizeInfo)}
               </div>
             )}
-            {/* FIX523.3.3 / FIX520.3.2.2: prev / i-n / next pill,
-                identical to the in-page nav. */}
-            <div className="sc-viewer-nav">
-              <button
-                type="button"
-                data-yagu-id="button-prev"
-                onClick={() => setCurrentImageIdx((i) => Math.max(0, i - 1))}
-                disabled={currentImageIdx === 0}
-                aria-label="Previous image"
-              >
-                ‹
-              </button>
-              <span
-                className="sc-viewer-pos"
-                data-yagu-id="label-image-index"
-              >
-                {currentImageIdx + 1} / {images.length}
-              </span>
-              <button
-                type="button"
-                data-yagu-id="button-next"
-                onClick={() =>
-                  setCurrentImageIdx((i) => Math.min(images.length - 1, i + 1))
-                }
-                disabled={currentImageIdx >= images.length - 1}
-                aria-label="Next image"
-              >
-                ›
-              </button>
-            </div>
           </div>
         </div>
       )}

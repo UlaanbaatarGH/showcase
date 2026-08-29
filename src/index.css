@@ -1180,11 +1180,6 @@ body {
   flex-direction: column;
   gap: 0.25rem;
 }
-/* FIX520.2.1: nav at the bottom of the sections column. */
-.sc-viewer-sections .sc-viewer-nav {
-  flex: 0 0 auto;
-  align-self: flex-start;
-}
 .sc-viewer-sections button {
   width: 100%;
   text-align: left;
@@ -1330,6 +1325,19 @@ body {
 .sc-viewer-rating-conflict {
   flex-shrink: 0;
 }
+/* FIX520.2.10 (updated, deep-old retires the earlier right-aligned /
+   sections-column placement): {index-block} is a layer over the image's
+   bottom-left corner, in both the in-page (.sc-viewer-img-scroll) and
+   fullscreen (.sc-fullscreen-img-wrap) viewers -- always, regardless of
+   whether the sections panel is shown. Both parents are already
+   position:relative. */
+.sc-viewer-img-scroll .sc-viewer-nav,
+.sc-fullscreen-img-wrap .sc-viewer-nav {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1;
+}
 .sc-viewer-img-scroll.zoomed {
   align-items: flex-start;
   justify-content: flex-start;
@@ -1449,25 +1457,19 @@ body {
   font-size: 1rem;
   text-align: center;
 }
-/* FIX520.2 (updated): bottom strip below the image — holds
-   <label-img-caption> and the prev/i-n/next nav pill.
-   FIX520.2.10 (updated): nav is always right-aligned (out of flow,
-   position:absolute, right:0), regardless of whether a caption is
-   shown. FIX520.2.10.1: nav already has minimum width via its inline
-   inline-flex pill style.
-   FIX520.2.6.1: caption (when shown) sits as plain text, centred
-   under the image — block layout with text-align:center centres the
-   inline-block caption at the row's true centre, which lines up with
-   the image's centre above. FIX520.2.6.1 (updated) "Always stuck under
-   the image": see .sc-viewer-img-scroll / .sc-fullscreen-img-wrap's
-   justify-content: flex-end -- this strip's own position (a plain flex
-   sibling right after the image container) hasn't moved, the image is
-   now flush against it instead of floating centred above a gap. */
+/* FIX520.2 (updated): bottom strip below the image — holds only
+   <label-img-caption> now (FIX520.2.10 (updated) moved the prev/i-n/next
+   nav pill onto the image itself, see .sc-viewer-img-scroll
+   .sc-viewer-nav above).
+   FIX520.2.6.1 (updated): caption (when shown) sits as plain text,
+   centred under the image, always stuck against it -- block layout with
+   text-align:center centres the inline-block caption at the row's true
+   centre, which lines up with the image's centre above; see
+   .sc-viewer-img-scroll / .sc-fullscreen-img-wrap's justify-content:
+   flex-end for the "stuck against" half (the image is flush against
+   this strip instead of floating centred above a gap). */
 .sc-viewer-bottom {
   flex: 0 0 auto;
-  position: relative;
-  /* Tight to content; the absolutely-positioned nav still sits
-     vertically centred via top:50% / translateY(-50%). */
   min-height: 1.6rem;
   display: block;
   text-align: center;
@@ -1481,22 +1483,14 @@ body {
   max-width: 100%;
   vertical-align: middle;
 }
-.sc-viewer-bottom .sc-viewer-nav {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-}
 .sc-viewer-nav {
   flex: 0 0 auto;
-  /* FIX520.2.10 / FIX520.2.10.1: compact rounded-pill nav, sized to
-     its content (minimum width). Same font-size as the caption so
-     both sit on the same line at the same scale. Tight gap + padding
-     so the pill doesn't dominate the row visually.
-     FIX520.2.10.2: pill background is theme-driven (no black) so it
-     reads cleanly whether placed in the sections column or the
-     image's bottom strip. nowrap so a narrow parent (e.g. the
-     sections column) can't force the pill's contents onto two lines. */
+  /* FIX520.2.10 (updated): compact rounded-pill nav, sized to its
+     content ("Stick to the minimum width"). Same font-size as the
+     caption so both read at the same scale. Tight gap + padding so
+     the pill doesn't dominate the image it's overlaid on. Theme-driven
+     background (no hardcoded black) so it reads cleanly over any
+     image. nowrap so it can't be forced onto two lines. */
   display: inline-flex;
   align-self: center;
   align-items: center;
@@ -1547,9 +1541,10 @@ body {
   cursor: zoom-in;
 }
 /* FIX523 <panel-showcase-img-viewer-fullscreen>: flex column — the
-   image area takes all available height; the bottom strip (caption +
-   nav, sharing .sc-viewer-bottom with the in-page viewer) sits at
-   the bottom. */
+   image area takes all available height; the caption strip (sharing
+   .sc-viewer-bottom with the in-page viewer) sits at the bottom. The
+   nav pill overlays the image itself (.sc-fullscreen-img-wrap
+   .sc-viewer-nav above), same as the in-page viewer. */
 .sc-fullscreen {
   position: fixed;
   inset: 0;
@@ -1611,8 +1606,8 @@ body {
 /* FIX523.3.2: closing fullscreen relies on the navigator's back
    button + ESC + backdrop tap. No in-overlay Back button is rendered.
    FIX520.3.2.2 + FIX523.3.3: nav reuses the in-page .sc-viewer-nav
-   styling and now lives inside the shared .sc-viewer-bottom strip,
-   so no fullscreen-specific positioning rule is needed. */
+   styling and positioning (.sc-fullscreen-img-wrap .sc-viewer-nav
+   above), overlaid on the image like the in-page viewer. */
 
 /* FIX521 <panel-showcase-img-list-editor>: two-pane layout — table of
    images on the left, image editor on the right. Fills the viewer panel. */

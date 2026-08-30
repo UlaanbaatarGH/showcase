@@ -121,6 +121,11 @@ function findMatchingBrace(s, openIdx) {
 function evalBraceExpr(inner, folder, propertiesByLabel) {
   const colonIdx = findTopLevelChar(inner, ':');
   if (colonIdx === -1) {
+    // FIX512.4.5.4: an all-whitespace block ({ }, { }, ...) is a literal-
+    // space escape, not a property placeholder -- it outputs its spaces
+    // verbatim, immune to the leading-whitespace trim a term's own
+    // surrounding text gets (FIX512.4.5.1-.3's ": term" formatting space).
+    if (inner.length > 0 && inner.trim() === '') return inner;
     const value = lookupPropertyValue(inner, folder, propertiesByLabel);
     return value === undefined ? '' : String(value ?? '');
   }

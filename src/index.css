@@ -434,6 +434,19 @@ body {
   gap: 0.25rem;
   margin-bottom: 0.3rem;
 }
+/* FIX506.2.0 (updated): 'List of properties' and its Add/Del/Up/Down
+   toolbar share one line per the layout diagram. */
+.setup-heading-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.setup-heading-toolbar h3 {
+  margin: 0;
+}
+.setup-heading-toolbar .setup-selectable-toolbar {
+  margin-bottom: 0;
+}
 /* FIX507.2.2.1.2 <rating-icon> picker: click the current icon to open a
    small popover of the three fixed choices. */
 .setup-icon-picker-btn {

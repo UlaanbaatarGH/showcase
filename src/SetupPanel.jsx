@@ -78,6 +78,13 @@ export default function SetupPanel({
     // column (FIX512.2.2.3) -- independent of Category (FIX512.4.1
     // updated). null = no such property.
     shape_property_id: initialViewSetup?.item_filters?.shape_property_id ?? null,
+    // FIX506.2.7 / <setup-item-key-property>: id of the property acting as
+    // the item's key. Mandatory per spec, but -- same posture as
+    // <setup-img-caption-height> (FIX512.2.1) -- there's no <form>/native
+    // submit in this panel for a `required` attribute to actually enforce,
+    // and no consuming behavior is spec'd yet for this field (NFNI); it
+    // just needs to exist, be selectable, and persist.
+    item_key_property_id: initialViewSetup?.item_filters?.item_key_property_id ?? null,
   });
   // FIX508 <panel-general-info-setup>: top-level toggles. Stored on
   // view_setup directly (not under item_filters) since they affect the
@@ -144,6 +151,15 @@ export default function SetupPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [nextTempId, setNextTempId] = useState(-1);
+  // FIX506.2.1.2 / FIX506.3: multi-selection for Add/Delete/Move on
+  // <list-properties>, same click/ctrl-click/shift-click convention as
+  // the Image Caption rules table (FIX512.2.2.10) / the Image List
+  // editor's row selection.
+  const [selectedPropertyIdxs, setSelectedPropertyIdxs] = useState(() => new Set());
+  const [propertyAnchor, setPropertyAnchor] = useState(null);
+  // FIX506.3.2: overlay popup confirmation before deleting selected
+  // properties.
+  const [propertyDeleteConfirm, setPropertyDeleteConfirm] = useState(false);
 
   // FIX512.2.2 <setup-table-caption-rules>: persisted under
   // view_setup.img_caption_rules -- no dedicated FIX defines the storage
@@ -410,23 +426,111 @@ export default function SetupPanel({
     }
   };
 
+  // FIX506.2.1.2 / FIX506.3.1 <cmd-add-ppty>: inserts a new property at
+  // the position of the first selected property, or at the end if none is
+  // selected -- the new row becomes the selection so it's immediately
+  // editable, same convention as the Image Caption rules table's Add.
   const addProperty = () => {
-    setProperties([
-      ...properties,
-      {
-        id: nextTempId,
-        label: '',
-        short_label: '',
-        formula: null,
-        trailing_values: '',
-        accepted_value_set: false,
-        sort_order: properties.length,
-      },
-    ]);
-    setNextTempId(nextTempId - 1);
+    const insertAt = selectedPropertyIdxs.size > 0 ? Math.min(...selectedPropertyIdxs) : properties.length;
+    const row = {
+      id: nextTempId,
+      label: '',
+      short_label: '',
+      formula: null,
+      trailing_values: '',
+      accepted_value_set: false,
+      sort_order: insertAt,
+    };
+    setProperties((prev) => [...prev.slice(0, insertAt), row, ...prev.slice(insertAt)]);
+    setSelectedPropertyIdxs(new Set([insertAt]));
+    setPropertyAnchor(insertAt);
+    setNextTempId((n) => n - 1);
   };
-  const removeProperty = (i) => {
-    setProperties(properties.filter((_, idx) => idx !== i));
+  // FIX506.2.1.2 <cmd-delete-ppty>: click opens the confirmation popup
+  // (FIX506.3.2) gated to 1+ rows selected -- actual removal happens in
+  // confirmRemoveProperties below.
+  const handleDeletePropertiesClick = () => {
+    if (selectedPropertyIdxs.size === 0) return;
+    setPropertyDeleteConfirm(true);
+  };
+  // FIX506.3.2: removes every selected property, then clears any of the
+  // four fields listed in the spec (Deleted-item flag / Item date / Item
+  // shape / Item key -- Category is not in that list) that pointed at one
+  // of the just-removed properties. Confirmation: Title 'Property
+  // deletion', message 'Confirm deletion.', buttons Cancel/Delete.
+  const confirmRemoveProperties = () => {
+    const removedIds = new Set([...selectedPropertyIdxs].map((i) => properties[i]?.id));
+    setProperties((prev) => prev.filter((_, i) => !selectedPropertyIdxs.has(i)));
+    setItemFilters((prev) => ({
+      ...prev,
+      deleted_property_id: removedIds.has(prev.deleted_property_id) ? null : prev.deleted_property_id,
+      date_property_id: removedIds.has(prev.date_property_id) ? null : prev.date_property_id,
+      shape_property_id: removedIds.has(prev.shape_property_id) ? null : prev.shape_property_id,
+      item_key_property_id: removedIds.has(prev.item_key_property_id) ? null : prev.item_key_property_id,
+    }));
+    setSelectedPropertyIdxs(new Set());
+    setPropertyAnchor(null);
+    setPropertyDeleteConfirm(false);
+  };
+  // FIX506.2.1.2: plain click selects only that row; Ctrl/Cmd-click toggles
+  // it into/out of the selection; Shift-click selects the anchor..clicked
+  // range. Same conventions as the Image Caption rules table's row
+  // multi-select (FIX512.2.2.10).
+  const handlePropertyRowClick = (e, idx) => {
+    if (e.shiftKey && propertyAnchor != null) {
+      const lo = Math.min(propertyAnchor, idx);
+      const hi = Math.max(propertyAnchor, idx);
+      const range = new Set();
+      for (let i = lo; i <= hi; i++) range.add(i);
+      setSelectedPropertyIdxs(range);
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedPropertyIdxs((prev) => {
+        const next = new Set(prev);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        return next;
+      });
+      setPropertyAnchor(idx);
+      return;
+    }
+    setSelectedPropertyIdxs(new Set([idx]));
+    setPropertyAnchor(idx);
+  };
+  // FIX506.3.3 / FIX506.3.4 <cmd-move-up-ppty> / <cmd-move-down-ppty>:
+  // "moves the selected propertieS" (plural) -- a contiguous block of
+  // selected rows moves together, rotated against its one adjacent
+  // boundary row, same mechanism as the Image List editor's moveSelected.
+  // null (not a contiguous block, or nothing selected) disables both
+  // buttons in the JSX below.
+  const propertySelBlock = (() => {
+    if (selectedPropertyIdxs.size === 0) return null;
+    const sorted = [...selectedPropertyIdxs].sort((a, b) => a - b);
+    const lo = sorted[0];
+    const hi = sorted[sorted.length - 1];
+    if (hi - lo + 1 !== sorted.length) return null;
+    return { lo, hi };
+  })();
+  const moveSelectedPropertiesBy = (delta) => {
+    if (!propertySelBlock) return;
+    const { lo, hi } = propertySelBlock;
+    const rangeStart = delta < 0 ? lo - 1 : lo;
+    const rangeEnd = delta < 0 ? hi : hi + 1;
+    if (rangeStart < 0 || rangeEnd >= properties.length) return;
+    setProperties((prev) => {
+      const range = prev.slice(rangeStart, rangeEnd + 1);
+      const rotated = delta < 0
+        ? [...range.slice(1), range[0]] // boundary-above moves to bottom of range
+        : [range[range.length - 1], ...range.slice(0, -1)]; // boundary-below moves to top
+      const next = [...prev];
+      for (let k = 0; k < rotated.length; k++) next[rangeStart + k] = rotated[k];
+      return next;
+    });
+    const newLo = lo + delta;
+    const newHi = hi + delta;
+    setSelectedPropertyIdxs(new Set(Array.from({ length: newHi - newLo + 1 }, (_, k) => newLo + k)));
+    setPropertyAnchor((a) => (a != null ? a + delta : null));
   };
   const updatePropertyLabel = (i, rawInput) => {
     const { label, formula } = parsePropertyInput(rawInput);
@@ -446,14 +550,6 @@ export default function SetupPanel({
     updated[i] = { ...updated[i], ...patch };
     setProperties(updated);
   };
-  const movePropertyBy = (i, dir) => {
-    const target = i + dir;
-    if (target < 0 || target >= properties.length) return;
-    const updated = [...properties];
-    [updated[i], updated[target]] = [updated[target], updated[i]];
-    setProperties(updated);
-  };
-
   // FIX507.2.2.1.13 <table-rating-values> Add: green + row, selected.
   const addRatingValue = () => {
     setRatingValues((prev) => {
@@ -1212,7 +1308,81 @@ export default function SetupPanel({
           /* FIX506.0 <tab-properties-setup>: Properties tab content
              (was <panel-file-explorer-view-setup> pre-FIX506.0). */
           <section className="setup-section" data-yagu-id="tab-properties-setup">
-            <h3>List of properties</h3>
+            {/* FIX506.2.0 (updated) / FIX506.2.7: Item key property sits
+                above the property list per the updated layout diagram --
+                Mandatory (see the itemFilters state comment for the
+                no-enforcement posture, same as <setup-img-caption-height>). */}
+            <h3>Item key property</h3>
+            <select
+              data-yagu-id="setup-item-key-property"
+              value={itemFilters.item_key_property_id ?? ''}
+              onChange={(e) =>
+                setItemFilters({
+                  ...itemFilters,
+                  item_key_property_id: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
+            >
+              <option value="">— none —</option>
+              {properties
+                .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                .map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+            </select>
+
+            {/* FIX506.2.0 (updated): 'List of properties' and the
+                Add/Del/Up/Down toolbar share one line. */}
+            <div className="setup-heading-toolbar">
+              <h3>List of properties</h3>
+              <div className="setup-selectable-toolbar">
+                <button
+                  type="button"
+                  className="users-add"
+                  data-yagu-id="cmd-add-ppty"
+                  onClick={addProperty}
+                  aria-label="Add property"
+                  title="Add property"
+                >
+                  <IconAdd size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="users-remove"
+                  data-yagu-id="cmd-delete-ppty"
+                  onClick={handleDeletePropertiesClick}
+                  disabled={selectedPropertyIdxs.size === 0}
+                  aria-label="Delete property"
+                  title="Delete selected property(s)"
+                >
+                  <IconDelete size={20} />
+                </button>
+                {/* FIX506.3.3 / FIX506.3.4: enabled only on a contiguous
+                    selected block not already at that edge. */}
+                <button
+                  type="button"
+                  className="setup-move-btn"
+                  data-yagu-id="cmd-move-up-ppty"
+                  onClick={() => moveSelectedPropertiesBy(-1)}
+                  disabled={!propertySelBlock || propertySelBlock.lo <= 0}
+                  aria-label="Move property up"
+                  title="Move up"
+                >
+                  <IconMoveUp size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="setup-move-btn"
+                  data-yagu-id="cmd-move-down-ppty"
+                  onClick={() => moveSelectedPropertiesBy(1)}
+                  disabled={!propertySelBlock || propertySelBlock.hi >= properties.length - 1}
+                  aria-label="Move property down"
+                  title="Move down"
+                >
+                  <IconMoveDown size={20} />
+                </button>
+              </div>
+            </div>
             {/* FIX506.2.1.0 / <list-properties> */}
             <table className="setup-items" data-yagu-id="list-properties">
               <thead>
@@ -1229,17 +1399,20 @@ export default function SetupPanel({
                   {/* FIX506.2.1.1.5 / <input-property-accepted-value-set>:
                       enables the FIX506.5.5 / FIX510.2.1.5 semantics. */}
                   <th style={{ width: '5rem', textAlign: 'center' }}>Value set</th>
-                  <th style={{ width: '8rem' }} />
                 </tr>
               </thead>
               <tbody>
                 {properties.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="setup-empty">No properties defined.</td>
+                    <td colSpan={5} className="setup-empty">No properties defined.</td>
                   </tr>
                 )}
                 {properties.map((p, i) => (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    className={selectedPropertyIdxs.has(i) ? 'selected' : ''}
+                    onClick={(e) => handlePropertyRowClick(e, i)}
+                  >
                     {/* FIX350.2.2.2.1.1 / .1.1.1: stored id is
                         project_id*1000 + N; display the local part
                         (= id mod 1000) so users see 1, 2, 3… */}
@@ -1277,23 +1450,15 @@ export default function SetupPanel({
                         onChange={(e) => updatePropertyField(i, { accepted_value_set: e.target.checked })}
                       />
                     </td>
-                    <td className="setup-row-actions">
-                      <button type="button" onClick={() => movePropertyBy(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-                      <button type="button" onClick={() => movePropertyBy(i, 1)} disabled={i === properties.length - 1} aria-label="Move down">↓</button>
-                      <button type="button" onClick={() => removeProperty(i)} aria-label="Remove">✕</button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <button type="button" className="setup-add-btn" onClick={addProperty}>
-              + Add property
-            </button>
 
-            {/* FIX506.2.3: pick the property whose non-blank value marks
-                an item as deleted. Deleted items are hidden from the
-                Showcase list/sort/filter/grouping (FIX510.3). */}
-            <h3>Property indicating Item is deleted</h3>
+            {/* FIX506.2.3 (updated): pick the property whose non-blank
+                value marks an item as deleted. Deleted items are hidden
+                from the Showcase list/sort/filter/grouping (FIX510.3). */}
+            <h3>Deleted-item flag property</h3>
             <select
               value={itemFilters.deleted_property_id ?? ''}
               onChange={(e) =>
@@ -1311,12 +1476,12 @@ export default function SetupPanel({
                 ))}
             </select>
 
-            {/* FIX506.2.4 / <setup-date-property>: pick the property
-                that holds the item's date. Used by FIX510.5.2 /
+            {/* FIX506.2.4 (updated) / <setup-date-property>: pick the
+                property that holds the item's date. Used by FIX510.5.2 /
                 FIX374.2.16 (combined with <show-items-with-no-date>
                 on the General tab) to optionally hide items that
                 don't have a date. */}
-            <h3>Property providing item date</h3>
+            <h3>Item date property</h3>
             <select
               data-yagu-id="setup-date-property"
               value={itemFilters.date_property_id ?? ''}
@@ -1335,11 +1500,11 @@ export default function SetupPanel({
                 ))}
             </select>
 
-            {/* FIX506.2.5 / <setup-category-property>: pick the property
-                whose value categorizes an item. Feeds the Image Caption
-                rules table's Category column (FIX512.2.2.1) with that
-                property's distinct values. */}
-            <h3>Property providing item category</h3>
+            {/* FIX506.2.5 (updated) / <setup-category-property>: pick the
+                property whose value categorizes an item. Feeds the Image
+                Caption rules table's Category column (FIX512.2.2.1) with
+                that property's distinct values. */}
+            <h3>Item category property</h3>
             <select
               data-yagu-id="setup-category-property"
               value={itemFilters.category_property_id ?? ''}
@@ -1358,11 +1523,11 @@ export default function SetupPanel({
                 ))}
             </select>
 
-            {/* FIX506.2.6 / <setup-shape-property>: pick the property
-                whose value gives an item's shape. Feeds the Image Caption
-                rules table's Shape column (FIX512.2.2.3), independent of
-                Category (FIX512.4.1 updated). */}
-            <h3>Property providing item shape</h3>
+            {/* FIX506.2.6 (updated) / <setup-shape-property>: pick the
+                property whose value gives an item's shape. Feeds the
+                Image Caption rules table's Shape column (FIX512.2.2.3),
+                independent of Category (FIX512.4.1 updated). */}
+            <h3>Item shape property</h3>
             <select
               data-yagu-id="setup-shape-property"
               value={itemFilters.shape_property_id ?? ''}
@@ -1431,6 +1596,24 @@ export default function SetupPanel({
                 Cancel
               </button>
               <button type="button" className="primary" onClick={confirmRemoveCaptionRules}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX506.3.2: Title 'Property deletion', message 'Confirm
+          deletion.', buttons Cancel/Delete. */}
+      {propertyDeleteConfirm && (
+        <div className="setup-overlay" onMouseDown={() => setPropertyDeleteConfirm(false)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Property deletion</strong></p>
+            <p>Confirm deletion.</p>
+            <div className="sc-shrink-actions">
+              <button type="button" onClick={() => setPropertyDeleteConfirm(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={confirmRemoveProperties}>
                 Delete
               </button>
             </div>

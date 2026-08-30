@@ -33,6 +33,32 @@ function formatBytes(n) {
 // FIX521.2.1.1.7 / FIX521.5.7: the per-image Zoom Factor uses the shared
 // zoomFactor() against the hardcoded Reference Viewport (see src/zoom.js).
 
+// FIX521.2.1.8 / FIX521.2.1.14 / FIX521.3.6 / FIX521.3.7 <cmd-copy-img> /
+// <cmd-paste-img>: module-level (not component state) so the clipboard
+// survives switching items -- FIX521.3.7's "new image elements in current
+// item" implies pasting into a different item than the one copied from --
+// and so every mounted instance's Paste-enabled check (FIX521.2.1.14)
+// reacts to a Copy done anywhere. Holds the copied rows' actual bytes
+// (fetched once, at Copy time) rather than their url: a blob: URL can be
+// revoked once the source item's images change or the editor unmounts,
+// same reasoning persistLocalImageMeta already uses for a public row's
+// first local edit.
+let imageClipboardItems = null; // Array<{ blob, filename, caption, section, rotation, crop }> | null
+const imageClipboardListeners = new Set();
+function setImageClipboard(items) {
+  imageClipboardItems = items && items.length ? items : null;
+  imageClipboardListeners.forEach((fn) => fn());
+}
+function useImageClipboard() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const fn = () => force((v) => v + 1);
+    imageClipboardListeners.add(fn);
+    return () => imageClipboardListeners.delete(fn);
+  }, []);
+  return imageClipboardItems;
+}
+
 // FIX521 <panel-showcase-img-list-editor>: replaces the image viewer when
 // the user clicks <button-edit> on the Images tab (FIX515.3.2.1).
 //
@@ -153,6 +179,11 @@ export default function ShowcaseImgListEditor({
   // the file-name/size/resolution/zoom-factor detail line per row
   // (FIX521.2.1.1.13) — off by default keeps rows to a single line.
   const [fileDetailsOpen, setFileDetailsOpen] = useState(false);
+
+  // FIX521.2.1.14: Paste is enabled when the clipboard holds a copy done by
+  // <cmd-copy-img>.
+  const clipboardItems = useImageClipboard();
+  const [copyingImages, setCopyingImages] = useState(false);
 
   // Every toolbar command except the arrow-up/arrow-down reorder buttons
   // now lives in this dropdown — the flat button row used to overflow and
@@ -1232,6 +1263,35 @@ export default function ShowcaseImgListEditor({
     }
   };
 
+  // FIX521.3.6 <cmd-copy-img>: snapshot the selected rows' bytes plus their
+  // "attached information" -- caption, section, rotation, crop -- into the
+  // module-level clipboard. is_main is deliberately left out: pasting
+  // shouldn't silently steal the item's main-image flag (FIX521.5.6).
+  const copySelectedImages = async () => {
+    const targets = [...selIdxs].sort((a, b) => a - b).map((i) => images[i]).filter(Boolean);
+    if (targets.length === 0) return;
+    setCopyingImages(true);
+    try {
+      const items = await Promise.all(targets.map(async (im) => {
+        const res = await fetch(im.url);
+        const blob = await res.blob();
+        return {
+          blob,
+          filename: im.filename,
+          caption: im.caption ?? '',
+          section: im.section ?? '',
+          rotation: im.rotation ?? 0,
+          crop: im.crop ?? null,
+        };
+      }));
+      setImageClipboard(items);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setCopyingImages(false);
+    }
+  };
+
   // FIX620 <process-automatic-img-insertion>: <button-auto-insert-img>.
   // FIX620.3.2: pushing down while off opens a popup to enter/confirm the
   // watched folder. FIX620.3.3: pushing up while on immediately stops, no
@@ -1495,6 +1555,20 @@ export default function ShowcaseImgListEditor({
                     onClick={() => { setCommandsMenuOpen(false); setFileDetailsOpen((v) => !v); }}
                   >
                     {fileDetailsOpen ? '✓ ' : ''}Show file details
+                  </button>
+                </li>
+                {/* FIX521.2.1.8 <cmd-copy-img> / FIX521.3.6: copies the
+                    selected image elements (image + attached information)
+                    to the clipboard. */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="cmd-copy-img"
+                    onClick={() => { setCommandsMenuOpen(false); copySelectedImages(); }}
+                    disabled={interactionLocked || copyingImages || selIdxs.size === 0}
+                  >
+                    Copy
                   </button>
                 </li>
                 {/* FIX610.3.5(removed): the per-item Publish command is gone

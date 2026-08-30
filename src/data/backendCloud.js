@@ -201,6 +201,10 @@ export default {
   // caller's own rating for this item. Returns { folder_id, rating_value_id }.
   setMyRating: (folderId, ratingValueId) =>
     call(`/api/folders/${encodeURIComponent(folderId)}/rating`, { method: 'POST', body: { rating_value_id: ratingValueId } }),
+  // FIX525.3.5 / <action-item-flagging>: set or clear the item's flag.
+  // Admin/Data-Manager only server-side. Returns { folder_id, is_flagged }.
+  setItemFlag: (folderId, flagged) =>
+    call(`/api/folders/${encodeURIComponent(folderId)}/flag`, { method: 'POST', body: { flagged } }),
   // FIX521: update caption / section / sort_order on the folder_image row.
   // Partial payloads are accepted. Returns { id, caption, section, sort_order }.
   updateFolderImage: (folderImageId, patch) =>

@@ -68,6 +68,7 @@ export const updateImage = impl.updateImage;
 export const replaceImageBytes = impl.replaceImageBytes;
 export const setFolderZoomFactor = impl.setFolderZoomFactor;
 export const setMyRating = impl.setMyRating || (() => Promise.reject(new Error('setMyRating: online only')));
+export const setItemFlag = impl.setItemFlag || (() => Promise.reject(new Error('setItemFlag: online only')));
 export const updateFolderImage = impl.updateFolderImage;
 export const deleteFolderImage = impl.deleteFolderImage;
 export const updateProject = impl.updateProject;

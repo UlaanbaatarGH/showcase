@@ -301,3 +301,27 @@ export function IconRatingConflict({ size = 24, color = '#dc2626', ...rest }) {
     </svg>
   );
 }
+
+// FIX525.3.5 <action-item-flagging>: small red flag, top-left of the
+// image. Same thick-stroke pole as the rest of this file's icon family,
+// with a solid-filled pennant so it reads clearly at the small size the
+// corner overlay uses.
+export function IconFlag({ size = 24, color = '#dc2626', ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...rest}
+    >
+      <line x1="5" y1="3" x2="5" y2="21" />
+      <path d="M5 4 L19 7 L5 10 Z" fill={color} stroke="none" />
+    </svg>
+  );
+}

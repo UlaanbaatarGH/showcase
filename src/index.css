@@ -1376,6 +1376,21 @@ body {
 .sc-viewer-rating-conflict {
   flex-shrink: 0;
 }
+/* FIX525.3.5 <action-item-flagging>: mirrors .sc-viewer-rating-icon's
+   corner-badge treatment, top-left instead of top-right. */
+.sc-viewer-flag-icon {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 1rem;
+  pointer-events: none;
+}
 /* FIX520.2.5.0 (deep-old rephrase, further renumbered from the earlier
    FIX520.2.10 pass): {index-block} is a layer over <panel-img>'s
    bottom-left corner, in both the in-page (.sc-viewer-img-scroll) and

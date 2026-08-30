@@ -17,13 +17,14 @@ import {
   RichText,
   RATING_ICONS,
   IconRatingConflict,
+  IconFlag,
 } from './Icons.jsx';
 import { ProjectHeaderLeft, ProjectHeaderRight, ShowAsSelector } from './ProjectHeader.jsx';
 import { parseSegment, bucketsWithValues, bucketsFor, NO_VALUE_KEY } from './grouping/segments.js';
 import { normalizeGroups } from './grouping/groups.js';
 import { useAuth } from './AuthContext.jsx';
 import {
-  getShowcase, getFolderImages, trackVisit, setFolderZoomFactor, setMyRating,
+  getShowcase, getFolderImages, trackVisit, setFolderZoomFactor, setMyRating, setItemFlag,
   listProjects, saveSetup,
   createFolder, renameFolder, deleteFolder, isLocalModeActive, createLocalProject,
 } from './data/backend.js';
@@ -2407,6 +2408,37 @@ export default function CatalogueView({
     });
   };
 
+  // FIX525.3.5 / <action-item-flagging>: set or clear an item's flag.
+  // Optimistic update, same posture as handleSetMyRating -- the backend
+  // is the real gate (Admin/Data Manager only), so a rejection here just
+  // silently reverts rather than surfacing an unspecified error popup.
+  const handleSetItemFlag = (folderId, flagged) => {
+    const prevFlagged = (data?.folders ?? []).find((f) => f.id === folderId)?.is_flagged ?? false;
+    setData((prev) => ({
+      ...prev,
+      folders: (prev.folders ?? []).map((f) => (f.id === folderId ? { ...f, is_flagged: flagged } : f)),
+    }));
+    setItemFlag(folderId, flagged).catch(() => {
+      setData((prev) => ({
+        ...prev,
+        folders: (prev.folders ?? []).map((f) => (f.id === folderId ? { ...f, is_flagged: prevFlagged } : f)),
+      }));
+    });
+  };
+
+  // FIX525.3.5.2: the small red flag, top-left of the image -- visible to
+  // any viewer once set (only setting/clearing it is Manager-gated, not
+  // seeing it).
+  const renderFlagIcon = () => {
+    const folder = (data?.folders || []).find((f) => f.id === selectedFolderId);
+    if (!folder?.is_flagged) return null;
+    return (
+      <div className="sc-viewer-flag-icon" data-yagu-id="icon-item-flag" title="Flagged">
+        <IconFlag size={18} />
+      </div>
+    );
+  };
+
   // FIX520.2.4 / FIX525.4.4 <icon-rating>: null whenever rating is off or
   // the caller has no rating entered for the current item.
   const renderRatingIcon = () => {
@@ -2496,6 +2528,20 @@ export default function CatalogueView({
       const tag = ae?.tagName;
       const editable =
         tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
+      // FIX525.3.5 / FIX525.3.5.0 <action-item-flagging> / FIX511.3.5 (same
+      // action, also effective from the plain item list/gallery per
+      // FIX510.3.5's convention): '9' toggles the small red flag on the
+      // selected item. FIX525.3.5.2: Admin/Data Manager only -- takes
+      // priority over the generic rating-digit branch below when the
+      // caller qualifies (a project with 9+ rating values loses '9' as a
+      // rating shortcut for a Manager, who gets the flag instead; a
+      // non-Manager's '9' still falls through to rating as before).
+      if (!editable && !editionMode && isAdminOrManager && selectedFolderId != null && e.key === '9') {
+        e.preventDefault();
+        const folder = (data?.folders ?? []).find((f) => f.id === selectedFolderId);
+        handleSetItemFlag(selectedFolderId, !folder?.is_flagged);
+        return;
+      }
       // FIX525.3.4 / FIX525.3.4.0 <action-item-rating>: '0' clears the
       // rating; any other single digit N sets the Nth <table-rating-values>
       // row (not capped at 2 — the spec's '1'/'2'/'...' pattern generalizes
@@ -4297,6 +4343,7 @@ export default function CatalogueView({
                             </div>
                             {mainImgLoading && <div className="sc-viewer-img-spinner" />}
                             {renderRatingIcon()}
+                            {renderFlagIcon()}
                             {navPill}
                           </div>
                         </div>
@@ -4799,6 +4846,7 @@ export default function CatalogueView({
             </div>
             {fsImgLoading && <div className="sc-viewer-img-spinner" />}
             {renderRatingIcon()}
+            {renderFlagIcon()}
             {/* FIX523.3.3 / FIX520.2.5.0: prev / i-n / next pill, overlaid
                 on the image's bottom-left corner, identical to the
                 in-page nav (FIX523.2: "exactly the same layout"). Click

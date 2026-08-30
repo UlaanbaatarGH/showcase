@@ -3790,6 +3790,13 @@ export default function CatalogueView({
                                 if (e.target.src !== f.main_image_url) e.target.src = f.main_image_url;
                               }}
                             />
+                            {/* FIX511.2.0.1 (updated) <action-item-flagging>:
+                                red flag, top-left of the thumbnail. */}
+                            {f.is_flagged && (
+                              <div className="sc-gallery-flag-icon" data-yagu-id="icon-item-flag" title="Flagged">
+                                <IconFlag size={12} />
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="sc-gallery-cell-blank">No image</div>

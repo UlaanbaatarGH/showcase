@@ -962,6 +962,25 @@ body {
 @keyframes sc-gallery-spin {
   to { transform: rotate(360deg); }
 }
+/* FIX511.2.0.1 (updated): red flag overlaid on the thumbnail's own
+   top-left corner (distinct from {1}{2}{3}, which sit below the image in
+   the caption line) -- mirrors .sc-viewer-flag-icon's badge treatment,
+   scaled down for the small gallery card. z-index above the img (1) and
+   the loading spinner (0). */
+.sc-gallery-flag-icon {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 50%;
+  pointer-events: none;
+}
 /* FIX511.2.2 (updated): black frame + white italic 'No image' caption. */
 .sc-gallery-cell-blank {
   background: #000;

@@ -302,10 +302,16 @@ export function IconRatingConflict({ size = 24, color = '#dc2626', ...rest }) {
   );
 }
 
-// FIX525.3.5 <action-item-flagging>: small red flag, top-left of the
-// image. Same thick-stroke pole as the rest of this file's icon family,
-// with a solid-filled pennant so it reads clearly at the small size the
-// corner overlay uses.
+// FIX525.3.5 / FIX511.2.0.1 <action-item-flagging>: small red flag, top-left
+// of the image (both the main viewer and, per the updated diagram, each
+// Gallery thumbnail). Bug fix (user-reported: too crude/ugly) -- the first
+// pass was a bold straight-edged pennant borrowed from this file's
+// thick-toolbar-button icons (IconAdd/IconDelete), a much bolder register
+// than suits a small passive status badge. Redrawn as a slimmer pole with a
+// gently waving flag (a soft double-curve top/bottom edge, the common
+// "flag" glyph shape), thinner stroke, reads cleanly at the small sizes
+// this is actually rendered at (18px in the viewer, smaller still on a
+// gallery card).
 export function IconFlag({ size = 24, color = '#dc2626', ...rest }) {
   return (
     <svg
@@ -314,14 +320,17 @@ export function IconFlag({ size = 24, color = '#dc2626', ...rest }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke={color}
-      strokeWidth="5"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       {...rest}
     >
-      <line x1="5" y1="3" x2="5" y2="21" />
-      <path d="M5 4 L19 7 L5 10 Z" fill={color} stroke="none" />
+      <line x1="5" y1="21" x2="5" y2="3" />
+      <path
+        d="M5 4.5c1.7-1.2 3.6-1.2 5.5 0s3.8 1.2 5.5 0v8c-1.7 1.2-3.6 1.2-5.5 0s-3.8-1.2-5.5 0z"
+        fill={color}
+      />
     </svg>
   );
 }

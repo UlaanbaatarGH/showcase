@@ -285,9 +285,11 @@ body {
 /* FIX512.2.2.2: roughly triples <img-caption-text>'s available width
    (user-requested, 2026-08-29) so a typical {Prop} formula fits on one
    line -- only on the Image Captions tab; every other tab's content is
-   much sparser and doesn't need the extra room. */
+   much sparser and doesn't need the extra room.
+   FIX512.2.2.4 (user-requested): widened again x1.5 (1500px -> 2250px) to
+   make room for the new Target column without squeezing the rest. */
 .setup-panel.setup-panel-wide {
-  width: min(1500px, 100%);
+  width: min(2250px, 100%);
 }
 /* (21) Setup popup chrome — squeezed to leave more room for the
    tab content. Smaller h2, tighter button padding on both

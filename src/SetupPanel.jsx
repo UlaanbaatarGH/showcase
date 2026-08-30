@@ -159,6 +159,10 @@ export default function SetupPanel({
       // rule -> text -- read a pre-rename row's old key so nothing
       // saved before this update goes missing.
       text: r.text ?? r.rule ?? '',
+      // FIX512.2.2.4: new mandatory column -- a rule saved before this
+      // field existed has no target at all, default it to 'Image' (the
+      // spec's own default) rather than leaving it blank/invalid.
+      target: r.target ?? 'Image',
     })),
   );
   // FIX512.2.1 <setup-img-caption-height>: pixel height for the caption's
@@ -251,7 +255,7 @@ export default function SetupPanel({
   // of the table, selected so it's immediately editable.
   const addCaptionRule = () => {
     setImgCaptionRules((prev) => {
-      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', op: 'is', text: '' }];
+      const next = [...prev, { id: nextTempRuleId, category: '', shape: '', op: 'is', text: '', target: 'Image' }];
       setSelectedRuleIdxs(new Set([next.length - 1]));
       setRuleAnchor(next.length - 1);
       return next;
@@ -371,6 +375,8 @@ export default function SetupPanel({
               op: r.op || 'is',
               // FIX512.2.2.2 (updated) / FIX512.4.2: id <img-caption-text>.
               text: (r.text || '').trim(),
+              // FIX512.2.2.4: mandatory, defaults to 'Image'.
+              target: r.target || 'Image',
             })),
           // FIX512.2.1 <setup-img-caption-height>.
           img_caption_height: imgCaptionHeight.trim(),
@@ -911,10 +917,11 @@ export default function SetupPanel({
               </label>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>
-                  {/* FIX512.2.0 (updated): column order is Category (a
-                      merged header over the Op/Category sub-columns,
-                      FIX512.2.2.1), Shape, Caption. */}
+                  {/* FIX512.2.0 (updated): column order is Target (new,
+                      FIX512.2.2.4), Category (a merged header over the
+                      Op/Category sub-columns, FIX512.2.2.1), Shape, Caption. */}
                   <tr>
+                    <th style={{ width: '7rem' }}>Target</th>
                     <th style={{ width: '14rem' }} colSpan={2}>Category</th>
                     <th style={{ width: '10rem' }}>Shape</th>
                     {/* FIX512.2.2.2 (updated, twice): header label
@@ -932,7 +939,7 @@ export default function SetupPanel({
                 <tbody>
                   {imgCaptionRules.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="setup-empty">No caption rule defined.</td>
+                      <td colSpan={5} className="setup-empty">No caption rule defined.</td>
                     </tr>
                   )}
                   {imgCaptionRules.map((r, i) => (
@@ -941,6 +948,23 @@ export default function SetupPanel({
                       className={selectedRuleIdxs.has(i) ? 'selected' : ''}
                       onClick={(e) => handleRuleRowClick(e, i)}
                     >
+                      {/* FIX512.2.2.4 <img-caption-target>: dropdown, fixed
+                          {'Image', 'Thumbnail'} values, mandatory, defaults
+                          to 'Image' (both on a brand-new row and on load
+                          for any pre-existing row saved before this field
+                          existed -- see the initial-state mapping above).
+                          FIX525.4.9 (updated): the item viewer's automatic-
+                          caption fallback only ever considers 'Image' rows. */}
+                      <td>
+                        <select
+                          data-yagu-id="img-caption-target"
+                          value={r.target ?? 'Image'}
+                          onChange={(e) => updateCaptionRule(i, { target: e.target.value })}
+                        >
+                          <option value="Image">Image</option>
+                          <option value="Thumbnail">Thumbnail</option>
+                        </select>
+                      </td>
                       {/* FIX512.2.2.1.1[ex-512.2.2.4] <img-caption-op>:
                           dropdown, fixed {'is', 'starts with'} values.
                           Inline edition. Unnamed sub-column of the merged

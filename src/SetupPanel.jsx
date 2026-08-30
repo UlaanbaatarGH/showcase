@@ -190,6 +190,26 @@ export default function SetupPanel({
   const [imgCaptionHeight, setImgCaptionHeight] = useState(
     () => initialViewSetup?.img_caption_height ?? '',
   );
+  // FIX512.2.3 / <cmd-show-filter1> / FIX512.2.4 / <cmd-show-filter2>:
+  // toggles showing the Op/Category sub-columns and the Shape column on
+  // <setup-table-caption-rules> (FIX512.2.2.1.1/.1.2, FIX512.3.6). "Unchecked
+  // by default when no caption rule refers to this filter" -- when no
+  // explicit saved preference exists yet, default to whether any loaded
+  // rule already has a non-blank category/shape (self-consistent with
+  // FIX512.4.8/.4.9 below: a rule can only ever gain a category/shape value
+  // while its column is visible in the first place).
+  const [showCategoryFilter, setShowCategoryFilter] = useState(() => {
+    if (typeof initialViewSetup?.img_caption_show_category_filter === 'boolean') {
+      return initialViewSetup.img_caption_show_category_filter;
+    }
+    return (initialViewSetup?.img_caption_rules ?? []).some((r) => (r.category ?? '').trim() !== '');
+  });
+  const [showShapeFilter, setShowShapeFilter] = useState(() => {
+    if (typeof initialViewSetup?.img_caption_show_shape_filter === 'boolean') {
+      return initialViewSetup.img_caption_show_shape_filter;
+    }
+    return (initialViewSetup?.img_caption_rules ?? []).some((r) => (r.shape ?? '').trim() !== '');
+  });
   const [selectedRuleIdxs, setSelectedRuleIdxs] = useState(() => new Set());
   const [ruleAnchor, setRuleAnchor] = useState(null);
   // Unlike properties/ratingValues (server-assigned positive ids, so a
@@ -240,6 +260,12 @@ export default function SetupPanel({
     return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shapeProperty?.id, shapeProperty?.formula, folders, propertiesByLabel]);
+
+  // FIX512.4.8 / FIX512.4.9: cmd-show-filter1/2 cannot be unchecked while
+  // at least one rule (live, in-progress edits included) still refers to
+  // that filter -- guards the checkboxes' onChange below.
+  const categoryFilterLocked = imgCaptionRules.some((r) => (r.category ?? '').trim() !== '');
+  const shapeFilterLocked = imgCaptionRules.some((r) => (r.shape ?? '').trim() !== '');
 
   // FIX512.2.2.10: plain click selects only that row; Ctrl/Cmd-click
   // toggles it into/out of the selection; Shift-click selects the
@@ -396,6 +422,9 @@ export default function SetupPanel({
             })),
           // FIX512.2.1 <setup-img-caption-height>.
           img_caption_height: imgCaptionHeight.trim(),
+          // FIX512.2.3 / FIX512.2.4 <cmd-show-filter1> / <cmd-show-filter2>.
+          img_caption_show_category_filter: showCategoryFilter,
+          img_caption_show_shape_filter: showShapeFilter,
         },
         // FIX507.4.2 <panel-rating-setup>: saved as part of this same
         // general setup save function.
@@ -1011,15 +1040,51 @@ export default function SetupPanel({
                 />
                 <span>px</span>
               </label>
+              {/* FIX512.2.0 (updated) / FIX512.2.3 / FIX512.2.4
+                  <cmd-show-filter1> / <cmd-show-filter2>: show/hide the
+                  Op+Category sub-columns and the Shape column below
+                  (FIX512.2.2.1.1/.1.2, FIX512.3.5/.3.6). FIX512.4.8/.4.9:
+                  cannot be unchecked while a rule still refers to that
+                  filter -- the onChange guard below just ignores an
+                  attempted uncheck in that case (the controlled checkbox
+                  snaps back to checked on its own). */}
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="cmd-show-filter1"
+                  type="checkbox"
+                  checked={showCategoryFilter}
+                  onChange={(e) => {
+                    if (!e.target.checked && categoryFilterLocked) return;
+                    setShowCategoryFilter(e.target.checked);
+                  }}
+                />
+                Show Category filter
+              </label>
+              <label className="setup-checkbox-row">
+                <input
+                  data-yagu-id="cmd-show-filter2"
+                  type="checkbox"
+                  checked={showShapeFilter}
+                  onChange={(e) => {
+                    if (!e.target.checked && shapeFilterLocked) return;
+                    setShowShapeFilter(e.target.checked);
+                  }}
+                />
+                Show Shape filter
+              </label>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>
                   {/* FIX512.2.0 (updated): column order is Target (new,
                       FIX512.2.2.4), Category (a merged header over the
-                      Op/Category sub-columns, FIX512.2.2.1), Shape, Caption. */}
+                      Op/Category sub-columns, FIX512.2.2.1, shown only
+                      while <cmd-show-filter1> is checked), Shape (shown
+                      only while <cmd-show-filter2> is checked), Caption. */}
                   <tr>
                     <th style={{ width: '7rem' }}>Target</th>
-                    <th style={{ width: '14rem' }} colSpan={2}>Category</th>
-                    <th style={{ width: '10rem' }}>Shape</th>
+                    {showCategoryFilter && (
+                      <th style={{ width: '14rem' }} colSpan={2}>Category</th>
+                    )}
+                    {showShapeFilter && <th style={{ width: '10rem' }}>Shape</th>}
                     {/* FIX512.2.2.2 (updated, twice): header label
                         shortened 'Caption rule' -> 'Caption', and the id
                         renamed <img-caption-rule> -> <img-caption-text>
@@ -1035,7 +1100,12 @@ export default function SetupPanel({
                 <tbody>
                   {imgCaptionRules.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="setup-empty">No caption rule defined.</td>
+                      <td
+                        colSpan={2 + (showCategoryFilter ? 2 : 0) + (showShapeFilter ? 1 : 0)}
+                        className="setup-empty"
+                      >
+                        No caption rule defined.
+                      </td>
                     </tr>
                   )}
                   {imgCaptionRules.map((r, i) => (
@@ -1061,54 +1131,64 @@ export default function SetupPanel({
                           <option value="Thumbnail">Thumbnail</option>
                         </select>
                       </td>
-                      {/* FIX512.2.2.1.1[ex-512.2.2.4] <img-caption-op>:
+                      {/* FIX512.2.2.1.1[ex-512.2.2.4] (updated) <img-caption-op>:
                           dropdown, fixed {'is', 'starts with'} values.
                           Inline edition. Unnamed sub-column of the merged
-                          'Category' header (FIX512.2.2.1 updated). */}
-                      <td>
-                        <select
-                          data-yagu-id="img-caption-op"
-                          value={r.op ?? 'is'}
-                          onChange={(e) => updateCaptionRule(i, { op: e.target.value })}
-                        >
-                          <option value="is">is</option>
-                          <option value="starts with">starts with</option>
-                        </select>
-                      </td>
-                      {/* FIX512.2.2.1.2[ex-512.2.2.1] <img-caption-category>:
-                          dropdown of <setup-category-property>'s distinct
-                          values. Inline edition. Unnamed sub-column of the
-                          merged 'Category' header (FIX512.2.2.1 updated).
+                          'Category' header (FIX512.2.2.1 updated).
+                          Displayed only when <cmd-show-filter1> is checked. */}
+                      {showCategoryFilter && (
+                        <td>
+                          <select
+                            data-yagu-id="img-caption-op"
+                            value={r.op ?? 'is'}
+                            onChange={(e) => updateCaptionRule(i, { op: e.target.value })}
+                          >
+                            <option value="is">is</option>
+                            <option value="starts with">starts with</option>
+                          </select>
+                        </td>
+                      )}
+                      {/* FIX512.2.2.1.2[ex-512.2.2.1] (updated)
+                          <img-caption-category>: dropdown of
+                          <setup-category-property>'s distinct values.
+                          Inline edition. Unnamed sub-column of the merged
+                          'Category' header (FIX512.2.2.1 updated).
                           FIX512.4.1 (updated): no longer clears Shape on
-                          change -- shape no longer depends on category. */}
-                      <td>
-                        <select
-                          data-yagu-id="img-caption-category"
-                          value={r.category ?? ''}
-                          onChange={(e) => updateCaptionRule(i, { category: e.target.value })}
-                        >
-                          <option value="">— none —</option>
-                          {categoryValueOptions.map((v) => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </td>
+                          change -- shape no longer depends on category.
+                          Displayed only when <cmd-show-filter1> is checked. */}
+                      {showCategoryFilter && (
+                        <td>
+                          <select
+                            data-yagu-id="img-caption-category"
+                            value={r.category ?? ''}
+                            onChange={(e) => updateCaptionRule(i, { category: e.target.value })}
+                          >
+                            <option value="">— none —</option>
+                            {categoryValueOptions.map((v) => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
                       {/* FIX512.2.2.3 <img-caption-shape>: dropdown of
                           <setup-shape-property>'s distinct values.
                           FIX512.4.1 (updated): independent of Category
-                          now, not scoped to it. Inline edition. */}
-                      <td>
-                        <select
-                          data-yagu-id="img-caption-shape"
-                          value={r.shape ?? ''}
-                          onChange={(e) => updateCaptionRule(i, { shape: e.target.value })}
-                        >
-                          <option value="">— none —</option>
-                          {shapeValueOptions.map((v) => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </td>
+                          now, not scoped to it. Inline edition. FIX512.3.6:
+                          displayed only when <cmd-show-filter2> is checked. */}
+                      {showShapeFilter && (
+                        <td>
+                          <select
+                            data-yagu-id="img-caption-shape"
+                            value={r.shape ?? ''}
+                            onChange={(e) => updateCaptionRule(i, { shape: e.target.value })}
+                          >
+                            <option value="">— none —</option>
+                            {shapeValueOptions.map((v) => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
                       {/* FIX512.2.2.2 (updated) <img-caption-text>:
                           several-line input text. Inline edition.
                           FIX512.4.2: {PropertyLabel} placeholders get

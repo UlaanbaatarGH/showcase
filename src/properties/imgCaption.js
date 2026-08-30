@@ -198,38 +198,50 @@ export function computeImageCaption(rules, folder, categoryProperty, shapeProper
 // caption string (evalBraceExpr passed it through verbatim above).
 const STYLE_TAG_RE = /\{\/(B|I|U|H\d+|C#[0-9A-Fa-f]{6})\}/g;
 
-// FIX512.4.7: split one already-resolved caption line into styled runs.
-// Each tag updates the running style state for the rest of THIS line only
-// -- FIX512.4.6 makes a line the natural reset boundary, so style never
-// carries across a line break. Un-set attributes stay null/false (no
-// closing-tag syntax is defined -- B/I/U/height/colour are each simply
-// "on" from that point, same as height/colour are a value from that point).
-function parseStyledLine(line) {
+// FIX512.4.7 (updated): B/I/U each switch on/off on every occurrence of
+// their tag ("A {/B}big{/B} house" -- only "big" is bold, the 2nd {/B}
+// toggles it back off). Hn/colour have no such pairing -- they simply set
+// a value, still in force until a later occurrence of the same tag sets a
+// different one. FIX512.4.7.1: style is NOT reset at a line break, so this
+// walks the whole (un-split) caption in one pass -- splitting into lines
+// for rendering happens afterwards, in parseCaptionMarkup below.
+function parseStyledRuns(text) {
   const runs = [];
   let state = { bold: false, italic: false, underline: false, heightPx: null, color: null };
   let lastIndex = 0;
   STYLE_TAG_RE.lastIndex = 0;
   let m;
-  while ((m = STYLE_TAG_RE.exec(line))) {
-    if (m.index > lastIndex) runs.push({ text: line.slice(lastIndex, m.index), ...state });
+  while ((m = STYLE_TAG_RE.exec(text))) {
+    if (m.index > lastIndex) runs.push({ text: text.slice(lastIndex, m.index), ...state });
     const value = m[1];
     state = { ...state };
-    if (value === 'B') state.bold = true;
-    else if (value === 'I') state.italic = true;
-    else if (value === 'U') state.underline = true;
+    if (value === 'B') state.bold = !state.bold;
+    else if (value === 'I') state.italic = !state.italic;
+    else if (value === 'U') state.underline = !state.underline;
     else if (value[0] === 'H') state.heightPx = Number(value.slice(1));
     else if (value[0] === 'C') state.color = value.slice(1); // '#rrggbb'
     lastIndex = STYLE_TAG_RE.lastIndex;
   }
-  if (lastIndex < line.length) runs.push({ text: line.slice(lastIndex), ...state });
+  if (lastIndex < text.length) runs.push({ text: text.slice(lastIndex), ...state });
   return runs;
 }
 
-// FIX512.4.6 / FIX512.4.7: parse a fully-resolved caption (computeImageCaption's
-// output, or a manual caption -- plain text with no tags parses as one
-// unstyled run per line) into lines of styled runs, ready to render. The
-// single place both FTags meet: splitting on '\n' is FIX512.4.6, the style
-// tags within each line are FIX512.4.7.
+// FIX512.4.6 / FIX512.4.7 / FIX512.4.7.1: parse a fully-resolved caption
+// (computeImageCaption's output, or a manual caption -- plain text with no
+// tags parses as one unstyled run) into lines of styled runs, ready to
+// render. Runs are computed once over the whole caption (style carries
+// across line breaks per FIX512.4.7.1), then each run's text is split on
+// '\n' and distributed across per-line arrays purely for FIX512.4.6's
+// N-line rendering -- a run whose text spans a break carries its one style
+// into both pieces.
 export function parseCaptionMarkup(caption) {
-  return String(caption ?? '').split('\n').map(parseStyledLine);
+  const runs = parseStyledRuns(String(caption ?? ''));
+  const lines = [[]];
+  for (const run of runs) {
+    run.text.split('\n').forEach((part, i) => {
+      if (i > 0) lines.push([]);
+      if (part !== '') lines[lines.length - 1].push({ ...run, text: part });
+    });
+  }
+  return lines;
 }

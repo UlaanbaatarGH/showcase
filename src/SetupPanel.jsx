@@ -1311,25 +1311,32 @@ export default function SetupPanel({
             {/* FIX506.2.0 (updated) / FIX506.2.7: Item key property sits
                 above the property list per the updated layout diagram --
                 Mandatory (see the itemFilters state comment for the
-                no-enforcement posture, same as <setup-img-caption-height>). */}
-            <h3>Item key property</h3>
-            <select
-              data-yagu-id="setup-item-key-property"
-              value={itemFilters.item_key_property_id ?? ''}
-              onChange={(e) =>
-                setItemFilters({
-                  ...itemFilters,
-                  item_key_property_id: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="">— none —</option>
-              {properties
-                .filter((p) => p.id > 0 && (p.label ?? '').trim())
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-            </select>
+                no-enforcement posture, same as <setup-img-caption-height>).
+                Bug fix: the diagram shows the label inline with its own
+                '[ ]' box, in normal case -- not a full-width heading above
+                it (which also picked up this panel's shared uppercase
+                h3 styling). setup-property-field mirrors setup-inline-row's
+                span+input pattern for a select instead. */}
+            <label className="setup-property-field">
+              <span>Item key property</span>
+              <select
+                data-yagu-id="setup-item-key-property"
+                value={itemFilters.item_key_property_id ?? ''}
+                onChange={(e) =>
+                  setItemFilters({
+                    ...itemFilters,
+                    item_key_property_id: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">— none —</option>
+                {properties
+                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
+            </label>
 
             {/* FIX506.2.0 (updated): 'List of properties' and the
                 Add/Del/Up/Down toolbar share one line. */}
@@ -1455,96 +1462,109 @@ export default function SetupPanel({
               </tbody>
             </table>
 
+            {/* FIX506.2.0 (updated) / FIX506.2.3-.2.6: the diagram pads
+                each of these four labels out to a common column before its
+                '[ ]' box -- setup-property-field's fixed-width label
+                aligns all four selects, in normal case (span, not the
+                uppercase h3 heading style this used before). */}
             {/* FIX506.2.3 (updated): pick the property whose non-blank
                 value marks an item as deleted. Deleted items are hidden
                 from the Showcase list/sort/filter/grouping (FIX510.3). */}
-            <h3>Deleted-item flag property</h3>
-            <select
-              value={itemFilters.deleted_property_id ?? ''}
-              onChange={(e) =>
-                setItemFilters({
-                  ...itemFilters,
-                  deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="">— none —</option>
-              {properties
-                .filter((p) => p.id > 0 && (p.label ?? '').trim())
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-            </select>
+            <label className="setup-property-field">
+              <span>Deleted-item flag property</span>
+              <select
+                value={itemFilters.deleted_property_id ?? ''}
+                onChange={(e) =>
+                  setItemFilters({
+                    ...itemFilters,
+                    deleted_property_id: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">— none —</option>
+                {properties
+                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
+            </label>
 
             {/* FIX506.2.4 (updated) / <setup-date-property>: pick the
                 property that holds the item's date. Used by FIX510.5.2 /
                 FIX374.2.16 (combined with <show-items-with-no-date>
                 on the General tab) to optionally hide items that
                 don't have a date. */}
-            <h3>Item date property</h3>
-            <select
-              data-yagu-id="setup-date-property"
-              value={itemFilters.date_property_id ?? ''}
-              onChange={(e) =>
-                setItemFilters({
-                  ...itemFilters,
-                  date_property_id: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="">— none —</option>
-              {properties
-                .filter((p) => p.id > 0 && (p.label ?? '').trim())
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-            </select>
+            <label className="setup-property-field">
+              <span>Item date property</span>
+              <select
+                data-yagu-id="setup-date-property"
+                value={itemFilters.date_property_id ?? ''}
+                onChange={(e) =>
+                  setItemFilters({
+                    ...itemFilters,
+                    date_property_id: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">— none —</option>
+                {properties
+                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
+            </label>
 
             {/* FIX506.2.5 (updated) / <setup-category-property>: pick the
                 property whose value categorizes an item. Feeds the Image
                 Caption rules table's Category column (FIX512.2.2.1) with
                 that property's distinct values. */}
-            <h3>Item category property</h3>
-            <select
-              data-yagu-id="setup-category-property"
-              value={itemFilters.category_property_id ?? ''}
-              onChange={(e) =>
-                setItemFilters({
-                  ...itemFilters,
-                  category_property_id: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="">— none —</option>
-              {properties
-                .filter((p) => p.id > 0 && (p.label ?? '').trim())
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-            </select>
+            <label className="setup-property-field">
+              <span>Item category property</span>
+              <select
+                data-yagu-id="setup-category-property"
+                value={itemFilters.category_property_id ?? ''}
+                onChange={(e) =>
+                  setItemFilters({
+                    ...itemFilters,
+                    category_property_id: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">— none —</option>
+                {properties
+                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
+            </label>
 
             {/* FIX506.2.6 (updated) / <setup-shape-property>: pick the
                 property whose value gives an item's shape. Feeds the
                 Image Caption rules table's Shape column (FIX512.2.2.3),
                 independent of Category (FIX512.4.1 updated). */}
-            <h3>Item shape property</h3>
-            <select
-              data-yagu-id="setup-shape-property"
-              value={itemFilters.shape_property_id ?? ''}
-              onChange={(e) =>
-                setItemFilters({
-                  ...itemFilters,
-                  shape_property_id: e.target.value === '' ? null : Number(e.target.value),
-                })
-              }
-            >
-              <option value="">— none —</option>
-              {properties
-                .filter((p) => p.id > 0 && (p.label ?? '').trim())
-                .map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-            </select>
+            <label className="setup-property-field">
+              <span>Item shape property</span>
+              <select
+                data-yagu-id="setup-shape-property"
+                value={itemFilters.shape_property_id ?? ''}
+                onChange={(e) =>
+                  setItemFilters({
+                    ...itemFilters,
+                    shape_property_id: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+              >
+                <option value="">— none —</option>
+                {properties
+                  .filter((p) => p.id > 0 && (p.label ?? '').trim())
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+              </select>
+            </label>
           </section>
           )}
         </div>

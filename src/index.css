@@ -702,6 +702,22 @@ body {
   border: 1px solid #444;
   border-radius: 3px;
 }
+/* FIX506.2.0 (updated): Item key/Deleted-item flag/Item date/Item
+   category/Item shape property -- the diagram pads every label out to a
+   common column before its '[ ]' box, so the select lines up the same way
+   across all these fields regardless of label length. Normal case (a
+   span, not this panel's shared uppercase h3 heading style). */
+.setup-property-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+.setup-property-field > span {
+  display: inline-block;
+  min-width: 13rem;
+}
 .setup-checkbox-row {
   display: flex;
   gap: 0.5rem;

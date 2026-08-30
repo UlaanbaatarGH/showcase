@@ -565,15 +565,28 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       newProperty: newProperties.map((p) => p.label),
       updatedPropertyName: renames.map((r) => `${propById.get(r.id)?.label || '?'} → ${r.label}`),
     },
-    // FIX370.4.2.2.2: every main-sheet property column, flagged with
-    // whether it's actually read (imported) -- this is what would have
-    // caught the "colour silently dropped because a setup sheet only
-    // listed an unrelated column" case directly, instead of the user
-    // having to be told the setup-sheet-is-an-allowlist rule.
-    gsheetColumns: propHeaders.map((c) => ({
-      label: c.label,
-      read: importedPropHeaders.includes(c),
-    })),
+    // FIX370.4.2.2.2 / FIX370.4.2.2.2.2: every main-sheet column, flagged
+    // with whether it's actually read -- this is what would have caught
+    // the "colour silently dropped because a setup sheet only listed an
+    // unrelated column" case directly, instead of the user having to be
+    // told the setup-sheet-is-an-allowlist rule.
+    // Bug fix: the key column (setup-item-key-property, FIX370.2.1.1
+    // updated) and the rename-command column (setup-import-chg-ref-col,
+    // FIX370.2.1.7 updated) used to be left out entirely -- inherited from
+    // when '#'/'# new' were hardcoded and never real properties, so
+    // excluding them from propHeaders (which still correctly keeps them
+    // out of the property-value-update pipeline below) also silently
+    // dropped them from this list. Nothing in FIX370.2.1.1/.4.2.2.2.2
+    // actually says to exclude them here -- they ARE read (consulted for
+    // every row), just not as a stored property value -- so they're added
+    // back in, always flagged read, in their natural column position.
+    gsheetColumns: [
+      ...propHeaders.map((c) => ({ label: c.label, idx: c.idx, read: importedPropHeaders.includes(c) })),
+      ...(folderColIdx >= 0 ? [{ label: headers[folderColIdx], idx: folderColIdx, read: true }] : []),
+      ...(folderNewColIdx >= 0 ? [{ label: headers[folderNewColIdx], idx: folderNewColIdx, read: true }] : []),
+    ]
+      .sort((a, b) => a.idx - b.idx)
+      .map(({ label, read }) => ({ label, read })),
     // FIX370.2.1.6.1 (updated): columns dropped for not matching an
     // existing property, when no setup sheet was provided.
     droppedColumns,

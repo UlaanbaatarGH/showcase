@@ -184,6 +184,7 @@ export default function ShowcaseImgListEditor({
   // <cmd-copy-img>.
   const clipboardItems = useImageClipboard();
   const [copyingImages, setCopyingImages] = useState(false);
+  const [pastingImages, setPastingImages] = useState(false);
 
   // Every toolbar command except the arrow-up/arrow-down reorder buttons
   // now lives in this dropdown — the flat button row used to overflow and
@@ -1292,6 +1293,94 @@ export default function ShowcaseImgListEditor({
     }
   };
 
+  // FIX521.3.7 <cmd-paste-img>: create new image elements in the current
+  // item from the clipboard snapshot, carrying the attached information
+  // across. Local app: staged like Add (insertLocalRows/makeLocalRow),
+  // deferred to Publish. Website: uploads each blob right away (same
+  // sign/PUT/confirm sequence as handleFilesDroppedWebsite), then applies
+  // rotation/crop (updateImage, keyed by the image_id confirm returns) and
+  // section (updateFolderImage, matched by image_id after a re-fetch --
+  // confirm's response doesn't carry the folder_image id). Caption rides
+  // along directly in the confirm payload, which already accepts it.
+  const pasteImages = async () => {
+    if (!clipboardItems || pastingImages) return;
+    if (isLocalApp) {
+      insertLocalRows(clipboardItems.map((it) => ({
+        ...makeLocalRow(it.filename, it.blob),
+        caption: it.caption,
+        section: it.section,
+        rotation: it.rotation,
+        crop: it.crop,
+      })));
+      return;
+    }
+    setPastingImages(true);
+    const selected = [...selIdxsRef.current];
+    const lastSelected = selected.length > 0 ? Math.max(...selected) : null;
+    const insertAt = lastSelected != null ? lastSelected + 1 : images.length;
+    const shiftedRows = images.slice(insertAt);
+    try {
+      const pastedImageIds = [];
+      const sectionByImageId = new Map();
+      let done = 0;
+      for (const it of clipboardItems) {
+        const sign = await signUpload({ project_id: projectId, item_name: itemName, filename: it.filename || 'pasted-image.jpg' });
+        const putRes = await fetch(sign.signed_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': it.blob.type || 'application/octet-stream' },
+          body: it.blob,
+        });
+        if (!putRes.ok) throw new Error(`upload failed: ${putRes.status}`);
+        const zf = await new Promise((resolve) => {
+          const url = URL.createObjectURL(it.blob);
+          const probe = new Image();
+          probe.onload = () => { URL.revokeObjectURL(url); resolve(zoomFactor(probe.naturalWidth, probe.naturalHeight)); };
+          probe.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+          probe.src = url;
+        });
+        const confirmed = await confirmImage({
+          project_id: projectId,
+          item_name: itemName,
+          storage_key: sign.storage_key,
+          sort_order: insertAt + done,
+          zoom_factor: zf,
+          caption: it.caption,
+        });
+        pastedImageIds.push(confirmed.image_id);
+        if (it.section) sectionByImageId.set(confirmed.image_id, it.section);
+        if (it.rotation || it.crop) {
+          await updateImage(confirmed.image_id, { rotation: it.rotation, crop: it.crop });
+        }
+        done += 1;
+      }
+      if (shiftedRows.length > 0) {
+        await Promise.all(
+          shiftedRows.filter((im) => !isLocalRow(im)).map((im, k) => updateFolderImage(im.id, { sort_order: insertAt + done + k })),
+        );
+      }
+      let fresh = await getFolderImages(folderId);
+      if (sectionByImageId.size > 0) {
+        const toPatch = fresh.filter((f) => sectionByImageId.has(f.image_id));
+        await Promise.all(toPatch.map((f) => updateFolderImage(f.id, { section: sectionByImageId.get(f.image_id) })));
+        fresh = fresh.map((f) => (sectionByImageId.has(f.image_id) ? { ...f, section: sectionByImageId.get(f.image_id) } : f));
+      }
+      setImages(fresh.map((im, idx) => ({ ...im, origSortOrder: idx })));
+      const newIdxs = fresh
+        .map((f, idx) => (pastedImageIds.includes(f.image_id) ? idx : -1))
+        .filter((idx) => idx !== -1);
+      if (newIdxs.length) {
+        selIdxsRef.current = new Set(newIdxs);
+        setSelIdxs(new Set(newIdxs));
+        setSelectedIdx(newIdxs[0]);
+        setAnchor(newIdxs[0]);
+      }
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setPastingImages(false);
+    }
+  };
+
   // FIX620 <process-automatic-img-insertion>: <button-auto-insert-img>.
   // FIX620.3.2: pushing down while off opens a popup to enter/confirm the
   // watched folder. FIX620.3.3: pushing up while on immediately stops, no
@@ -1569,6 +1658,21 @@ export default function ShowcaseImgListEditor({
                     disabled={interactionLocked || copyingImages || selIdxs.size === 0}
                   >
                     Copy
+                  </button>
+                </li>
+                {/* FIX521.2.1.14 <cmd-paste-img> / FIX521.3.7: pastes the
+                    image elements stored in the clipboard as new image
+                    elements in the current item. Enabled only when the
+                    clipboard holds a copy done by <cmd-copy-img>. */}
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-yagu-id="cmd-paste-img"
+                    onClick={() => { setCommandsMenuOpen(false); pasteImages(); }}
+                    disabled={interactionLocked || pastingImages || !clipboardItems}
+                  >
+                    Paste
                   </button>
                 </li>
                 {/* FIX610.3.5(removed): the per-item Publish command is gone

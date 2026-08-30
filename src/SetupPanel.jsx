@@ -106,6 +106,13 @@ export default function SetupPanel({
     // no view_setup at all.
     initial_show_as: initialViewSetup?.initial_show_as === 'gallery' ? 'gallery' : 'list',
   });
+  // FIX513.2.1 / <setup-import-chg-ref-col>: the gsheet column name
+  // (FIX370.2.1.7 updated) that, when present in an imported sheet, is
+  // interpreted as a command to rename an existing item's key-property
+  // value -- not the hardcoded '# new' literal anymore.
+  const [importChgRefCol, setImportChgRefCol] = useState(
+    () => initialViewSetup?.import_chg_ref_col ?? '',
+  );
   // FIX508.2.4 <item-short-label>: stack of (property, max_length)
   // entries. The Contact panel item list (FIX420.2.2) and other
   // 'one-liner per item' contexts use buildItemShortLabel() to render
@@ -387,6 +394,8 @@ export default function SetupPanel({
           properties_gsheet_url: generalSetup.properties_gsheet_url.trim(),
           // FIX508.2.6 / <setup-initial-show-as>.
           initial_show_as: generalSetup.initial_show_as,
+          // FIX513.2.1 / <setup-import-chg-ref-col>.
+          import_chg_ref_col: importChgRefCol.trim(),
           // FIX508.2.4 / <item-short-label>: persist the stack only
           // with parts pointing at known properties (drop orphans
           // pointing at deleted properties). FIX508.2.4.2: optional
@@ -636,12 +645,12 @@ export default function SetupPanel({
         <header className="setup-header">
           <h2>Setup</h2>
         </header>
-        {/* FIX505.2 (updated): tab strip — General / Properties /
-            Rating / Language (FIX505.2.0 diagram). Tab buttons themselves
-            carry no data-yagu-id (FIX505.2.1.0[removed] dropped the one on
-            Properties); the *content* sections do, per FIX506.0,
-            FIX507.0, FIX509.0. FIX505.3.{1..5} are the click
-            handlers below. */}
+        {/* FIX505.2 (updated): tab strip — General / Properties / Import /
+            Image Captions / Rating / Language (FIX505.2.0 updated diagram).
+            Tab buttons themselves carry no data-yagu-id (FIX505.2.1.0[removed]
+            dropped the one on Properties); the *content* sections do, per
+            FIX506.0, FIX507.0, FIX509.0, FIX513.0. FIX505.3.{1..5} are the
+            click handlers below. */}
         <div className="setup-tabs">
           <button
             type="button"
@@ -656,6 +665,19 @@ export default function SetupPanel({
             onClick={() => setActiveTab('properties')}
           >
             Properties
+          </button>
+          {/* FIX505.2.6 <tab-import-setup>: opens <panel-import-setup>
+              (FIX513). Sits between Properties and Image Captions per
+              FIX505.2.0's updated tab order. No FIX505.3.x click-handler
+              entry is spec'd for it, same as every sibling tab's own
+              click-opens-its-panel action. */}
+          <button
+            type="button"
+            className={activeTab === 'import' ? 'active' : ''}
+            data-yagu-id="tab-import-setup"
+            onClick={() => setActiveTab('import')}
+          >
+            Import
           </button>
           {/* FIX505.2.5 / FIX505.2.5.0 <tab-img-caption-setup>: opens
               <panel-img-caption-setup> per FIX505.3.6. Sits between
@@ -1652,6 +1674,28 @@ export default function SetupPanel({
               </select>
             </label>
           </section>
+          )}
+          {activeTab === 'import' && (
+            /* FIX513 / FIX513.0 <panel-import-setup>: opened via
+               <tab-import-setup>. FIX513.1 Purpose is blank in the spec --
+               preliminary scaffolding limited to the one field FIX513.2.1
+               defines, same posture the Image Captions tab started from. */
+            <section className="setup-section" data-yagu-id="panel-import-setup">
+              <h3>Import</h3>
+              {/* FIX513.2.1 <setup-import-chg-ref-col>: the name of the
+                  gsheet column (FIX370.2.1.7 updated) that carries a
+                  rename command for an existing item's key-property value. */}
+              <label className="setup-inline-row">
+                <span>Import column for changing item ref</span>
+                <input
+                  type="text"
+                  data-yagu-id="setup-import-chg-ref-col"
+                  value={importChgRefCol}
+                  onChange={(e) => setImportChgRefCol(e.target.value)}
+                  placeholder="e.g. # new"
+                />
+              </label>
+            </section>
           )}
         </div>
         {error && <div className="setup-error">{error}</div>}

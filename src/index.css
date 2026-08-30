@@ -1520,9 +1520,12 @@ body {
 .sc-viewer-bottom .sc-viewer-caption {
   display: inline-block;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* FIX512.4.6: <img-caption-text> may contain literal newlines, and the
+     generated caption must keep that same line count -- pre-line preserves
+     them as real line breaks (collapsing other whitespace runs, still
+     wrapping normally) instead of the previous nowrap+ellipsis single-line
+     truncation, which would have collapsed every embedded newline away. */
+  white-space: pre-line;
   max-width: 100%;
   vertical-align: middle;
 }

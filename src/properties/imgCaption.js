@@ -126,6 +126,11 @@ function evalBraceExpr(inner, folder, propertiesByLabel) {
     // verbatim, immune to the leading-whitespace trim a term's own
     // surrounding text gets (FIX512.4.5.1-.3's ": term" formatting space).
     if (inner.length > 0 && inner.trim() === '') return inner;
+    // FIX512.4.7: a {/value} style tag ({/B}, {/I}, {/U}, {/Hn}, {/C#nnnnnn})
+    // isn't a property placeholder either -- pass it through verbatim so it
+    // survives into the fully-resolved caption string for parseCaptionMarkup
+    // (below) to turn into styled runs at render time.
+    if (inner[0] === '/') return `{${inner}}`;
     const value = lookupPropertyValue(inner, folder, propertiesByLabel);
     return value === undefined ? '' : String(value ?? '');
   }
@@ -187,4 +192,44 @@ export function computeImageCaption(rules, folder, categoryProperty, shapeProper
   const match = (rules ?? []).find((r) => captionRuleMatches(r, categoryValue, shapeValue));
   if (!match) return null;
   return resolveCaptionText(match.text, folder, propertiesByLabel);
+}
+
+// FIX512.4.7: recognizes a {/value} style tag surviving in a resolved
+// caption string (evalBraceExpr passed it through verbatim above).
+const STYLE_TAG_RE = /\{\/(B|I|U|H\d+|C#[0-9A-Fa-f]{6})\}/g;
+
+// FIX512.4.7: split one already-resolved caption line into styled runs.
+// Each tag updates the running style state for the rest of THIS line only
+// -- FIX512.4.6 makes a line the natural reset boundary, so style never
+// carries across a line break. Un-set attributes stay null/false (no
+// closing-tag syntax is defined -- B/I/U/height/colour are each simply
+// "on" from that point, same as height/colour are a value from that point).
+function parseStyledLine(line) {
+  const runs = [];
+  let state = { bold: false, italic: false, underline: false, heightPx: null, color: null };
+  let lastIndex = 0;
+  STYLE_TAG_RE.lastIndex = 0;
+  let m;
+  while ((m = STYLE_TAG_RE.exec(line))) {
+    if (m.index > lastIndex) runs.push({ text: line.slice(lastIndex, m.index), ...state });
+    const value = m[1];
+    state = { ...state };
+    if (value === 'B') state.bold = true;
+    else if (value === 'I') state.italic = true;
+    else if (value === 'U') state.underline = true;
+    else if (value[0] === 'H') state.heightPx = Number(value.slice(1));
+    else if (value[0] === 'C') state.color = value.slice(1); // '#rrggbb'
+    lastIndex = STYLE_TAG_RE.lastIndex;
+  }
+  if (lastIndex < line.length) runs.push({ text: line.slice(lastIndex), ...state });
+  return runs;
+}
+
+// FIX512.4.6 / FIX512.4.7: parse a fully-resolved caption (computeImageCaption's
+// output, or a manual caption -- plain text with no tags parses as one
+// unstyled run per line) into lines of styled runs, ready to render. The
+// single place both FTags meet: splitting on '\n' is FIX512.4.6, the style
+// tags within each line are FIX512.4.7.
+export function parseCaptionMarkup(caption) {
+  return String(caption ?? '').split('\n').map(parseStyledLine);
 }

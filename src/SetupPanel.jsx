@@ -1032,11 +1032,12 @@ export default function SetupPanel({
                   value={imgCaptionHeight}
                   onChange={(e) => setImgCaptionHeight(e.target.value)}
                   required
-                  // FIX512.2.0 diagram shows a small [ ] box -- override
-                  // .setup-inline-row's shared flex:1 stretch (fine for
-                  // the Rating tab's threshold field, wrong here since
-                  // this only ever holds 2-3 digits).
-                  style={{ flex: '0 0 auto', width: '4rem' }}
+                  // Bug fix: the diagram's box is just "[   ]" -- 3 spaces,
+                  // room for a 2-3 digit number -- 4rem read too wide/thick
+                  // next to that. Narrowed to 3rem (still overrides
+                  // .setup-inline-row's shared flex:1 stretch, fine for the
+                  // Rating tab's threshold field, wrong here).
+                  style={{ flex: '0 0 auto', width: '3rem' }}
                 />
                 <span>px</span>
               </label>
@@ -1047,8 +1048,14 @@ export default function SetupPanel({
                   cannot be unchecked while a rule still refers to that
                   filter -- the onChange guard below just ignores an
                   attempted uncheck in that case (the controlled checkbox
-                  snaps back to checked on its own). */}
+                  snaps back to checked on its own).
+                  Bug fix: the diagram reads "Show Category filter [X]" --
+                  label text THEN the box, same order as Caption font
+                  height above -- not the checkbox-then-text order every
+                  other checkbox in this panel (e.g. Enable item rating)
+                  happens to use. */}
               <label className="setup-checkbox-row">
+                Show Category filter
                 <input
                   data-yagu-id="cmd-show-filter1"
                   type="checkbox"
@@ -1058,9 +1065,9 @@ export default function SetupPanel({
                     setShowCategoryFilter(e.target.checked);
                   }}
                 />
-                Show Category filter
               </label>
               <label className="setup-checkbox-row">
+                Show Shape filter
                 <input
                   data-yagu-id="cmd-show-filter2"
                   type="checkbox"
@@ -1070,7 +1077,6 @@ export default function SetupPanel({
                     setShowShapeFilter(e.target.checked);
                   }}
                 />
-                Show Shape filter
               </label>
               <table className="setup-items" data-yagu-id="setup-table-caption-rules">
                 <thead>

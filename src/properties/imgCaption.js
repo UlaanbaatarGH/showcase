@@ -182,6 +182,12 @@ export function resolveCaptionText(template, folder, propertiesByLabel) {
 // just because the project has no category property configured
 // (FIX506.2.5) -- FIX512.4.4 means a rule can be category-agnostic, so a
 // catch-all rule (both columns blank) must still work even then.
+// FIX525.4.9 (updated): both callers of this function (CatalogueView.jsx's
+// main viewer, ShowcaseImgListEditor.jsx's backoffice preview) render the
+// full item image, never a thumbnail -- so only ever consider
+// <img-caption-target> = 'Image' rules here, the one shared place this
+// pipeline is used. A rule saved before FIX512.2.2.4 existed has no target
+// at all; treat that the same as 'Image' (its own mandatory default).
 export function computeImageCaption(rules, folder, categoryProperty, shapeProperty, propertiesByLabel) {
   const categoryValue = categoryProperty
     ? computePropertyValue(folder, categoryProperty, propertiesByLabel)
@@ -189,7 +195,9 @@ export function computeImageCaption(rules, folder, categoryProperty, shapeProper
   const shapeValue = shapeProperty
     ? computePropertyValue(folder, shapeProperty, propertiesByLabel)
     : '';
-  const match = (rules ?? []).find((r) => captionRuleMatches(r, categoryValue, shapeValue));
+  const match = (rules ?? []).find(
+    (r) => (r.target ?? 'Image') === 'Image' && captionRuleMatches(r, categoryValue, shapeValue),
+  );
   if (!match) return null;
   return resolveCaptionText(match.text, folder, propertiesByLabel);
 }

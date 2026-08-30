@@ -2710,6 +2710,22 @@ export default function CatalogueView({
     ? { fontSize: `${viewSetup.img_caption_height}px` }
     : undefined;
 
+  // FIX511.4.4: the Item Gallery panel's thumbnail caption ({1} below the
+  // thumbnail) uses a matching 'Thumbnail'-targeted rule instead of the
+  // Item Ref when one exists for this item -- same category/shape inputs
+  // as effectiveImageCaption above, just the other target and no manual-
+  // caption-first fallback (there's no per-image manual caption concept in
+  // the gallery grid, only the item-level Ref it substitutes for).
+  const thumbnailCaptionFor = (folder) =>
+    computeImageCaption(
+      viewSetup.img_caption_rules,
+      folder,
+      categoryPropertyForCaption,
+      shapePropertyForCaption,
+      propertiesByLabel,
+      'Thumbnail',
+    );
+
   // FIX374.1: dropdown of all defined Groupings. Labelled by the
   // Grouping Name (FIX373.2.1.1); falls back to the property label
   // for legacy entries that were migrated from the pre-FIX373-update
@@ -3729,9 +3745,11 @@ export default function CatalogueView({
                           <div className="sc-gallery-cell-blank">No image</div>
                         )}
                         {/* FIX511.2.3 / .2.4 / .2.5: ref, my rating icon,
-                            conflict icon -- one caption line. */}
+                            conflict icon -- one caption line. FIX511.4.4:
+                            {1} is a matching Thumbnail-targeted automatic
+                            caption when one is defined, else the Item Ref. */}
                         <div className="sc-gallery-caption">
-                          {f.name}
+                          {thumbnailCaptionFor(f) || f.name}
                           {renderFolderRatingIcon(f)}
                           {f.has_rating_conflict && (
                             <IconRatingConflict size={14} className="sc-gallery-conflict" />

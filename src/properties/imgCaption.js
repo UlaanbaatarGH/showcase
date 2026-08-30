@@ -182,13 +182,14 @@ export function resolveCaptionText(template, folder, propertiesByLabel) {
 // just because the project has no category property configured
 // (FIX506.2.5) -- FIX512.4.4 means a rule can be category-agnostic, so a
 // catch-all rule (both columns blank) must still work even then.
-// FIX525.4.9 (updated): both callers of this function (CatalogueView.jsx's
-// main viewer, ShowcaseImgListEditor.jsx's backoffice preview) render the
-// full item image, never a thumbnail -- so only ever consider
-// <img-caption-target> = 'Image' rules here, the one shared place this
-// pipeline is used. A rule saved before FIX512.2.2.4 existed has no target
-// at all; treat that the same as 'Image' (its own mandatory default).
-export function computeImageCaption(rules, folder, categoryProperty, shapeProperty, propertiesByLabel) {
+// FIX525.4.9 (updated) / FIX511.4.4: only rules whose <img-caption-target>
+// matches the caller's `target` are considered -- CatalogueView.jsx's main
+// viewer and ShowcaseImgListEditor.jsx's backoffice preview both render the
+// full item image, so they use the default 'Image'; the Item Gallery
+// panel's thumbnail caption (FIX511.4.4) passes 'Thumbnail'. A rule saved
+// before FIX512.2.2.4 existed has no target at all; treat that as 'Image',
+// its own mandatory default.
+export function computeImageCaption(rules, folder, categoryProperty, shapeProperty, propertiesByLabel, target = 'Image') {
   const categoryValue = categoryProperty
     ? computePropertyValue(folder, categoryProperty, propertiesByLabel)
     : '';
@@ -196,7 +197,7 @@ export function computeImageCaption(rules, folder, categoryProperty, shapeProper
     ? computePropertyValue(folder, shapeProperty, propertiesByLabel)
     : '';
   const match = (rules ?? []).find(
-    (r) => (r.target ?? 'Image') === 'Image' && captionRuleMatches(r, categoryValue, shapeValue),
+    (r) => (r.target ?? 'Image') === target && captionRuleMatches(r, categoryValue, shapeValue),
   );
   if (!match) return null;
   return resolveCaptionText(match.text, folder, propertiesByLabel);

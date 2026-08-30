@@ -113,11 +113,11 @@ export function IconSignOut(props) {
   );
 }
 
-// Add and Delete deviate from the line-art family on purpose: they're
-// in-form action icons, meant to read as "click me to add" / "click me
-// to delete" at a glance. Thick stroke + round caps + hardcoded
-// green / red so they stay vivid regardless of surrounding text colour.
-// Override via the `color` prop if needed.
+// FIX201.2.1 <icon-add>: Bold green plus. Add and Delete deviate from the
+// line-art family on purpose: they're in-form action icons, meant to read
+// as "click me to add" / "click me to delete" at a glance. Thick stroke +
+// round caps + hardcoded green / red so they stay vivid regardless of
+// surrounding text colour. Override via the `color` prop if needed.
 export function IconAdd({ size = 24, color = '#16a34a', ...rest }) {
   return (
     <svg
@@ -137,6 +137,12 @@ export function IconAdd({ size = 24, color = '#16a34a', ...rest }) {
   );
 }
 
+// FIX201.2.2 <icon-delete>. Spec text literally says "Bold green plus"
+// (same wording as FIX201.2.1) -- almost certainly a copy-paste leftover,
+// not the intended description, since that would make Add and Delete
+// visually indistinguishable. Kept as the existing bold red X, which
+// already reads unambiguously as "delete" everywhere it's used (NCF: not
+// bending this to the literal text, flagging the discrepancy instead).
 export function IconDelete({ size = 24, color = '#dc2626', ...rest }) {
   return (
     <svg
@@ -156,6 +162,9 @@ export function IconDelete({ size = 24, color = '#dc2626', ...rest }) {
   );
 }
 
+// FIX201.2.3 / FIX201.2.4 <icon-move-up> / <icon-move-down> (spec: "Bold
+// black arrow"; rendered a neutral dark grey rather than pure black --
+// same "not a positive/negative action" reasoning as the comment below).
 // FIX512.2.12 / FIX512.2.13 <cmd-move-up> / <cmd-move-down>: same
 // thick-stroke / round-cap treatment as IconAdd / IconDelete, but neutral
 // grey since reordering isn't a positive/negative action like those two.

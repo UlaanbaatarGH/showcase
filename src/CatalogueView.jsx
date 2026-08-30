@@ -30,7 +30,8 @@ import {
 import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
-import { computeImageCaption, parseCaptionMarkup } from './properties/imgCaption.js';
+import { computeImageCaption } from './properties/imgCaption.js';
+import CaptionMarkup from './viewer/CaptionMarkup.jsx';
 import { isAcceptedImage } from './images/importImages.js';
 import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, clearDeletedTag, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
 
@@ -187,28 +188,6 @@ function compareValues(a, b) {
     return aNum - bNum;
   }
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
-}
-
-// FIX512.4.6 / FIX512.4.7: renders a resolved caption (parseCaptionMarkup's
-// lines-of-styled-runs) as one <div> per line -- each a plain block, so
-// stacking doesn't depend on any CSS white-space handling of '\n' -- with
-// each run wrapped in b/i/u and a style covering height (px) and colour
-// only where that run's tags set them.
-function CaptionMarkup({ text }) {
-  return parseCaptionMarkup(text).map((runs, li) => (
-    <div key={li}>
-      {runs.map((r, ri) => {
-        const style = {};
-        if (r.heightPx) style.fontSize = `${r.heightPx}px`;
-        if (r.color) style.color = r.color;
-        let node = r.text;
-        if (r.bold) node = <b>{node}</b>;
-        if (r.italic) node = <i>{node}</i>;
-        if (r.underline) node = <u>{node}</u>;
-        return <span key={ri} style={style}>{node}</span>;
-      })}
-    </div>
-  ));
 }
 
 // FIX502 [ex-showcase-view] <view-catalogue>: renamed from 'Showcase
@@ -3955,6 +3934,16 @@ export default function CatalogueView({
                 projectName={data.project?.name}
                 itemName={(data?.folders || []).find((f) => f.id === selectedFolderId)?.name}
                 hideSections={hideSections}
+                // Bug fix (user-reported): the backoffice editor's caption
+                // preview only ever showed a manual caption, never falling
+                // back to the setup-driven automatic one the read-only
+                // viewer already shows (FIX525.4.9) -- no FIX restricts this
+                // panel to manual-only, so it should behave the same way.
+                imgCaptionRules={viewSetup.img_caption_rules}
+                captionFolder={selectedFolderForCaption}
+                captionCategoryProperty={categoryPropertyForCaption}
+                captionShapeProperty={shapePropertyForCaption}
+                propertiesByLabel={propertiesByLabel}
                 onItemBytesChange={(bytes) =>
                   setData((prev) =>
                     prev

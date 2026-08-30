@@ -9,6 +9,8 @@ import { isLocalRow } from './publishItemImages.js';
 import { getStagingRoot, syncStagingFolder } from './itemStaging.js';
 import { isAcceptedImage } from '../images/importImages.js';
 import { IconCamera } from '../Icons.jsx';
+import { computeImageCaption } from '../properties/imgCaption.js';
+import CaptionMarkup from './CaptionMarkup.jsx';
 
 // FIX620 <process-automatic-img-insertion>: local-app only. The folder is
 // entered by the user at activation time (FIX620.3.2), not fixed config.
@@ -91,8 +93,34 @@ export default function ShowcaseImgListEditor({
   projectName, // FIX670.1: staging folder segment (tech/data/staging/{projectName}/{itemName})
   itemName,   // FIX610.3.1: item folder name (item_name on the API)
   hideSections, // FIX654.2 <cmd-hide-sections>: hide Section/Caption columns
+  // Bug fix (user-reported): the automatic caption (FIX525.4.9's setup-driven
+  // fallback) was never computed here, so this panel's preview only ever
+  // showed a manual caption -- no FIX restricts it to manual-only. These four
+  // are exactly what computeImageCaption (properties/imgCaption.js) needs;
+  // CatalogueView.jsx already computes them once for its own read-only
+  // viewers and passes the same values down.
+  imgCaptionRules,
+  captionFolder,
+  captionCategoryProperty,
+  captionShapeProperty,
+  propertiesByLabel,
 }) {
   const currentImage = images[selectedIdx] ?? null;
+
+  // Bug fix (user-reported): same manual-caption-first fallback to the
+  // setup-driven automatic caption as CatalogueView.jsx's effectiveImageCaption
+  // (FIX525.4.9) -- this backoffice preview was manual-only before.
+  const effectiveCaption = currentImage?.caption || (
+    captionFolder
+      ? computeImageCaption(
+          imgCaptionRules,
+          captionFolder,
+          captionCategoryProperty,
+          captionShapeProperty,
+          propertiesByLabel,
+        )
+      : null
+  );
 
   // FIX521.5.9 (updated): the Item Gallery panel's thumbnail
   // (main_image_url/main_image_thumb_url/main_rotation, sourced from a
@@ -2015,9 +2043,15 @@ export default function ShowcaseImgListEditor({
                   the caption is manual or auto-computed -- no reason for
                   this editor's manually-typed one to look different.
                   Reuse .sc-viewer-bottom for the same centering. */}
-              {currentImage.caption && (
+              {/* Bug fix (user-reported): also fall back to the setup-driven
+                  automatic caption (FIX525.4.9) when there's no manual one,
+                  same as the read-only viewers already do -- this preview
+                  used to show nothing at all in that case. */}
+              {effectiveCaption && (
                 <div className="sc-viewer-bottom has-caption">
-                  <div className="sc-viewer-caption">{currentImage.caption}</div>
+                  <div className="sc-viewer-caption">
+                    <CaptionMarkup text={effectiveCaption} />
+                  </div>
                 </div>
               )}
             </div>

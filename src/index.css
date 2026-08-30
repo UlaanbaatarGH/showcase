@@ -1530,6 +1530,21 @@ body {
   display: inline-block;
   white-space: pre-line;
 }
+/* FIX525.3.5 (updated, user-reported): a tight wrapper around just the
+   canvas -- shrunk to its content by the parent flex column's
+   align-items:center (a flex item's non-stretched cross size is
+   fit-content, not "fill available width" the way a plain block's would
+   be) -- so <icon-item-flag> positioned absolute within it lands on the
+   image's own corner instead of panel-img's possibly-larger letterboxed
+   area around it. min-height:0 for the same reason .sc-viewer-img needs
+   it just below (FIX525.2.10): this wrapper, not the canvas, is now the
+   direct flex-column child. */
+.sc-viewer-img-frame {
+  position: relative;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
 .sc-viewer-img {
   max-width: 100%;
   max-height: 100%;

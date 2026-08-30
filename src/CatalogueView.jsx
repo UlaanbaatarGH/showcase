@@ -4310,14 +4310,26 @@ export default function CatalogueView({
                                 : 'Click to view full screen — swipe left/right to navigate'
                             }
                           >
-                            <ShowcaseImageCanvas
-                              url={currentImage.url}
-                              rotation={currentImage.rotation ?? 0}
-                              crop={currentImage.crop ?? null}
-                              className="sc-viewer-img"
-                              zoom={zoomLevel}
-                              onLoadingChange={setMainImgLoading}
-                            />
+                            {/* FIX525.3.5 (updated, user-reported): the flag
+                                needs to sit on the image's own rendered box,
+                                not float in panel-img's possibly-larger
+                                letterboxed area around it (e.g. a portrait
+                                image in a wider panel) -- a tight wrapper
+                                around just the canvas, shrunk to its content
+                                by the parent's align-items:center, gives it
+                                an accurate positioning context. Rating stays
+                                anchored to the panel itself, unchanged. */}
+                            <div className="sc-viewer-img-frame">
+                              <ShowcaseImageCanvas
+                                url={currentImage.url}
+                                rotation={currentImage.rotation ?? 0}
+                                crop={currentImage.crop ?? null}
+                                className="sc-viewer-img"
+                                zoom={zoomLevel}
+                                onLoadingChange={setMainImgLoading}
+                              />
+                              {renderFlagIcon()}
+                            </div>
                             {/* FIX525.2.2 / FIX525.2.10: the caption is now
                                 a sibling of the image WITHIN <panel-img>
                                 (not a sibling of the whole panel), so
@@ -4350,7 +4362,6 @@ export default function CatalogueView({
                             </div>
                             {mainImgLoading && <div className="sc-viewer-img-spinner" />}
                             {renderRatingIcon()}
-                            {renderFlagIcon()}
                             {navPill}
                           </div>
                         </div>
@@ -4814,14 +4825,21 @@ export default function CatalogueView({
               }
             }}
           >
-            <ShowcaseImageCanvas
-              url={currentImage.url}
-              rotation={currentImage.rotation ?? 0}
-              crop={currentImage.crop ?? null}
-              className="sc-fullscreen-img"
-              zoom={fsZoomLevel}
-              onLoadingChange={setFsImgLoading}
-            />
+            {/* FIX525.3.5 (updated, user-reported): same tight image-frame
+                wrapper as the in-page viewer, so the flag sits on the
+                image's own box, not the possibly-larger letterboxed panel
+                around it. */}
+            <div className="sc-viewer-img-frame">
+              <ShowcaseImageCanvas
+                url={currentImage.url}
+                rotation={currentImage.rotation ?? 0}
+                crop={currentImage.crop ?? null}
+                className="sc-fullscreen-img"
+                zoom={fsZoomLevel}
+                onLoadingChange={setFsImgLoading}
+              />
+              {renderFlagIcon()}
+            </div>
             {/* FIX525.2.2 / FIX525.2.10: caption is a sibling of the image
                 WITHIN <panel-img> now (FIX523.2: same layout as the
                 in-page viewer), so justify-content:center on
@@ -4853,7 +4871,6 @@ export default function CatalogueView({
             </div>
             {fsImgLoading && <div className="sc-viewer-img-spinner" />}
             {renderRatingIcon()}
-            {renderFlagIcon()}
             {/* FIX523.3.3 / FIX520.2.5.0: prev / i-n / next pill, overlaid
                 on the image's bottom-left corner, identical to the
                 in-page nav (FIX523.2: "exactly the same layout"). Click

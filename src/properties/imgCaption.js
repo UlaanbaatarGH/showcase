@@ -127,11 +127,13 @@ function evalBraceExpr(inner, folder, propertiesByLabel) {
   const conditionTrue = evalCondition(inner.slice(0, colonIdx), folder, propertiesByLabel);
   const outputStr = inner.slice(colonIdx + 1);
   const commaIdx = findTopLevelChar(outputStr, ',');
-  // Trim: the spec writes "{...} : term1 , term2" with spaces around the
-  // separators for readability, not as literal leading/trailing caption
-  // content.
-  const term1 = (commaIdx === -1 ? outputStr : outputStr.slice(0, commaIdx)).trim();
-  const term2 = commaIdx === -1 ? null : outputStr.slice(commaIdx + 1).trim();
+  // Bug fix: only strip the single readability space the spec's own
+  // examples put right after ':' / ',' ("term1 , term2") -- a trailing
+  // space right before the closing '}' (e.g. "{Nombre ? : {Nombre} }") is
+  // literal caption content, same as whitespace outside braces (FIX512.4.2),
+  // so a full .trim() here was wrongly eating it.
+  const term1 = (commaIdx === -1 ? outputStr : outputStr.slice(0, commaIdx)).replace(/^\s+/, '');
+  const term2 = commaIdx === -1 ? null : outputStr.slice(commaIdx + 1).replace(/^\s+/, '');
   if (conditionTrue) return resolveCaptionText(term1, folder, propertiesByLabel);
   return term2 == null ? '' : resolveCaptionText(term2, folder, propertiesByLabel);
 }

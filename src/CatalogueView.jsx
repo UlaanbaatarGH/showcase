@@ -2964,6 +2964,10 @@ export default function CatalogueView({
       properties,
       folders: data.folders,
       deleted_property_id: deletedPropertyId,
+      // FIX370.2.1.1 (updated) / FIX370.2.1.7 (updated): setup-item-key-property
+      // (FIX506.2.7) and setup-import-chg-ref-col (FIX513.2.1).
+      item_key_property_id: viewSetup.item_filters?.item_key_property_id ?? null,
+      import_chg_ref_col: viewSetup.import_chg_ref_col || '',
     });
     if (res.errors && res.errors.length > 0) setGsheetOpenErrors(res.errors);
   };
@@ -4390,6 +4394,10 @@ export default function CatalogueView({
             // FIX370.4.1 / <setup-properties-gsheet> (FIX508.2.5): the
             // import now reads this instead of prompting for a URL.
             properties_gsheet_url: viewSetup.properties_gsheet_url || '',
+            // FIX370.2.1.1 (updated) / FIX370.2.1.7 (updated): setup-item-key-property
+            // (FIX506.2.7) and setup-import-chg-ref-col (FIX513.2.1).
+            item_key_property_id: viewSetup.item_filters?.item_key_property_id ?? null,
+            import_chg_ref_col: viewSetup.import_chg_ref_col || '',
           }}
           slug={slug}
           onClose={() => setImportOpen(false)}
@@ -4501,6 +4509,10 @@ export default function CatalogueView({
             properties,
             folders: data.folders,
             deleted_property_id: deletedPropertyId,
+            // FIX370.2.1.1 (updated) / FIX370.2.1.7 (updated): setup-item-key-property
+            // (FIX506.2.7) and setup-import-chg-ref-col (FIX513.2.1).
+            item_key_property_id: viewSetup.item_filters?.item_key_property_id ?? null,
+            import_chg_ref_col: viewSetup.import_chg_ref_col || '',
           }}
           onCancel={() => setSetGsheetPopup(null)}
           onDone={saveGsheetUrl}

@@ -5,11 +5,6 @@
 
 import { fetchGsheetTitle } from '../data/backend.js';
 
-const FOLDER_COL = '#';
-// FIX370.2.1.7: optional column carrying a rename command for the current
-// '#' (or, per FIX370.2.1.7.2, the ref to create a new item under).
-const FOLDER_NEW_COL = '# new';
-
 // ---------- URL + fetch ----------
 
 export function parseGsheetUrl(url) {
@@ -135,14 +130,29 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
   const headers = (mainRows[0] || []).map((h) => (h ?? '').trim());
   const dataRows = mainRows.slice(1);
 
-  // FIX370.2.1.1 — '#' column mandatory. Error text carries no FIX
-  // reference -- a FTag is a spec entry id, not an error id, for the user.
-  const folderColIdx = headers.indexOf(FOLDER_COL);
-  if (folderColIdx < 0) {
-    errors.push("A '#' column is mandatory in the main sheet.");
+  // FIX370.2.1.1 (updated): the mandatory folder-name column is no longer
+  // the hardcoded literal '#' -- it's whichever main-sheet column is
+  // labeled like the project's <setup-item-key-property> (FIX506.2.7).
+  // '#' is now just the spec's own shorthand for "that column", used
+  // throughout the rest of FIX370.2.1.x's error text and comments below.
+  const itemKeyProperty = (project.properties || [])
+    .find((p) => p.id === project.item_key_property_id) ?? null;
+  const keyColLabel = itemKeyProperty?.label ?? null;
+  // Error text carries no FIX reference -- a FTag is a spec entry id, not
+  // an error id, for the user.
+  if (!keyColLabel) {
+    errors.push("Set 'Item key property' in Setup > Properties before importing.");
   }
-  // FIX370.2.1.7 — optional '# new' column (rename command, not a property).
-  const folderNewColIdx = headers.indexOf(FOLDER_NEW_COL);
+  const folderColIdx = keyColLabel ? headers.indexOf(keyColLabel) : -1;
+  if (keyColLabel && folderColIdx < 0) {
+    errors.push(`A '${keyColLabel}' column is mandatory in the main sheet.`);
+  }
+  // FIX370.2.1.7 (updated) — <setup-import-chg-ref-col> (FIX513.2.1): the
+  // admin-typed name of the optional rename-command column (was the
+  // hardcoded literal '# new'). Inactive (no column treated as a rename
+  // command) unless it's both set and actually present in the sheet.
+  const chgRefColName = (project.import_chg_ref_col || '').trim();
+  const folderNewColIdx = chgRefColName ? headers.indexOf(chgRefColName) : -1;
 
   // FIX370.2.1.2 — unique column headers
   {
@@ -157,7 +167,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     }
   }
 
-  // Property header columns (non-'#', non-'# new', non-blank).
+  // Property header columns (non-key, non-rename-command, non-blank). The
+  // key column's own values feed folder.name directly (FIX370.2.1.1),
+  // never a stored property value -- same as the old hardcoded '#' never
+  // was one.
   const propHeaders = headers
     .map((h, idx) => ({ label: h, idx }))
     .filter((c) => c.label && c.idx !== folderColIdx && c.idx !== folderNewColIdx);
@@ -208,9 +221,10 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       let label = (row[1] ?? '').trim();
       const shortLabel = (row[2] ?? '').trim() || null;
       if (!label) continue;
-      // '#' is the folder-name column, not a property — skip if it shows up
-      // in the setup sheet (e.g. copy-paste of main-sheet headers).
-      if (label === FOLDER_COL) continue;
+      // The folder-name column (FIX370.2.1.1's <setup-item-key-property>,
+      // formerly hardcoded '#') is not a property — skip if it shows up in
+      // the setup sheet (e.g. copy-paste of main-sheet headers).
+      if (keyColLabel && label === keyColLabel) continue;
       // FIX370.1.2.1.2.1: name ending with "(*)" flags this row as the main
       // property. Strip the marker so the stored label matches the header.
       let main = false;
@@ -380,12 +394,12 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         )?.idx ?? null)
       : null;
 
-  // Two rows resolving to the same *effective* (post-'# new'-rename) folder
-  // name would silently clobber each other in the backend's per-folder
-  // merge (whichever row's updates the server processes last wins, with no
-  // error surfaced). FIX370.2.1.4 only dedupes the raw '#' column, which
-  // doesn't catch this — check the resolved name too, before building any
-  // recap/plan off of it.
+  // Two rows resolving to the same *effective* (post-chg-ref-col-rename)
+  // folder name would silently clobber each other in the backend's
+  // per-folder merge (whichever row's updates the server processes last
+  // wins, with no error surfaced). FIX370.2.1.4 only dedupes the raw key
+  // column, which doesn't catch this — check the resolved name too,
+  // before building any recap/plan off of it.
   const effectiveNames = [];
   {
     const seenEffective = new Map();
@@ -394,16 +408,24 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       if (!name) { effectiveNames.push(null); return; }
       const isNew = !projectFolderNames.has(name);
       const newRefRaw = folderNewColIdx >= 0 ? (row[folderNewColIdx] ?? '').trim() : '';
-      let effectiveName = name;
-      if (!isNew) {
-        if (newRefRaw && newRefRaw !== name) effectiveName = newRefRaw;
-      } else if (newRefRaw) {
-        effectiveName = newRefRaw;
+      // FIX370.2.1.7.2 (updated): a new item's row can't carry a
+      // chg-ref-col value at all -- error out before import starts,
+      // instead of the old behavior of silently creating the item under
+      // that value instead of its '#'.
+      if (isNew && newRefRaw) {
+        errors.push(
+          `Row ${i + 2}: '${chgRefColName}' is set ("${newRefRaw}") but '${name}' is a new item -- ` +
+          `'${chgRefColName}' can only rename an existing item.`,
+        );
       }
+      // FIX370.2.1.7.3: an existing item's row may still be renamed via
+      // chg-ref-col.
+      let effectiveName = name;
+      if (!isNew && newRefRaw && newRefRaw !== name) effectiveName = newRefRaw;
       effectiveNames.push(effectiveName);
       if (seenEffective.has(effectiveName)) {
         errors.push(
-          `Rows ${seenEffective.get(effectiveName) + 2} and ${i + 2} both resolve to item '#' "${effectiveName}" (via '# new').`,
+          `Rows ${seenEffective.get(effectiveName) + 2} and ${i + 2} both resolve to item '${effectiveName}'.`,
         );
       } else {
         seenEffective.set(effectiveName, i);
@@ -439,11 +461,11 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     const existingFolder = folderByName.get(name);
     const newRefRaw = folderNewColIdx >= 0 ? (row[folderNewColIdx] ?? '').trim() : '';
     const effectiveName = effectiveNames[i];
-    // FIX370.2.1.7: '# new' is a command to change the current '#' (folder
-    // name), not an item property.
-    // FIX370.2.1.7.1: no value, or equal to '#' -> nothing to do.
-    // FIX370.2.1.7.2: '#' doesn't exist yet -> '# new' (if not blank) is
-    // taken instead of '#' to create the new item.
+    // FIX370.2.1.7 (updated): <setup-import-chg-ref-col> is a command to
+    // change the current key-column value (folder name), not an item
+    // property. FIX370.2.1.7.1: no value, or equal to the current value ->
+    // nothing to do. FIX370.2.1.7.2 (checked above, in the effectiveNames
+    // pass): an error, not a rename, when the row is a new item.
     if (!isNew && newRefRaw && newRefRaw !== name) {
       renamedFolders.push({ id: existingFolder.id, from: name, to: newRefRaw });
       if (!updatedItemRows.has(i)) updatedItemNames.push(effectiveNames[i]);
@@ -565,7 +587,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     new_properties: newProperties,
     renames: renames.map((r) => ({ id: r.id, label: r.label })),
     new_folders: newFolderNames,
-    // FIX370.2.1.7: rename an existing item's '#' (folder.name).
+    // FIX370.2.1.7.3: rename an existing item's key-column value (folder.name).
     folder_renames: renamedFolders.map((r) => ({ id: r.id, name: r.to })),
     updates,
   };

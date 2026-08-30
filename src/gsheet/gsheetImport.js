@@ -167,13 +167,18 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     }
   }
 
-  // Property header columns (non-key, non-rename-command, non-blank). The
-  // key column's own values feed folder.name directly (FIX370.2.1.1),
-  // never a stored property value -- same as the old hardcoded '#' never
-  // was one.
+  // Property header columns (non-rename-command, non-blank). Bug fix
+  // (user-reported): the key column used to be excluded here too, on the
+  // theory that it's structural-only -- but FIX370.2.1.1 carries no "not
+  // as an item property" clause the way FIX370.2.1.7 does for the
+  // rename-command column, and it's a real row in the Properties list
+  // now. It's no exception from the rest of the property columns: its
+  // value is imported normally like any other, so a plain {ItsLabel}
+  // caption placeholder resolves it through the same computePropertyValue
+  // path as everything else, no special-casing needed anywhere.
   const propHeaders = headers
     .map((h, idx) => ({ label: h, idx }))
-    .filter((c) => c.label && c.idx !== folderColIdx && c.idx !== folderNewColIdx);
+    .filter((c) => c.label && c.idx !== folderNewColIdx);
 
   // FIX370.2.1.3 / FIX370.2.1.4 / FIX370.2.1.5 — row-level checks only run
   // when the '#' column exists; otherwise per-row '#' errors would just be
@@ -221,10 +226,12 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       let label = (row[1] ?? '').trim();
       const shortLabel = (row[2] ?? '').trim() || null;
       if (!label) continue;
-      // The folder-name column (FIX370.2.1.1's <setup-item-key-property>,
-      // formerly hardcoded '#') is not a property — skip if it shows up in
-      // the setup sheet (e.g. copy-paste of main-sheet headers).
-      if (keyColLabel && label === keyColLabel) continue;
+      // The rename-command column (FIX370.2.1.7's <setup-import-chg-ref-col>)
+      // is explicitly "not as an item property" -- skip if it shows up in
+      // the setup sheet (e.g. copy-paste of main-sheet headers). The key
+      // column (FIX370.2.1.1's <setup-item-key-property>) has no such
+      // clause -- it's a real property now, so it's not skipped here.
+      if (chgRefColName && label === chgRefColName) continue;
       // FIX370.1.2.1.2.1: name ending with "(*)" flags this row as the main
       // property. Strip the marker so the stored label matches the header.
       let main = false;
@@ -495,6 +502,11 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         }
       }
     }
+    // The key column's own stored property value should track the item's
+    // CURRENT ref, same as folder.name itself -- for a renamed row that's
+    // effectiveName (FIX370.2.1.7.3), not the sheet's raw pre-rename cell
+    // text (row[folderColIdx]). Every other column just reads its cell.
+    const colValue = (col) => (col.idx === folderColIdx ? effectiveName : (row[col.idx] ?? '').trim());
     if (isNew || newlyDeleted) {
       // New folder: nothing to compare against yet — write every imported
       // column. Newly-deleted: preserve existing behavior (still writes
@@ -505,8 +517,7 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       }
       for (const col of importedPropHeaders) {
         const finalLabel = headerToFinalLabel.get(col.label) || col.label;
-        const value = (row[col.idx] ?? '').trim();
-        updates.push({ folder_name: effectiveName, property_label: finalLabel, value });
+        updates.push({ folder_name: effectiveName, property_label: finalLabel, value: colValue(col) });
       }
     } else {
       // Existing folder: only push (and report as 'updated') the columns
@@ -521,14 +532,14 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
       let changed = false;
       for (const col of importedPropHeaders) {
         const finalId = labelToFinalId.get(col.label);
-        const newValue = normalizeForCompare(row[col.idx]);
+        const newValue = normalizeForCompare(colValue(col));
         const curValue = finalId != null
           ? normalizeForCompare(currentProps[String(finalId)])
           : '';
         if (curValue !== newValue) {
           changed = true;
           const finalLabel = headerToFinalLabel.get(col.label) || col.label;
-          updates.push({ folder_name: effectiveName, property_label: finalLabel, value: (row[col.idx] ?? '').trim() });
+          updates.push({ folder_name: effectiveName, property_label: finalLabel, value: colValue(col) });
         }
       }
       if (changed) {
@@ -569,20 +580,14 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
     // with whether it's actually read -- this is what would have caught
     // the "colour silently dropped because a setup sheet only listed an
     // unrelated column" case directly, instead of the user having to be
-    // told the setup-sheet-is-an-allowlist rule.
-    // Bug fix: the key column (setup-item-key-property, FIX370.2.1.1
-    // updated) and the rename-command column (setup-import-chg-ref-col,
-    // FIX370.2.1.7 updated) used to be left out entirely -- inherited from
-    // when '#'/'# new' were hardcoded and never real properties, so
-    // excluding them from propHeaders (which still correctly keeps them
-    // out of the property-value-update pipeline below) also silently
-    // dropped them from this list. Nothing in FIX370.2.1.1/.4.2.2.2.2
-    // actually says to exclude them here -- they ARE read (consulted for
-    // every row), just not as a stored property value -- so they're added
-    // back in, always flagged read, in their natural column position.
+    // told the setup-sheet-is-an-allowlist rule. The key column is a real
+    // property now (propHeaders includes it, no exception), so it's
+    // covered by the normal mapping below; only the rename-command column
+    // -- explicitly "not as an item property" (FIX370.2.1.7) -- is added
+    // back in on its own, always flagged read since it IS consulted for
+    // every row even though it never produces a property-value update.
     gsheetColumns: [
       ...propHeaders.map((c) => ({ label: c.label, idx: c.idx, read: importedPropHeaders.includes(c) })),
-      ...(folderColIdx >= 0 ? [{ label: headers[folderColIdx], idx: folderColIdx, read: true }] : []),
       ...(folderNewColIdx >= 0 ? [{ label: headers[folderNewColIdx], idx: folderNewColIdx, read: true }] : []),
     ]
       .sort((a, b) => a.idx - b.idx)

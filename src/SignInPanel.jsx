@@ -1,26 +1,28 @@
 import { useState } from 'react';
 import { useAuth } from './AuthContext.jsx';
+import { getUserHasEmail } from './data/backend.js';
 
-// FIX316: the Sign-in popup hosts both the sign-in form and the
-// Create-Account flows. FIX316.2.1 / .2.2: two entry buttons.
-// <button-new-manager> swaps the form for <panel-create-account>;
-// <button-new-visitor> shows an info popup since visitor self-signup
-// isn't released yet (FIX316.2 updated).
+// FIX405 <panel-sign-in> + FIX406 <panel-sign-in-with access-code>:
+// one component hosts both panels, toggled by <cmd-sign-in-with-code>
+// (FIX405.2.8 / FIX405.3.2). Replaces the former FIX316/FIX317
+// Create-Account flow's two-button entry (New Visitor / New Manager
+// Access) — visitor self-signup was never released past its 'coming
+// soon' popup, so it's dropped rather than carried over.
 export default function SignInPanel({ onClose }) {
   const { signIn, redeem, configured } = useAuth();
-  // 'signin' | 'create-manager'
+  // 'signin' | 'signin-with-code'
   const [mode, setMode] = useState('signin');
   const [loginName, setLoginName] = useState('');
   const [password, setPassword] = useState('');
-  // Create-account-only fields:
+  // Sign-in-with-code-only fields:
   const [accessCode, setAccessCode] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
+  // FIX406.2.5: whether <record-user> for the typed username already
+  // has an email on file — when true the Email field stays hidden.
+  const [hasEmailOnFile, setHasEmailOnFile] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
-  // FIX316.2: 'New Visitor Access' opens an info popup until the
-  // visitor flow is released.
-  const [visitorInfoOpen, setVisitorInfoOpen] = useState(false);
 
   if (!configured) {
     return (
@@ -34,7 +36,18 @@ export default function SignInPanel({ onClose }) {
     );
   }
 
-  const isCreate = mode === 'create-manager';
+  const isCreate = mode === 'signin-with-code';
+
+  const checkHasEmail = async (name) => {
+    const trimmed = (name ?? loginName).trim();
+    if (!trimmed) { setHasEmailOnFile(false); return; }
+    try {
+      const r = await getUserHasEmail(trimmed);
+      setHasEmailOnFile(!!r?.has_email);
+    } catch {
+      setHasEmailOnFile(false);
+    }
+  };
 
   async function submit(e) {
     e.preventDefault();
@@ -50,8 +63,9 @@ export default function SignInPanel({ onClose }) {
         setErr('Password must be at least 8 characters.');
         return;
       }
-      // FIX317.3.1.4: email shape check on the client too.
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      // FIX406.2.5: email shape check only when the field is actually
+      // shown — a user who already has one on file never re-enters it.
+      if (!hasEmailOnFile && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
         setErr('Email is not valid.');
         return;
       }
@@ -59,61 +73,66 @@ export default function SignInPanel({ onClose }) {
     setBusy(true);
     try {
       if (mode === 'signin') {
+        // FIX405.3.1 <cmd-sign-in> runs <process-sign-in>.
         await signIn(loginName, password);
       } else {
-        await redeem({ loginName, accessCode, password, email: email.trim() });
+        await redeem({
+          loginName,
+          accessCode,
+          password,
+          ...(hasEmailOnFile ? {} : { email: email.trim() }),
+        });
       }
       onClose?.();
     } catch (e2) {
-      // Supabase speaks in terms of "email"; users see "login name" in the UI.
+      // Supabase speaks in terms of "email"; users see "username" in the UI.
       // Rewrite the wording so the message matches what they typed.
       const raw = e2.message || String(e2);
       setErr(
         raw
-          .replace(/email address/gi, 'login name')
-          .replace(/\bemail\b/gi, 'login name')
+          .replace(/email address/gi, 'username')
+          .replace(/\bemail\b/gi, 'username')
       );
     } finally {
       setBusy(false);
     }
   }
 
-  const switchMode = (next) => {
+  const switchToSignInWithCode = () => {
     setErr(null);
-    setMode(next);
-    // Clear sensitive fields when toggling so a partially-typed
-    // password doesn't leak from one mode to the other.
+    setMode('signin-with-code');
     setPassword('');
     setConfirmPassword('');
     setAccessCode('');
     setEmail('');
+    // FIX405.3.2: the username already typed on the plain sign-in
+    // panel carries over, so check it right away.
+    checkHasEmail();
   };
-
-  const title = mode === 'signin' ? 'Sign in' : 'New Manager';
 
   return (
     <form
       className="signin-panel"
-      data-yagu-id={isCreate ? 'panel-create-account' : undefined}
+      data-yagu-id={isCreate ? 'panel-sign-in-with-access-code' : 'panel-sign-in'}
       onSubmit={submit}
     >
-      <h2>{title}</h2>
-      {/* FIX317.2.1 Login Name. */}
+      <h2>Sign in</h2>
+      {/* FIX405.2.1 / FIX406.2.1 Field 'Username', mapped to <user-username>. */}
       <label>
-        Login name
+        Username
         <input
           type="text"
           value={loginName}
           onChange={(e) => setLoginName(e.target.value)}
+          onBlur={() => { if (isCreate) checkHasEmail(); }}
           autoFocus
           required
           minLength={3}
           autoComplete="username"
         />
       </label>
-      {/* FIX317.2.2 + FIX317.2.2.1: Access Code is visible only for
-          the Manager flow. */}
-      {mode === 'create-manager' && (
+      {/* FIX406.2.2 Field 'Access code', mapped to <user-access-code>. */}
+      {isCreate && (
         <label>
           Access code
           <input
@@ -128,7 +147,7 @@ export default function SignInPanel({ onClose }) {
           />
         </label>
       )}
-      {/* FIX317.2.3 Password. */}
+      {/* FIX405.2.2 / FIX406.2.3 Field 'Password', mapped to <user-password>. */}
       <label>
         Password
         <input
@@ -140,7 +159,7 @@ export default function SignInPanel({ onClose }) {
           autoComplete={isCreate ? 'new-password' : 'current-password'}
         />
       </label>
-      {/* FIX317.2.4 Confirm Password — only in the create flows. */}
+      {/* FIX406.2.4 Field 'Confirm password', as <user-password-confirm>. */}
       {isCreate && (
         <label>
           Confirm password
@@ -154,8 +173,9 @@ export default function SignInPanel({ onClose }) {
           />
         </label>
       )}
-      {/* FIX317.2.5 Email — required in both create flows. */}
-      {isCreate && (
+      {/* FIX406.2.5 Field 'Email', mapped to <user-email> — displayed
+          only when <record-user> doesn't already have one. */}
+      {isCreate && !hasEmailOnFile && (
         <label>
           Email
           <input
@@ -169,74 +189,30 @@ export default function SignInPanel({ onClose }) {
       )}
       {err && <div className="signin-err">{err}</div>}
       <div className="signin-actions">
+        {/* FIX405.2.7 / FIX406.2.6 Button 'Cancel'. */}
         <button type="button" className="btn-cancel" onClick={onClose} disabled={busy}>
           Cancel
         </button>
-        <button type="submit" className="btn-primary" disabled={busy}>
-          {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create'}
+        {/* FIX405.2.6 / FIX406.2.6 Button 'Sign in', as <cmd-sign-in>.
+            Enabled when <user-username> and <user-password> are entered
+            (native `required` on both inputs). */}
+        <button type="submit" className="btn-primary" data-yagu-id="cmd-sign-in" disabled={busy}>
+          {busy ? '…' : 'Sign in'}
         </button>
       </div>
-      {/* FIX316.2.1 + FIX316.2.2: two entry buttons. New Manager
-          Access switches into the create-account flow; New Visitor
-          Access opens the info popup until the visitor flow is
-          released (FIX316.2 updated). */}
-      {mode === 'signin' ? (
-        <div className="signin-toggle-row">
-          <button
-            type="button"
-            className="signin-toggle"
-            data-yagu-id="button-new-visitor"
-            onClick={() => setVisitorInfoOpen(true)}
-            disabled={busy}
-          >
-            New Visitor Access
-          </button>
-          <button
-            type="button"
-            className="signin-toggle"
-            data-yagu-id="button-new-manager"
-            onClick={() => switchMode('create-manager')}
-            disabled={busy}
-          >
-            New Manager Access
-          </button>
-        </div>
-      ) : (
+      {/* FIX405.2.8 / FIX405.3.2: <cmd-sign-in-with-code> replaces this
+          panel with <panel-sign-in-with access-code>. */}
+      {mode === 'signin' && (
         <button
           type="button"
           className="signin-toggle"
-          onClick={() => switchMode('signin')}
+          data-yagu-id="cmd-sign-in-with-code"
+          onClick={switchToSignInWithCode}
           disabled={busy}
         >
-          Already have an account? Sign in
+          Sign in with code
         </button>
       )}
-      {visitorInfoOpen && (
-        <VisitorInfoPopup onClose={() => setVisitorInfoOpen(false)} />
-      )}
     </form>
-  );
-}
-
-// FIX316.2: clicking <button-new-visitor> shows this small info
-// popup until the visitor self-signup flow is released.
-function VisitorInfoPopup({ onClose }) {
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal panel-visitor-info"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p>
-          Visitor accounts are coming soon. You'll be able to mark
-          items of interest and keep your own private comments.
-        </p>
-        <div className="panel-contact-actions">
-          <button type="button" className="sc-menu-trigger" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

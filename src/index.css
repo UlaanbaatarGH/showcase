@@ -2344,24 +2344,6 @@ body {
   margin-top: 0.25rem;
 }
 .signin-toggle:hover { text-decoration: underline; }
-/* FIX316.2.1 + FIX316.2.2: two entry buttons side-by-side. */
-.signin-toggle-row {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-top: 0.25rem;
-}
-.signin-toggle-row .signin-toggle { margin-top: 0; }
-
-/* FIX316.2: <button-new-visitor> info popup. */
-.panel-visitor-info {
-  width: min(360px, 100%);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.panel-visitor-info p { margin: 0; }
 
 /* FIX420 <panel-contact-admin>: line-by-line layout per FIX420.2. */
 .panel-contact-modal {

@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, supabaseConfigured, loginNameToEmail } from './supabaseClient.js';
-import { setAuthToken, redeemAccount, signupVisitor, getAppStatus } from './data/backend.js';
+import {
+  setAuthToken,
+  redeemAccount,
+  getSignInLockStatus,
+  signupVisitor,
+  getAppStatus,
+} from './data/backend.js';
 
 // FIX412.5.1 + FIX412.5.1.1 + FIX412.5.1.2: log a sign-in attempt.
 //   page: 'login_ok' or 'login_failed' depending on outcome
@@ -9,9 +15,12 @@ import { setAuthToken, redeemAccount, signupVisitor, getAppStatus } from './data
 //     app_user row to join with)
 //   token (optional): only set on success — backend resolves user_id
 //     from it so we can also show the canonical login_name later.
+// FIX405.4: the response also carries { lockout: { locked_out,
+// attempts_remaining } } for 'login_failed' — the backend maintains
+// the counter (FIX310.12 <user-is-locked-out>), this just relays it.
 async function trackLogin({ ok, loginName, token }) {
   try {
-    await fetch('/api/track', {
+    const res = await fetch('/api/track', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -22,35 +31,18 @@ async function trackLogin({ ok, loginName, token }) {
         login_name: loginName,
       }),
     });
+    return await res.json();
   } catch {
     /* fire-and-forget — never break the sign-in UI */
+    return null;
   }
 }
 
-// FIX315.3: client-side rate limit on sign-in. After 3 failed attempts
-// within the rolling window, every subsequent attempt is silently
-// denied (no special error — same wording as a wrong password) until
-// the window elapses, even if the credentials would now be correct.
-const SIGNIN_FAILS_KEY = 'sc-signin-fails';
-const SIGNIN_MAX_FAILS = 3;
-const SIGNIN_BLOCK_MS = 15 * 60 * 1000;
-function recentFailedAttempts() {
-  try {
-    const list = JSON.parse(localStorage.getItem(SIGNIN_FAILS_KEY) || '[]');
-    const cutoff = Date.now() - SIGNIN_BLOCK_MS;
-    return Array.isArray(list) ? list.filter((t) => Number.isFinite(t) && t > cutoff) : [];
-  } catch {
-    return [];
-  }
-}
-function recordFailedSignIn() {
-  const list = recentFailedAttempts();
-  list.push(Date.now());
-  try { localStorage.setItem(SIGNIN_FAILS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
-}
-function clearFailedSignIns() {
-  try { localStorage.removeItem(SIGNIN_FAILS_KEY); } catch { /* ignore */ }
-}
+// FIX405.4.1.2: shown verbatim whenever <process-sign-in> finds
+// <user-is-locked-out> already true — replaces FIX315.3's silent
+// same-as-wrong-password denial, now FIX315.3(removed).
+const ACCOUNT_LOCKED_MESSAGE =
+  'Your account has been locked. Please contact your administrator for an access code.';
 
 // 19-july-2026: Commented out on Hervé's request
 // FIX315.2 / FIX315.2.1: idle-timeout configuration + a persisted
@@ -173,29 +165,37 @@ export function AuthProvider({ children }) {
 
   const signIn = useCallback(async (loginName, password) => {
     if (!supabaseConfigured) throw new Error('auth not configured');
-    // FIX315.3: silent rate limit — after 3 fails in the window, deny
-    // every subsequent attempt with the same error wording as an
-    // invalid password. The user can keep trying; nothing reveals the
-    // block.
-    if (recentFailedAttempts().length >= SIGNIN_MAX_FAILS) {
-      // FIX412.5.1.2: still log the (silently rejected) attempt.
+    // FIX405.3.1 <process-sign-in>: a locked-out account (FIX310.12)
+    // is rejected before the Supabase credential check even runs.
+    const status = await getSignInLockStatus(loginName).catch(() => null);
+    if (status?.locked_out) {
       trackLogin({ ok: false, loginName });
-      throw new Error('Invalid login credentials');
+      throw new Error(ACCOUNT_LOCKED_MESSAGE);
     }
     const { data, error } = await supabase.auth.signInWithPassword({
       email: loginNameToEmail(loginName),
       password,
     });
     if (error) {
-      recordFailedSignIn();
       // FIX412.5.1.1: log the typed name so the User column shows it
-      // even though there's no matching app_user row.
-      trackLogin({ ok: false, loginName });
-      throw error;
+      // even though there's no matching app_user row. FIX405.4.1: the
+      // response carries the updated lockout state for this attempt.
+      const result = await trackLogin({ ok: false, loginName });
+      const lockout = result?.lockout;
+      if (lockout?.locked_out) {
+        throw new Error(ACCOUNT_LOCKED_MESSAGE);
+      }
+      // FIX405.4.1.1: "Invalid credentials." + remaining-attempts count.
+      const remaining = lockout?.attempts_remaining;
+      throw new Error(
+        Number.isFinite(remaining)
+          ? `Invalid credentials. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before your account is locked out.`
+          : 'Invalid credentials.',
+      );
     }
-    clearFailedSignIns();
     // FIX412.5.1.2: success → 'Login OK' page; pass the freshly-issued
-    // token so the backend can also record user_id.
+    // token so the backend can also record user_id and reset the
+    // failed-attempt counter (FIX405.4).
     trackLogin({ ok: true, loginName, token: data.session?.access_token });
     return data;
   }, []);

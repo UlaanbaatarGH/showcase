@@ -127,6 +127,15 @@ export default {
   // + new password + email for a fresh Supabase auth user. Backend
   // rewrites the existing app_user.id to match the new auth user id.
   redeemAccount: (body) => call('/api/auth/redeem', { method: 'POST', body }),
+  // FIX405.3.1 <process-sign-in> pre-check: is this login name locked
+  // out (FIX310.12)? Called before attempting the Supabase credential
+  // check so a locked account never reaches it.
+  getSignInLockStatus: (name) =>
+    call(`/api/auth/signin-status?name=${encodeURIComponent(name)}`),
+  // FIX406.2.5: whether <record-user> already has an email on file, so
+  // <panel-sign-in-with access-code> can hide its Email field.
+  getUserHasEmail: (name) =>
+    call(`/api/auth/user-has-email?name=${encodeURIComponent(name)}`),
   // FIX316.2.1 / FIX317 (Visitor flow): self-signup with no access
   // code. Creates a fresh visitor app_user + Supabase auth user.
   signupVisitor: (body) =>

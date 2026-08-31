@@ -9,7 +9,8 @@ export const supabase = url && anon ? createClient(url, anon) : null;
 
 export const supabaseConfigured = Boolean(supabase);
 
-// Users type a login name of their choice (FIX310.1.1). Supabase Auth requires
+// Users type a login name of their choice (FIX310.1[ex-310.1.1], as
+// <user-username>). Supabase Auth requires
 // an email, so we synthesize one. Non-ASCII (é, ñ…) and whitespace are stripped
 // because Supabase's validator rejects them; the original display name is still
 // stored on app_user.login_name.

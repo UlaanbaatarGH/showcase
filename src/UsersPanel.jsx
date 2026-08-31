@@ -300,14 +300,22 @@ export default function UsersPanel({ onClose }) {
           <div className="visits-empty">No user yet.</div>
         )}
         {users && users.length > 0 && (
+          // FIX311.2.1[deep-updated from FIX311.2.1(deep-old)]: column
+          // order now follows FIX311.2.1.10 (Username, Admin, Password,
+          // Access code, Locked out, Email, Projects) and the 'Name'
+          // header is relabelled 'Username' (FIX311.2.1.1(old) ->
+          // FIX311.2.1.1) alongside the id rename <user-name> ->
+          // <user-username>. New FIX311.2.1.7 <user-is-locked-out>
+          // column.
           <table className="visits-table users-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
+                <th>Username</th>
+                <th>Admin</th>
                 <th>Password</th>
                 <th>Access code</th>
-                <th>Admin</th>
+                <th>Locked out</th>
+                <th>Email</th>
                 <th>Projects</th>
               </tr>
             </thead>
@@ -326,15 +334,22 @@ export default function UsersPanel({ onClose }) {
                     setUserEditOpen(true);
                   }}
                 >
-                  {/* FIX311.2.1.1 <user-name>: read-only display.
-                      Editing happens through <panel-user>
-                      (FIX311.3.5 / FIX312.2.1). */}
-                  <td data-yagu-id="user-name">{u.name}</td>
-                  {/* FIX311.2.1.2 + FIX311.5.9 <user-email>: read-only
-                      display, only visible to callers allowed to see
-                      sensitive fields. */}
-                  <td data-yagu-id="user-email">
-                    {canSeeSensitive(u) ? (u.email || '') : ''}
+                  {/* FIX311.2.1.1 <user-username>[ex-user-name]:
+                      read-only display. Editing happens through
+                      <panel-user> (FIX311.3.5 / FIX312.2.1). */}
+                  <td data-yagu-id="user-username">{u.name}</td>
+                  <td className="users-check">
+                    {/* FIX311.2.1.5 + .5.1 + .5.2 <user-is-admin>:
+                        green tick when checked, read-only. */}
+                    <input
+                      type="checkbox"
+                      data-yagu-id="user-is-admin"
+                      className="users-admin-check"
+                      checked={!!u.is_admin}
+                      readOnly
+                      tabIndex={-1}
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </td>
                   <td className="users-check">
                     {/* FIX311.2.1.3 <user-has-password>: read-only. */}
@@ -354,17 +369,22 @@ export default function UsersPanel({ onClose }) {
                     {canSeeSensitive(u) ? (u.access_code || '') : ''}
                   </td>
                   <td className="users-check">
-                    {/* FIX311.2.1.5 + .5.1 + .5.2 <user-is-admin>:
-                        green tick when checked, read-only. */}
+                    {/* FIX311.2.1.7 <user-is-locked-out>: read-only,
+                        cleared only by <cmd-reset-pswd> (FIX318). */}
                     <input
                       type="checkbox"
-                      data-yagu-id="user-is-admin"
-                      className="users-admin-check"
-                      checked={!!u.is_admin}
+                      data-yagu-id="user-is-locked-out"
+                      checked={!!u.is_locked_out}
                       readOnly
                       tabIndex={-1}
                       onClick={(e) => e.stopPropagation()}
                     />
+                  </td>
+                  {/* FIX311.2.1.2 + FIX311.5.9 <user-email>: read-only
+                      display, only visible to callers allowed to see
+                      sensitive fields. */}
+                  <td data-yagu-id="user-email">
+                    {canSeeSensitive(u) ? (u.email || '') : ''}
                   </td>
                   {/* FIX311.2.1.6 + FIX311.2.1.6.1 + FIX311.2.1.6.1.1
                       <user-projects>: read-only list of project names

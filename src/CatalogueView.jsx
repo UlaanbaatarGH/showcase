@@ -32,7 +32,7 @@ import { navigate, projectSlug } from './router.js';
 import { REFERENCE_VIEWPORT } from './zoom.js';
 import { computePropertyValue, parseTrailingValues, valueSetEdge } from './properties/formulas.js';
 import { computeImageCaption } from './properties/imgCaption.js';
-import CaptionMarkup from './viewer/CaptionMarkup.jsx';
+import CaptionMarkup, { renderCaptionRuns } from './viewer/CaptionMarkup.jsx';
 import { isAcceptedImage } from './images/importImages.js';
 import { getStagingRoot, getLegacyStagingRoot, migrateLegacyProjectFolder, stagingItemDir, syncStagingFolder, readManifestEntries, sanitizeSegment, createItemStagingFolder, renameItemFolder, clearRenameTag, resolveItemFolderDir, markItemFolderDeleted, clearDeletedTag, rmPath, listStagingItems, readStagedItemImages, imageAttrsFromManifest } from './viewer/itemStaging.js';
 
@@ -3804,9 +3804,17 @@ export default function CatalogueView({
                         {/* FIX511.2.3 / .2.4 / .2.5: ref, my rating icon,
                             conflict icon -- one caption line. FIX511.4.4:
                             {1} is a matching Thumbnail-targeted automatic
-                            caption when one is defined, else the Item Ref. */}
+                            caption when one is defined, else the Item Ref.
+                            Bug fix: run the resolved caption through
+                            renderCaptionRuns (CaptionMarkup's inline
+                            variant) -- a plain string here left FIX512.4.7's
+                            {/B}/{/C#rrggbb} style tags un-parsed, leaking
+                            verbatim into the DOM instead of styling the text
+                            (e.g. no colour tags). Uses the inline variant,
+                            not <CaptionMarkup>, so the trailing icons below
+                            stay on this same centred line. */}
                         <div className="sc-gallery-caption">
-                          {thumbnailCaptionFor(f) || f.name}
+                          {thumbnailCaptionFor(f) ? renderCaptionRuns(thumbnailCaptionFor(f)) : f.name}
                           {renderFolderRatingIcon(f)}
                           {f.has_rating_conflict && (
                             <IconRatingConflict size={14} className="sc-gallery-conflict" />

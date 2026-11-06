@@ -154,6 +154,21 @@ export default {
   getAppStatus: () => call('/api/app-status'),
   setMaintenanceMode: (inMaintenance) =>
     call('/api/admin/maintenance', { method: 'PATCH', body: { in_maintenance: inMaintenance } }),
+  // FIX415 <panel-shared-data>: admin-only global properties + values.
+  // Every write returns { items } = the full refreshed list.
+  listSharedData: () => call('/api/admin/shared-data'),
+  createSharedProperty: (name) =>
+    call('/api/admin/shared-data/properties', { method: 'POST', body: { name } }),
+  renameSharedProperty: (id, name) =>
+    call(`/api/admin/shared-data/properties/${id}`, { method: 'PATCH', body: { name } }),
+  deleteSharedProperty: (id) =>
+    call(`/api/admin/shared-data/properties/${id}`, { method: 'DELETE' }),
+  createSharedValue: (propId, value) =>
+    call(`/api/admin/shared-data/properties/${propId}/values`, { method: 'POST', body: { value } }),
+  updateSharedValue: (id, value) =>
+    call(`/api/admin/shared-data/values/${id}`, { method: 'PATCH', body: { value } }),
+  deleteSharedValue: (id) =>
+    call(`/api/admin/shared-data/values/${id}`, { method: 'DELETE' }),
   // FIX509 <panel-language-setup>: language list (public read,
   // admin-only writes).
   listLanguages: () => call('/api/languages'),

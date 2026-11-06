@@ -53,6 +53,14 @@ export const listAppVersions = impl.listAppVersions;
 export const getAppStatus = impl.getAppStatus || (() => Promise.resolve({ in_maintenance: false }));
 export const setMaintenanceMode =
   impl.setMaintenanceMode || (() => Promise.reject(new Error('setMaintenanceMode: online only')));
+// FIX415 <panel-shared-data>
+export const listSharedData = impl.listSharedData;
+export const createSharedProperty = impl.createSharedProperty;
+export const renameSharedProperty = impl.renameSharedProperty;
+export const deleteSharedProperty = impl.deleteSharedProperty;
+export const createSharedValue = impl.createSharedValue;
+export const updateSharedValue = impl.updateSharedValue;
+export const deleteSharedValue = impl.deleteSharedValue;
 export const listLanguages = impl.listLanguages;
 export const createLanguage = impl.createLanguage;
 export const updateLanguage = impl.updateLanguage;

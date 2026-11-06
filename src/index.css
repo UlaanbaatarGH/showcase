@@ -3535,3 +3535,67 @@ body {
 
 /* FIX503.3.5(removed): the About popup CSS (.sc-about-modal/-text/
    -actions) was removed along with the feature. */
+
+/* FIX415 <panel-shared-data>: two columns, properties | values. */
+.shared-panel {
+  width: min(640px, 100%);
+  max-height: min(80dvh, 640px);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem 1.25rem;
+}
+.shared-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  overflow: auto;
+  min-height: 260px;
+}
+@media (max-width: 520px) {
+  .shared-body { grid-template-columns: 1fr; }
+}
+.shared-col { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+.shared-col h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shared-list { list-style: none; margin: 0; padding: 0; }
+.shared-row,
+.shared-add {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.shared-row {
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+.shared-row.selected { background: var(--color-bg-lighter); }
+.shared-row input,
+.shared-add input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+}
+.shared-row input:focus,
+.shared-add input { border-color: var(--color-border); outline: none; }
+.shared-icon-btn {
+  display: inline-flex;
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  cursor: pointer;
+}
+.shared-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }

@@ -4,13 +4,15 @@ import UsersPanel from './UsersPanel.jsx';
 import ProjectsPanel from './ProjectsPanel.jsx';
 import MessagesPanel from './MessagesPanel.jsx';
 import VersionsPanel from './VersionsPanel.jsx';
+import SharedDataPanel from './SharedDataPanel.jsx';
 import { useAuth } from './AuthContext.jsx';
 import { setMaintenanceMode } from './data/backend.js';
 
 // FIX410 <menu-admin>: dropdown grouping admin-only views.
 // FIX410.2.1 Visits → <panel-visits>; FIX410.2.2 Users →
 // <panel-users-list>; FIX351 (sibling) Projects →
-// <panel-project-list>; FIX410.1.1.4 Messages →
+// <panel-project-list>; FIX410.2 Shared data → <panel-shared-data>
+// (FIX415); FIX410.1.1.4 Messages →
 // <panel-message-list> (filtered by projectId when the menu is
 // rendered on a project page); FIX410.1.1.5 Versions →
 // <panel-app-versions>.
@@ -21,6 +23,7 @@ export default function AdminMenu({ className = '', projectId = null }) {
   const [visitsOpen, setVisitsOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [sharedOpen, setSharedOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const ref = useRef(null);
@@ -79,6 +82,18 @@ export default function AdminMenu({ className = '', projectId = null }) {
               </button>
             </li>
             <li>
+              {/* FIX410.2 [Shared data], between Projects and Messages:
+                  opens FIX415 <panel-shared-data>. */}
+              <button
+                type="button"
+                role="menuitem"
+                data-yagu-id="menu-option-shared-data"
+                onClick={() => { setOpen(false); setSharedOpen(true); }}
+              >
+                Shared data
+              </button>
+            </li>
+            <li>
               {/* FIX410.1.1.4 + FIX410.1.1.4.1 <menu-option-messages>:
                   opens <panel-message-list>, scoped to the current
                   project when projectId is provided. */}
@@ -130,6 +145,7 @@ export default function AdminMenu({ className = '', projectId = null }) {
       {visitsOpen && <VisitsPanel onClose={() => setVisitsOpen(false)} />}
       {usersOpen && <UsersPanel onClose={() => setUsersOpen(false)} />}
       {projectsOpen && <ProjectsPanel onClose={() => setProjectsOpen(false)} />}
+      {sharedOpen && <SharedDataPanel onClose={() => setSharedOpen(false)} />}
       {messagesOpen && (
         <MessagesPanel
           onClose={() => setMessagesOpen(false)}

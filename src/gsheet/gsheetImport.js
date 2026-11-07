@@ -652,6 +652,8 @@ export async function planFromUrl(url, project) {
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
   const setupCsv = await fetchSetupCsv(parsed.sheetId);
   // FIX370.2.1.9: shared properties + values to validate against.
+  // FIX415.4.1: fetched on every import, matched by name, so a new or
+  // renamed shared property applies immediately to all projects.
   const sharedProperties = await listSharedProperties();
   const result = buildPlan({ mainCsv, setupCsv, project, sharedProperties });
 

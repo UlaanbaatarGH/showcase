@@ -2882,7 +2882,8 @@ body {
   align-items: center;
   gap: 0.4rem;
 }
-.panel-project-shared-header select { margin-left: auto; min-width: 8rem; }
+.panel-project-shared-header select { min-width: 8rem; }
+.panel-project-shared-table tbody tr.is-blank { cursor: default; }
 /* FIX352.2.14: framed table; headings styled like the field names. */
 .panel-project-shared-table { border: 1px solid var(--color-border); }
 .panel-project-shared-table th {

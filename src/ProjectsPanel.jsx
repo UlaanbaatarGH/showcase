@@ -845,9 +845,12 @@ function ProjectPanel({
             </div>
             {/* FIX352.2.14 <project-shared-data>: Shared data in use —
                 [Selector][Add][Del] over a Type | Label table. */}
-            <div className="panel-project-block" data-yagu-id="project-shared-data">
+            <div
+              className="panel-project-block panel-project-title-block"
+              data-yagu-id="project-shared-data"
+            >
+              <span className="panel-project-row-label">Shared data in use</span>
               <div className="panel-project-shared-header">
-                <span className="panel-project-row-label">Shared data in use</span>
                 <select
                   value={sharedPick}
                   onChange={(e) => setSharedPick(e.target.value)}
@@ -896,6 +899,10 @@ function ProjectPanel({
                       <td>{d.label}</td>
                     </tr>
                   ))}
+                  {/* Blank row so an empty list still reads as a table. */}
+                  {sharedData.length === 0 && (
+                    <tr className="is-blank"><td>&nbsp;</td><td>&nbsp;</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

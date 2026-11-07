@@ -157,7 +157,8 @@ export default {
   // FIX415 <panel-shared-data>: admin-only global properties + values.
   // Every write returns { items } = the full refreshed list.
   listSharedData: () => call('/api/admin/shared-data'),
-  // FIX352.2.14: [{id, name}] for the <project-shared-data> selector.
+  // FIX352.2.14 / FIX370.2.1.9: [{id, name, values: [string]}] — the
+  // <project-shared-data> selector and the gsheet import check.
   listSharedProperties: () => call('/api/shared-data/properties'),
   createSharedProperty: (name) =>
     call('/api/admin/shared-data/properties', { method: 'POST', body: { name } }),

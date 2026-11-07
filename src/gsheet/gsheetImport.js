@@ -3,7 +3,7 @@
 // fetch the tabs, run format checks (FIX370.2 / FIX370.2.0
 // <gsheet-format-checks>), and build the plan that the backend applies.
 
-import { fetchGsheetTitle } from '../data/backend.js';
+import { fetchGsheetTitle, listSharedProperties } from '../data/backend.js';
 
 // ---------- URL + fetch ----------
 
@@ -121,7 +121,7 @@ function isRowBlank(row) {
 
 // ---------- Format checks + plan building ----------
 
-export function buildPlan({ mainCsv, setupCsv, project }) {
+export function buildPlan({ mainCsv, setupCsv, project, sharedProperties = [] }) {
   const errors = [];
   const mainRows = parseCsv(mainCsv);
   if (mainRows.length === 0) {
@@ -348,6 +348,35 @@ export function buildPlan({ mainCsv, setupCsv, project }) {
         headerToFinalLabel.set(col.label, col.label);
       } else {
         droppedColumns.push(col.label);
+      }
+    }
+  }
+
+  // FIX370.2.1.9: a column whose property name is a shared property
+  // (<list-shared-property>, FIX415.2.1) only takes that property's
+  // values, matched exactly as defined (no case/format assumption).
+  // Blank cells are allowed. One error per distinct invalid value.
+  {
+    const sharedByName = new Map(sharedProperties.map((sp) => [sp.name, sp]));
+    for (const [header, finalLabel] of headerToFinalLabel) {
+      const sp = sharedByName.get(finalLabel);
+      if (!sp) continue;
+      const col = propHeaders.find((c) => c.label === header);
+      if (!col) continue;
+      const allowed = new Set(sp.values || []);
+      const badRows = new Map();
+      dataRows.forEach((row, i) => {
+        if (isRowBlank(row)) return;
+        const v = (row[col.idx] ?? '').trim();
+        if (!v || allowed.has(v)) return;
+        if (!badRows.has(v)) badRows.set(v, []);
+        badRows.get(v).push(i + 2);
+      });
+      for (const [v, rows] of badRows) {
+        errors.push(
+          `Column "${header}": "${v}" is not a value of shared property "${sp.name}" ` +
+          `(row${rows.length > 1 ? 's' : ''} ${rows.join(', ')}).`,
+        );
       }
     }
   }
@@ -621,7 +650,9 @@ export async function planFromUrl(url, project) {
   }
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
   const setupCsv = await fetchSetupCsv(parsed.sheetId);
-  const result = buildPlan({ mainCsv, setupCsv, project });
+  // FIX370.2.1.9: shared properties + values to validate against.
+  const sharedProperties = await listSharedProperties();
+  const result = buildPlan({ mainCsv, setupCsv, project, sharedProperties });
 
   // FIX370.2.1.8: the gsheet's document title must be 'Showcase
   // <project-name>'. Fetched server-side (backend /api/gsheet-title) --

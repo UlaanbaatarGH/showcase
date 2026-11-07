@@ -360,7 +360,8 @@ export function buildPlan({ mainCsv, setupCsv, project, sharedProperties = [] })
     const sharedByName = new Map(sharedProperties.map((sp) => [sp.name, sp]));
     for (const [header, finalLabel] of headerToFinalLabel) {
       const sp = sharedByName.get(finalLabel);
-      if (!sp) continue;
+      // No values list (older backend) -> can't check, skip.
+      if (!sp || !Array.isArray(sp.values)) continue;
       const col = propHeaders.find((c) => c.label === header);
       if (!col) continue;
       const allowed = new Set(sp.values || []);

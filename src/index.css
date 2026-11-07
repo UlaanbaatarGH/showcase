@@ -260,6 +260,13 @@ body {
 }
 
 /* Setup panel (modal) */
+/* FIX506.5.6: shared property values popup list. */
+.setup-shared-values {
+  margin: 0 0 0.8rem;
+  padding-left: 1.2rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
 .setup-overlay {
   position: fixed;
   inset: 0;

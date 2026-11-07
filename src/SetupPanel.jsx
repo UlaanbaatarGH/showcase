@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { saveSetup } from './data/backend.js';
+import { useEffect, useMemo, useState } from 'react';
+import { saveSetup, listSharedProperties } from './data/backend.js';
 import LanguageSetupPanel from './LanguageSetupPanel.jsx';
 import { IconAdd, IconDelete, IconMoveUp, IconMoveDown, RATING_ICONS } from './Icons.jsx';
 import { computePropertyValue } from './properties/formulas.js';
@@ -163,6 +163,15 @@ export default function SetupPanel({
   // the Image Caption rules table (FIX512.2.2.10) / the Image List
   // editor's row selection.
   const [selectedPropertyIdxs, setSelectedPropertyIdxs] = useState(() => new Set());
+  // FIX506.2.1.1.4.3 / FIX506.2.1.1.5.2 / FIX506.5.6: shared properties
+  // (<list-shared-property>, FIX415.2.1), matched by exact property name.
+  const [sharedByName, setSharedByName] = useState(() => new Map());
+  const [sharedShown, setSharedShown] = useState(null);
+  useEffect(() => {
+    listSharedProperties()
+      .then((list) => setSharedByName(new Map(list.map((sp) => [sp.name, sp]))))
+      .catch(() => {});
+  }, []);
   const [propertyAnchor, setPropertyAnchor] = useState(null);
   // FIX506.3.2: overlay popup confirmation before deleting selected
   // properties.
@@ -1548,23 +1557,46 @@ export default function SetupPanel({
                         placeholder="(optional)"
                       />
                     </td>
-                    <td>
-                      <input
-                        data-yagu-id="input-property-trailing-values"
-                        type="text"
-                        value={p.trailing_values ?? ''}
-                        onChange={(e) => updatePropertyField(i, { trailing_values: e.target.value })}
-                        placeholder="'-', '?'"
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input
-                        data-yagu-id="input-property-accepted-value-set"
-                        type="checkbox"
-                        checked={!!p.accepted_value_set}
-                        onChange={(e) => updatePropertyField(i, { accepted_value_set: e.target.checked })}
-                      />
-                    </td>
+                    {sharedByName.has(parsePropertyInput(p._raw ?? formatPropertyInput(p)).label) ? (
+                      // FIX506.2.1.1.4.3 + FIX506.2.1.1.5.2: both free-value
+                      // fields hidden for a shared property. FIX506.5.6:
+                      // replaced by a 'Shared property' link showing its
+                      // values as defined in <panel-shared-data>.
+                      <td colSpan={2} style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSharedShown(sharedByName.get(
+                              parsePropertyInput(p._raw ?? formatPropertyInput(p)).label,
+                            ));
+                          }}
+                        >
+                          Shared property
+                        </button>
+                      </td>
+                    ) : (
+                      <>
+                        <td>
+                          <input
+                            data-yagu-id="input-property-trailing-values"
+                            type="text"
+                            value={p.trailing_values ?? ''}
+                            onChange={(e) => updatePropertyField(i, { trailing_values: e.target.value })}
+                            placeholder="'-', '?'"
+                          />
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            data-yagu-id="input-property-accepted-value-set"
+                            type="checkbox"
+                            checked={!!p.accepted_value_set}
+                            onChange={(e) => updatePropertyField(i, { accepted_value_set: e.target.checked })}
+                          />
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -1747,6 +1779,26 @@ export default function SetupPanel({
               </button>
               <button type="button" className="primary" onClick={confirmRemoveCaptionRules}>
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* FIX506.5.6: read-only list of the shared property's values. */}
+      {sharedShown && (
+        <div className="setup-overlay" onMouseDown={() => setSharedShown(null)}>
+          <div className="sc-shrink-box" onMouseDown={(e) => e.stopPropagation()}>
+            <p><strong>Shared property: {sharedShown.name}</strong></p>
+            {(sharedShown.values || []).length === 0 ? (
+              <p>No values defined.</p>
+            ) : (
+              <ul className="setup-shared-values">
+                {sharedShown.values.map((v) => <li key={v}>{v}</li>)}
+              </ul>
+            )}
+            <div className="sc-shrink-actions">
+              <button type="button" className="primary" onClick={() => setSharedShown(null)}>
+                Close
               </button>
             </div>
           </div>

@@ -636,8 +636,12 @@ function ProjectPanel({
     const opt = sharedOptions.find((o) => String(o.id) === sharedPick);
     if (!opt || sharedData.some((d) => d.id === opt.id)) return;
     setSharedData((prev) => [...prev, { type: 'property', id: opt.id, label: opt.name }]);
-    setSharedSelId(opt.id);
     setSharedPick('');
+  };
+  const clearSharedSelOutside = (e) => {
+    if (!e.target.closest?.('.panel-project-shared-table, .panel-project-shared-del')) {
+      setSharedSelId(null);
+    }
   };
   const onDelShared = () => {
     if (sharedSelId == null) return;
@@ -710,6 +714,10 @@ function ProjectPanel({
         className="modal panel-project-modal"
         data-yagu-id="panel-project"
         onClick={(e) => e.stopPropagation()}
+        // FIX352.2.14.1: row selection only serves [Del] — clicking or
+        // tabbing into anything else clears it.
+        onMouseDown={clearSharedSelOutside}
+        onFocus={clearSharedSelOutside}
       >
         <div className="panel-project-tabs" role="tablist">
           <button
@@ -875,7 +883,7 @@ function ProjectPanel({
                 </button>
                 <button
                   type="button"
-                  className="users-remove"
+                  className="users-remove panel-project-shared-del"
                   onClick={onDelShared}
                   disabled={busy || sharedSelId == null}
                   aria-label="Remove shared data"

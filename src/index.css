@@ -3578,7 +3578,8 @@ body {
 }
 .shared-row.selected { background: var(--color-bg-lighter); }
 .shared-row input,
-.shared-add input {
+.shared-add input,
+.shared-add textarea {
   flex: 1;
   min-width: 0;
   font: inherit;
@@ -3590,7 +3591,10 @@ body {
   padding: 0.25rem 0.4rem;
 }
 .shared-row input:focus,
-.shared-add input { border-color: var(--color-border); outline: none; }
+.shared-add input,
+.shared-add textarea { border-color: var(--color-border); outline: none; }
+.shared-add textarea { resize: vertical; }
+.shared-add:has(textarea) { align-items: flex-start; }
 .shared-icon-btn {
   display: inline-flex;
   background: none;

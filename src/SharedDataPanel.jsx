@@ -58,22 +58,32 @@ function EditableRow({ text, selected, onSelect, onSave, onDelete, deleteTitle }
   );
 }
 
-function AddRow({ placeholder, onAdd, disabled }) {
+function AddRow({ placeholder, onAdd, disabled, multiline }) {
   const [text, setText] = useState('');
   const submit = async () => {
-    const v = text.trim();
-    if (!v) return;
-    if (await onAdd(v)) setText('');
+    const v = multiline ? text : text.trim();
+    if (!v.trim()) return;
+    const rest = await onAdd(v);
+    // multiline: onAdd returns the lines that failed (kept for retry)
+    if (multiline) setText(rest || '');
+    else if (rest) setText('');
   };
+  const lines = text.split('\n').length;
+  const Field = multiline ? 'textarea' : 'input';
   return (
     <div className="shared-add">
-      <input
-        type="text"
+      <Field
+        type={multiline ? undefined : 'text'}
+        rows={multiline ? Math.min(Math.max(lines, 1), 8) : undefined}
         value={text}
         placeholder={placeholder}
         disabled={disabled}
+        title={multiline ? 'One value per line — Ctrl+Enter or + adds them all' : undefined}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          if (!multiline || e.ctrlKey || e.metaKey) { e.preventDefault(); submit(); }
+        }}
       />
       <button
         type="button"
@@ -133,6 +143,36 @@ export default function SharedDataPanel({ onClose }) {
     const res = await run(() => deleteSharedProperty(p.id));
     if (res && selectedId === p.id) setSelectedId(res.items[0]?.id ?? null);
   };
+  // FIX415.1 bulk add: the value box takes a multi-line text; each
+  // non-empty line becomes one value. Duplicates (within the text or
+  // vs. existing values, case-insensitive) are skipped; lines the
+  // backend rejects stay in the box. Returns the remaining text.
+  const addValues = async (text) => {
+    const pid = selected.id;
+    const seen = new Set(selected.values.map((v) => v.value.toLowerCase()));
+    const lines = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const v = raw.trim();
+      const k = v.toLowerCase();
+      if (!v || seen.has(k)) continue;
+      seen.add(k);
+      lines.push(v);
+    }
+    setError(null);
+    const failed = [];
+    let firstErr = null;
+    for (const v of lines) {
+      try {
+        const res = await createSharedValue(pid, v);
+        setItems(res.items);
+      } catch (e) {
+        failed.push(v);
+        firstErr ??= e.message || String(e);
+      }
+    }
+    if (failed.length) setError(`${failed.length} value(s) not added: ${firstErr}`);
+    return failed.join('\n');
+  };
   const removeValue = async (v) => {
     if (!window.confirm(`Delete value "${v.value}"?`)) return;
     await run(() => deleteSharedValue(v.id));
@@ -176,9 +216,10 @@ export default function SharedDataPanel({ onClose }) {
             <section className="shared-col">
               <h3>{selected ? `Values of ${selected.name}` : 'Values'}</h3>
               <AddRow
-                placeholder="New value"
+                placeholder="New value(s), one per line"
                 disabled={!selected}
-                onAdd={async (value) => !!(await run(() => createSharedValue(selected.id, value)))}
+                multiline
+                onAdd={addValues}
               />
               {selected && selected.values.length === 0 && (
                 <div className="visits-empty">No values yet.</div>

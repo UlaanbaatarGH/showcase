@@ -195,6 +195,7 @@ export default function SharedDataPanel({ onClose }) {
         {items === null && !error && <div className="visits-loading">Loading…</div>}
         {items !== null && (
           <div className="shared-body">
+            {/* FIX415.2.1 <list-shared-property>: shared properties. */}
             <section className="shared-col">
               <h3>Properties</h3>
               <AddRow placeholder="New property" onAdd={addProperty} />

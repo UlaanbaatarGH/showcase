@@ -2860,6 +2860,7 @@ body {
    Technical = slug table + image volume.                              */
 .panel-project-modal {
   width: min(560px, 100%);
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -2975,6 +2976,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  /* FIX352: popup taller than the screen — the tab content scrolls,
+     tabs and Cancel/Save stay visible. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.4rem;
 }
 .panel-project-block {
   display: flex;

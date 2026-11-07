@@ -652,9 +652,9 @@ export async function planFromUrl(url, project) {
   const mainCsv = await fetchMainCsv(parsed.sheetId, parsed.gid);
   const setupCsv = await fetchSetupCsv(parsed.sheetId);
   // FIX370.2.1.9: shared properties + values to validate against.
-  // FIX415.4.1: fetched on every import, matched by name, so a new or
-  // renamed shared property applies immediately to all projects.
-  const sharedProperties = await listSharedProperties();
+  // FIX415.4.1: only the shared properties this project accepted under
+  // <project-shared-data>, fetched on every import.
+  const sharedProperties = project?.id != null ? await listSharedProperties(project.id) : [];
   const result = buildPlan({ mainCsv, setupCsv, project, sharedProperties });
 
   // FIX370.2.1.8: the gsheet's document title must be 'Showcase

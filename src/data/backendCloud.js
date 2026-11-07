@@ -159,7 +159,9 @@ export default {
   listSharedData: () => call('/api/admin/shared-data'),
   // FIX352.2.14 / FIX370.2.1.9: [{id, name, values: [string]}] — the
   // <project-shared-data> selector and the gsheet import check.
-  listSharedProperties: () => call('/api/shared-data/properties'),
+  // FIX415.4.1: pass projectId to get only that project's accepted ones.
+  listSharedProperties: (projectId) =>
+    call(`/api/shared-data/properties${projectId != null ? `?project_id=${projectId}` : ''}`),
   createSharedProperty: (name) =>
     call('/api/admin/shared-data/properties', { method: 'POST', body: { name } }),
   renameSharedProperty: (id, name) =>

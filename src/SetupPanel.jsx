@@ -165,16 +165,17 @@ export default function SetupPanel({
   const [selectedPropertyIdxs, setSelectedPropertyIdxs] = useState(() => new Set());
   // FIX506.2.1.1.4.3 / FIX506.2.1.1.5.2 / FIX506.5.6: shared properties
   // (<list-shared-property>, FIX415.2.1), matched by exact property name.
-  // FIX415.4.1: fetched fresh on each open, never cached, so adding or
-  // renaming a shared property applies at once to every project using
-  // that property name.
+  // FIX415.4.1: only the shared properties this project accepted under
+  // <project-shared-data> count; fetched fresh on each open, so a rename
+  // (which withdraws acceptance) turns the property local at once.
   const [sharedByName, setSharedByName] = useState(() => new Map());
   const [sharedShown, setSharedShown] = useState(null);
   useEffect(() => {
-    listSharedProperties()
+    if (projectId == null) return;
+    listSharedProperties(projectId)
       .then((list) => setSharedByName(new Map(list.map((sp) => [sp.name, sp]))))
       .catch(() => {});
-  }, []);
+  }, [projectId]);
   const [propertyAnchor, setPropertyAnchor] = useState(null);
   // FIX506.3.2: overlay popup confirmation before deleting selected
   // properties.

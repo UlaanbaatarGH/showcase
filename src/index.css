@@ -2883,6 +2883,14 @@ body {
   gap: 0.4rem;
 }
 .panel-project-shared-header select { margin-left: auto; min-width: 8rem; }
+/* FIX352.2.14: framed table; headings styled like the field names. */
+.panel-project-shared-table { border: 1px solid var(--color-border); }
+.panel-project-shared-table th {
+  font-weight: normal;
+  color: var(--color-text-muted);
+}
+.panel-project-shared-table th + th,
+.panel-project-shared-table td + td { border-left: 1px solid var(--color-border); }
 
 /* FIX352.2.7: secondary label inside the Title block — same look as
    the row label but indented, so the four sub-fields read as a

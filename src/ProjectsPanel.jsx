@@ -881,7 +881,7 @@ function ProjectPanel({
                   <IconDelete size={20} />
                 </button>
               </div>
-              <table className="panel-project-slugs-table">
+              <table className="panel-project-slugs-table panel-project-shared-table">
                 <thead>
                   <tr><th>Type</th><th>Label</th></tr>
                 </thead>

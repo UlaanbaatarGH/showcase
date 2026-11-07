@@ -2978,10 +2978,18 @@ body {
   gap: 0.55rem;
   /* FIX352: popup taller than the screen — the tab content scrolls,
      tabs and Cancel/Save stay visible. */
-  flex: 1 1 auto;
+  grid-area: 1 / 1;
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.4rem;
+}
+.panel-project-tabpanel.is-hidden { visibility: hidden; }
+/* FIX352: tab panels share one cell — height = tallest tab. */
+.panel-project-tabstack {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .panel-project-block {
   display: flex;

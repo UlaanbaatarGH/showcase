@@ -732,8 +732,10 @@ function ProjectPanel({
           </button>
         </div>
 
-        {tab === 'main' && (
-          <div className="panel-project-tabpanel">
+        {/* FIX352: both tabs stay mounted, stacked in one grid cell, so
+            the popup keeps the tallest tab's size when switching. */}
+        <div className="panel-project-tabstack">
+          <div className={`panel-project-tabpanel${tab === 'main' ? '' : ' is-hidden'}`}>
             <div className="panel-project-row">
               <span className="panel-project-row-label">Name</span>
               <input
@@ -986,10 +988,8 @@ function ProjectPanel({
               />
             </div>
           </div>
-        )}
 
-        {tab === 'technical' && (
-          <div className="panel-project-tabpanel">
+          <div className={`panel-project-tabpanel${tab === 'technical' ? '' : ' is-hidden'}`}>
             {/* FIX352.2.10 <project-slugs>: editable slug table.
                 FIX352.2.11/12: red × delete + green + add buttons. */}
             <div className="panel-project-block">
@@ -1100,7 +1100,7 @@ function ProjectPanel({
               </span>
             </div>
           </div>
-        )}
+        </div>
 
         {err && <div className="visits-err">{err}</div>}
         <div className="panel-project-actions">

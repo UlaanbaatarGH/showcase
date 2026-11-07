@@ -6,6 +6,7 @@ import {
   clearProjectManagers,
   moveAdminProject,
   listUsers,
+  listSharedProperties,
 } from './data/backend.js';
 import { useAuth } from './AuthContext.jsx';
 import { projectSlug } from './router.js';
@@ -547,6 +548,15 @@ function ProjectPanel({
     }];
   });
   const [selectedSlugIdx, setSelectedSlugIdx] = useState(0);
+  // FIX352.2.14 <project-shared-data>: [{type, id, label}]; only
+  // shared properties exist so far (FIX415), so type is 'property'.
+  const [sharedData, setSharedData] = useState(() => project?.shared_data || []);
+  const [sharedOptions, setSharedOptions] = useState([]);
+  const [sharedPick, setSharedPick] = useState('');
+  const [sharedSelId, setSharedSelId] = useState(null);
+  useEffect(() => {
+    listSharedProperties().then(setSharedOptions).catch(() => setSharedOptions([]));
+  }, []);
   // Which row's slug label is being edited inline (null = none).
   const [editingSlugIdx, setEditingSlugIdx] = useState(null);
   const [err, setErr] = useState(null);
@@ -620,6 +630,21 @@ function ProjectPanel({
     setErr(null);
   };
 
+  // FIX352.2.14.1: [Add] the selector's item unless already listed;
+  // [Del] removes the selected list row.
+  const onAddShared = () => {
+    const opt = sharedOptions.find((o) => String(o.id) === sharedPick);
+    if (!opt || sharedData.some((d) => d.id === opt.id)) return;
+    setSharedData((prev) => [...prev, { type: 'property', id: opt.id, label: opt.name }]);
+    setSharedSelId(opt.id);
+    setSharedPick('');
+  };
+  const onDelShared = () => {
+    if (sharedSelId == null) return;
+    setSharedData((prev) => prev.filter((d) => d.id !== sharedSelId));
+    setSharedSelId(null);
+  };
+
   const submit = async () => {
     const trimmed = name.trim();
     // FIX352.3.10.1 [ex-351.2.3]: non-blank, unique name.
@@ -656,6 +681,7 @@ function ProjectPanel({
       front_introduction: frontIntro,
       introduction: intro,
       slugs: slugs.map((s) => ({ ...s })),
+      shared_data: sharedData.map((d) => d.id),
       // FIX352.2.7 <project-title> fields. title_size is sent as
       // a number when filled, null when blank (= use the default).
       title_long_text: titleLongText,
@@ -814,6 +840,62 @@ function ProjectPanel({
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
               />
+            </div>
+            {/* FIX352.2.14 <project-shared-data>: Shared data in use —
+                [Selector][Add][Del] over a Type | Label table. */}
+            <div className="panel-project-block" data-yagu-id="project-shared-data">
+              <div className="panel-project-shared-header">
+                <span className="panel-project-row-label">Shared data in use</span>
+                <select
+                  value={sharedPick}
+                  onChange={(e) => setSharedPick(e.target.value)}
+                  disabled={busy}
+                >
+                  <option value="">Select…</option>
+                  {sharedOptions
+                    .filter((o) => !sharedData.some((d) => d.id === o.id))
+                    .map((o) => (
+                      <option key={o.id} value={String(o.id)}>{o.name}</option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="users-add"
+                  onClick={onAddShared}
+                  disabled={busy || !sharedPick}
+                  aria-label="Add shared data"
+                  title="Add"
+                >
+                  <IconAdd size={20} />
+                </button>
+                <button
+                  type="button"
+                  className="users-remove"
+                  onClick={onDelShared}
+                  disabled={busy || sharedSelId == null}
+                  aria-label="Remove shared data"
+                  title="Del"
+                >
+                  <IconDelete size={20} />
+                </button>
+              </div>
+              <table className="panel-project-slugs-table">
+                <thead>
+                  <tr><th>Type</th><th>Label</th></tr>
+                </thead>
+                <tbody>
+                  {sharedData.map((d) => (
+                    <tr
+                      key={d.id}
+                      className={d.id === sharedSelId ? 'selected' : ''}
+                      onClick={() => setSharedSelId(d.id)}
+                    >
+                      <td>Property</td>
+                      <td>{d.label}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             {/* FIX352.2.7 Title section: text + size + colour + bold,
                 rendered on the project page header (FIX503.2.13 +

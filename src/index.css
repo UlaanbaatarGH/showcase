@@ -2875,6 +2875,14 @@ body {
   min-width: 7rem;
   color: var(--color-text-muted);
 }
+/* FIX352.2.14 <project-shared-data> header: label + selector + Add/Del. */
+.panel-project-shared-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.panel-project-shared-header select { margin-left: auto; min-width: 8rem; }
+
 /* FIX352.2.7: secondary label inside the Title block — same look as
    the row label but indented, so the four sub-fields read as a
    sub-section rather than top-level rows. */

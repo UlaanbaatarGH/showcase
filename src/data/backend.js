@@ -55,6 +55,8 @@ export const setMaintenanceMode =
   impl.setMaintenanceMode || (() => Promise.reject(new Error('setMaintenanceMode: online only')));
 // FIX415 <panel-shared-data>
 export const listSharedData = impl.listSharedData;
+// FIX352.2.14: local app has no shared data yet — empty selector.
+export const listSharedProperties = impl.listSharedProperties || (() => Promise.resolve([]));
 export const createSharedProperty = impl.createSharedProperty;
 export const renameSharedProperty = impl.renameSharedProperty;
 export const deleteSharedProperty = impl.deleteSharedProperty;
